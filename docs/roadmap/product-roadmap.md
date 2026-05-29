@@ -7,6 +7,7 @@ This roadmap tracks improvements to Dominic's local Hermes operating model.
 - [x] Create a durable Hermes Ops repository for local operating knowledge.
 - [x] Establish a standard docs folder layout for Kanban outputs.
 - [x] Set Kanban board default work directories to durable project folders.
+- [x] Require completed durable-output Kanban tasks to commit and push after verification.
 - [ ] Recover important missing artifacts from completed scratch Kanban task logs.
 - [ ] Add a Kanban task-creation checklist that requires an explicit output path.
 - [ ] Prefer `dir:` or `worktree:` workspaces for durable tasks.

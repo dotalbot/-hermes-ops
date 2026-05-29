@@ -80,11 +80,33 @@ A task should not be marked done if its only artifact path is under:
 
 Acceptable completion evidence includes:
 
-- A file committed or ready to commit under a durable project repo.
+- A file committed and pushed under a durable project repo.
 - A report saved under `docs/reports/`.
 - A guide/runbook saved under `docs/guides/` or `docs/runbooks/`.
 - A spec or decision saved under `docs/specs/` or `docs/decisions/`.
 - A code change in the correct source repo or worktree with verification output.
+
+## Commit and push rule
+
+After a worker verifies that durable output was written in the correct assigned repo/folder, the worker must commit and push the change before completing the task.
+
+Required sequence:
+
+1. Verify the artifact exists at the declared durable output path.
+2. Run the repo's relevant verification, or at minimum `git diff --check` for documentation-only changes.
+3. Inspect `git status --short --branch` and stage only the intended files.
+4. Commit with a concise conventional message.
+5. Push the branch or repo default according to that repo's workflow.
+6. Include the commit id, pushed branch, output path, and verification command/result in the task completion summary.
+
+If the repo has no remote, push fails, or credentials are missing, do not silently mark the task complete. Block the task with the durable output path, local commit id if one exists, and the exact push blocker.
+
+Repo-specific push behavior:
+
+- `/home/jellybot/home-network`: commit and push `main` directly for routine home-network work.
+- `/home/jellybot/hermes-ops`: commit and push the active branch when a remote is configured.
+- `/home/jellybot/portfolio-intel`: follow the repo's current branch workflow; do not merge unless Dominic asks.
+- `/home/jellybot/.hermes/hermes-agent`: use a feature/worktree branch for source-code changes and push that branch; do not merge unless Dominic asks.
 
 ## Existing-card review rule
 

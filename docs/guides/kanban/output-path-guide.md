@@ -12,6 +12,7 @@ Before moving a card to `ready`:
 - [ ] The card body has an `Output path` section.
 - [ ] The output path is inside the assigned repo/project folder.
 - [ ] The card does not ask the worker to save final artifacts only inside scratch.
+- [ ] The card tells the worker to commit and push after verifying the durable output.
 
 ## Board folders
 
@@ -49,7 +50,20 @@ Acceptance criteria:
 - The guide explains board folder mapping.
 - The guide includes examples for docs/specs/guides/bugs/runbooks.
 - Verification includes checking the file exists in the repo.
+- Completion includes commit id, pushed branch, output path, and verification result.
 ```
+
+## Completion handoff rule
+
+Before marking a durable-output task complete, the worker must:
+
+1. Verify the final file is in the declared project repo path.
+2. Run verification, at least `git diff --check` for docs-only changes.
+3. Commit the intended files.
+4. Push the branch/default branch according to that repo's workflow.
+5. Report the output path, commit id, pushed branch, and verification result.
+
+If push cannot be completed, block the card instead of completing it. The block reason should name the output path, local commit id if present, and the exact push issue.
 
 ## Example create commands
 
