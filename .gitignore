@@ -1,0 +1,14 @@
+# No secrets
+.env
+*.env
+*.key
+*.pem
+*.token
+secrets/
+
+# Runtime/cache
+.cache/
+tmp/
+*.tmp
+*.log
+.DS_Store
