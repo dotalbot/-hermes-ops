@@ -171,7 +171,7 @@ Implementation must enforce these guardrails before any write action is enabled:
 - Host display: the user must see the exact target host and runtime account or execution context.
 - Rollback display: every approval screen must show a rollback or recovery plan. If rollback is not possible, the screen must say so and raise the risk level.
 - Risk labeling: every proposal must carry a visible risk level and the backend must reject missing risk labels.
-- Secret redaction: secrets must be redacted before display, logging, notifications, persistence, or hashing for audit records. Redaction must cover tokens, passwords, API keys, private keys, secret file contents, and credential-bearing environment values.
+- Secret redaction: secrets must be redacted before display, logging, notifications, and persistence. When exact-match audit verification requires a stored fingerprint, persist only a non-reversible keyed digest derived from the normalized pre-redaction proposal; never persist the raw secret-bearing form. Redaction must cover tokens, passwords, API keys, private keys, secret file contents, and credential-bearing environment values.
 - Allowlisted actions only: no arbitrary command text from the UI, LLM output, dashboard data, or request body may be executed.
 - Parameter validation: service names, hosts, paths, collector names, and backup identifiers must be selected from allowlists or validated against strict schemas.
 - Short-lived approvals: approvals must expire quickly and be single-use.
