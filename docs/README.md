@@ -25,6 +25,7 @@ Good examples:
 - `docs/guides/kanban/operating-procedures.md`
 - `docs/specs/kanban-durable-workspace-standard.md`
 - `docs/reports/hindsight-memory-audit-hermes-main.md`
+- `docs/guides/memory/source-boundaries.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`
 
 Bad example:
