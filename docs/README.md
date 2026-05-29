@@ -21,6 +21,7 @@ Every durable Kanban task must name its final output path in the task body befor
 
 Good examples:
 
+- `docs/guides/kanban/adoption-and-board-separation-policy.md`
 - `docs/guides/kanban/operating-procedures.md`
 - `docs/specs/kanban-durable-workspace-standard.md`
 - `docs/reports/hindsight-memory-audit-hermes-main.md`
