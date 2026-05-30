@@ -14,3 +14,4 @@ __pycache__/
 *.tmp
 *.log
 .DS_Store
+config/.dashboard-heartbeat-state.json
