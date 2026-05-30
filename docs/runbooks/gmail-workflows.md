@@ -161,26 +161,43 @@ logk:            1 email  (latest: issue #5 update)
 ## Test Results: On-Demand Workflow
 
 **Tested:** 2026-05-30  
-**Pattern used:** Pattern 4 variant — Gmail search with `is:unread` and `newer_than:2d`
+**Pattern used:** Pattern 3 — Invoice/Subscription/Renewal Search (full workflow: search + individual message reads)
 
-**Command executed:**
+**Exact user prompt used:**
+> "Find any invoices or receipts in my email from the last 2 months. List them with date, sender, amount, and what they're for."
+
+**Commands executed:**
 ```bash
-$GAPI gmail search "is:unread" --max 5
-$GAPI gmail search "newer_than:2d" --max 5
+# Step 1: Broad invoice/subscription search
+$GAPI gmail search "subject:(invoice OR receipt OR payment OR \"your receipt\" OR subscription OR billing) newer_than:60d" --max 10
+
+# Step 2: Read full bodies for amount extraction
+$GAPI gmail get 19e57115a970abe6   # LogicServers invoice
+$GAPI gmail get 19e4db2d00447787   # Apple credit note
+$GAPI gmail get 19e4d03e7dbd6797   # Atlassian Confluence warning
 ```
 
-**Results:**
-- GitHub PR notifications (multica-ai project)
-- LinkedIn job alerts
-- Walmart promotions
-- Multiple email categories accessible (INBOX, UPDATES, PROMOTIONS)
+**Extracted results:**
+
+| Date | Sender | Subject | Amount | Notes |
+|------|--------|---------|--------|-------|
+| 2026-05-24 | LogicServers | Customer Invoice | £7.92 | Minecraft server (Iron, £6.60 + VAT). Due 3 Jun, auto-pay Visa-9032 |
+| 2026-05-22 | Apple | Your invoice from Apple | -£19.99 (credit) | Blink Shell Blink+ Annual cancellation refund. Visa-9032 |
+| 2026-05-22 | Atlassian | [Action Required] Jump back in | N/A | Confluence subscription deactivating 2026-06-05 due to inactivity |
+| 2026-05-28 | OpenAI (incident.io) | Business plan subscription checkout issues | N/A | Status incident (resolved) |
+| 2026-05-29 | Daily Maverick | This is not a subscription. | N/A | Promotional email (matched keyword, not a real invoice) |
 
 **Verified:**
-- JSON output format: `[{id, threadId, from, to, subject, date, snippet, labels}]`
-- Auth token refresh works automatically
+- Full JSON output format: `[{id, threadId, from, to, subject, date, snippet, labels, body}]`
+- Auth token refresh works automatically (no credential prompts)
+- Full message body extraction works for both plain-text (LogicServers) and HTML-rich (Apple) emails
 - No emails were sent, modified, or marked read during testing
+- Send-safety checklist (spec §4) satisfied: no draft created, no reply composed, no auto-send
 
-**Refinements needed:** None — search works as expected. For production use, add `--max N` to limit output size.
+**Refinements found:**
+1. Subject-only search misses receipts with subjects like "Customer Invoice" or "Credit note" — the base pattern helped here, but adding `newer_than:Nd` with a broader query improves recall.
+2. Promotional/fundraising emails with "subscription" in subject are false positives — add `-label:CATEGORY_PROMOTIONS -label:CATEGORY_SOCIAL` to filter noise.
+3. Amount extraction requires get-by-id (step 2) since the snippet often truncates financial data — this is correct per the pattern but should be explicit in step documentation.
 
 ---
 
