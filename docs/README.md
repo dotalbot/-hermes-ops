@@ -28,6 +28,7 @@ Good examples:
 - `docs/reports/hindsight-memory-audit-hermes-main.md`
 - `docs/guides/memory/source-boundaries.md`
 - `docs/guides/memory/reversible-cleanup-plan.md`
+- `docs/runbooks/memory-hygiene-runbook.md`
 - `docs/operations/mission-control-read-only-actions.md`
 - `docs/operations/dominic-hermes-operating-manual.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`
