@@ -11,7 +11,7 @@ Durable documentation produced by operators and Kanban workers.
 - `runbooks/` — operational procedures with commands and verification.
 - `operations/` — local operating rules, schedules, dashboards, and service notes.
 - `architecture/` — system diagrams, design notes, and integration maps.
-- `decisions/` — ADRs and explicit trade-off decisions.
+- `decisions/` — ADRs and explicit trade-off decisions; copy `decisions/0000-adr-template.md` for new records.
 - `reports/` — audits, reviews, and generated analyses.
 - `plans/` — implementation plans and checklists.
 
