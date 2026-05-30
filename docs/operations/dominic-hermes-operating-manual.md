@@ -48,8 +48,52 @@ Rules:
 - Preserve user or worker changes; do not overwrite unknown diffs.
 - Keep each change to the smallest useful diff.
 - Commit and push a branch only when Dominic asks or the Kanban/operator standard explicitly requires durable repo output.
-- Do not open PRs, merge branches, push to `main`, deploy, or push any unrequested branch unless Dominic asked or the repo has an explicit standing exception.
+- Do not open PRs, merge branches, push to `main`, push any unrequested branch unless Dominic asked or the repo has an explicit standing exception.
 - For docs-only work, run at least `git diff --check` before commit.
+- Follow the small-diff review rules (next section) on every repo task.
+
+## Small-diff review rules
+
+Purpose: reduce review noise, prevent opportunistic refactors, and keep every change easy to validate. These rules apply to every repo task unless Dominic says otherwise.
+
+### Rules
+
+1. **One feature branch per concern.** Do not bundle unrelated topics into one branch. If a task touches two independent concerns, split them.
+2. **Smallest useful change.** Add or change only what the task requires. Ship less, not more.
+3. **No unrelated formatting or refactors.** Do not reformat, rename, reorganise, or restructure code or docs as a side effect. If the file needs formatting cleanup first, call it out as a separate task.
+4. **Verify with tests or live checks.** Run the relevant test suite, hit the endpoint, execute the script, or check the output. Reported results must name the exact command and exit/shape.
+5. **Update docs/runbook when behaviour changes.** If the change alters a procedure, endpoint, config key, or expected output, update the docs in the same commit.
+6. **PR/push only when explicitly asked.** Unless the repo has a standing direct-push exception, leave the branch unpushed. Dominic will ask when he wants to see it.
+
+### Contributor checklist
+
+Copy this into every repo task report:
+
+```text
+### small-diff checklist
+- [ ] One concern, one branch?
+- [ ] Smallest useful diff only?
+- [ ] No unrelated formatting/refactors snuck in?
+- [ ] Verified with tests or live check (command + result below)?
+- [ ] Docs/runbook updated if behaviour changed?
+- [ ] Did not push or open PR (unless asked)?
+- [ ] Changed files listed below with one-line reason each
+```
+
+Use a checklist early — before or right after the verification step — so the operator sees compliance evidence in the report itself.
+
+### Changed-file report format
+
+After verification, list every changed file with a one-line reason:
+
+```text
+Changed files:
+  docs/operations/dominic-hermes-operating-manual.md  — added small-diff review rules section
+  src/rate_limiter.py                                 — added token-bucket implementation
+  tests/test_rate_limiter.py                          — added 14 rate-limiter tests
+```
+
+This makes scope review instant: no digging through diffs to decide whether a file change is relevant.
 
 ## Root, tmux, and destructive operations
 
