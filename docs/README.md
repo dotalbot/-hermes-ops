@@ -33,6 +33,8 @@ Good examples:
 - `docs/reports/memory-hygiene-final-handoff.md`
 - `docs/operations/mission-control-read-only-actions.md`
 - `docs/runbooks/dashboard-link-no-agent-watchdog.md`
+- `docs/reports/dashboard-link-no-agent-validation.md`
+- `docs/reports/recurring-chat-checks-no-agent-conversion-plan.md`
 - `docs/plans/dashboard-link-no-agent-watchdog.md`
 - `docs/operations/dominic-hermes-operating-manual.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`

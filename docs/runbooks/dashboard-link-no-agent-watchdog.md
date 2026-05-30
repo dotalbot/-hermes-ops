@@ -117,9 +117,18 @@ Bad config or unexpected fatal exceptions exit non-zero; Hermes no-agent cron wi
 
 ## Verification performed
 
+Initial implementation checks:
+
 - `python3 -m py_compile scripts/dashboard_link_check.py`
 - Runtime copy created at `/home/jellybot/.hermes/scripts/dashboard_link_check.py`
 - `python3 /home/jellybot/.hermes/scripts/dashboard_link_check.py --digest`
 - Quiet mode run after a passing digest produced empty stdout
 - Forced bad config emitted a fixed `Dashboard link check failed:` alert
 - `git diff --check`
+
+Validation follow-up recorded in `docs/reports/dashboard-link-no-agent-validation.md`:
+
+- Installed cron job `adf27938fea4` has `no_agent=true`, `script=dashboard_link_check.py`, no model/provider override, and last status `ok`.
+- Cron output `/home/jellybot/.hermes/cron/output/adf27938fea4/2026-05-30_11-25-17.md` recorded `Mode: no_agent (script)` and `Status: silent (empty output)`.
+- Isolated local-server tests confirmed quiet passing runs, runtime-copy quiet run, explicit digest output, first failure alert, duplicate-failure suppression, `--no-state` forced alert, malformed-config error, missing-config error, and service-down alert output.
+- `python3 -m py_compile scripts/dashboard_link_check.py /home/jellybot/.hermes/scripts/dashboard_link_check.py`

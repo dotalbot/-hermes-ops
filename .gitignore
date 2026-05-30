@@ -9,6 +9,8 @@ secrets/
 # Runtime/cache
 .cache/
 tmp/
+__pycache__/
+*.py[cod]
 *.tmp
 *.log
 .DS_Store
