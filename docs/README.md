@@ -27,8 +27,10 @@ Good examples:
 - `docs/specs/kanban-durable-workspace-standard.md`
 - `docs/reports/hindsight-memory-audit-hermes-main.md`
 - `docs/guides/memory/source-boundaries.md`
+- `docs/reports/hindsight-bank-taxonomy-proposal.md`
 - `docs/guides/memory/reversible-cleanup-plan.md`
 - `docs/runbooks/memory-hygiene-runbook.md`
+- `docs/reports/memory-hygiene-final-handoff.md`
 - `docs/operations/mission-control-read-only-actions.md`
 - `docs/operations/dominic-hermes-operating-manual.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`
