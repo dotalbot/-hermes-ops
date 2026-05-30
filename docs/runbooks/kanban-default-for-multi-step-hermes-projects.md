@@ -29,6 +29,7 @@ Common boards:
 - `continuous-hermes-improvement`: Hermes operating model, Kanban policy, memory/Hindsight hygiene, gateway behavior, and Hermes ops docs. Use `/home/jellybot/hermes-ops` unless editing Hermes Agent source code.
 - `home-network`: homelab infrastructure, Docker services, monitoring, backups, network maps, and runtime deployment work. Use `/home/jellybot/home-network`.
 - `portfolio`: portfolio intelligence, dashboards, project tracking, and progress digests. Use `/home/jellybot/portfolio-intel`.
+- Cert study or other learning tracks: use a separate board when the work has its own syllabus, milestones, durable notes, or review cadence instead of mixing it into Hermes ops.
 - New long-lived project: create or use a separate board when it has its own repo, roadmap, or independent visual tracking need.
 
 Always name the durable output path in the card body. Avoid final artifacts in scratch workspaces because scratch is deleted after completion.
