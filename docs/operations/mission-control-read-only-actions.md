@@ -1,44 +1,75 @@
-# Hermes Mission Control read-only action inventory
+# Mission Control read-only action and approval model
 
-Date: 2026-05-29
-Status: implementation contract
-Scope: Hermes Mission Control controls that may be exposed in the UI/API without granting mutation privileges.
+Date: 2026-05-30
+Status: operator documentation
+Scope: Hermes Mission Control controls that are safe to expose without mutation privileges, plus the approval model required before any future write-capable action exists.
 
-## Read-only boundary
+## Executive summary
 
-Allowed actions in this contract may only:
+Mission Control is read-only today.
 
-- perform HTTP GET/HEAD requests against known routes;
-- read local files under fixed allowlisted paths;
-- run fixed read-only commands with shell interpolation disabled or with a literal command string containing no user input;
-- return bounded status/output summaries to the caller.
+The live `/#/hermes` route currently exposes status panels and links only. It does not expose restart, deploy, run-command, backup-trigger, restore, firewall, secret, Docker, or arbitrary shell controls. The read-only action list below is the approved contract for future UI/API controls that may be implemented without write approval because they only read fixed routes, fixed files, or fixed diagnostic command output.
 
-Allowed actions must not:
+Anything that changes service state, files, repositories, cron definitions, firewall/routing, secrets, backups, restore data, Docker state, or deployments is a write action. Future write actions require explicit user approval, auditability, allowlists, redaction, short-lived single-use approvals, and stronger safeguards before implementation.
 
-- call POST, PUT, PATCH, or DELETE endpoints;
-- run `hermes doctor --fix`, `hermes update`, `hermes gateway restart`, `systemctl restart`, `docker compose up/down/restart`, `git push`, backup scripts, restore scripts, firewall commands, deploy commands, delete commands, secret rotation, credential reveals, or config writes;
-- accept arbitrary command text, arbitrary file paths, or arbitrary URLs from the browser;
-- mutate source repos, runtime data, cron job definitions, dashboard config, plugin enablement, secrets, firewall rules, service state, or backup repositories.
+Related docs:
 
-Important nuance: Mission Control data refresh below means "refresh the browser/API view from already-generated JSON". It does not mean running the collector that rewrites `hermes.json`. Runtime generation remains the existing cron/container responsibility.
+- Future guarded-write ADR: `docs/decisions/guarded-mission-control-write-actions.md`
+- Future audit logging spec: `docs/specs/mission-control-guarded-write-audit-logging.md`
+- Operator runbook for future approved write requests: `docs/runbooks/approved-mission-control-actions.md`
+
+## Verified live route and API status
+
+Verification date: 2026-05-30, from `jellyberry` against local runtime routes.
+
+Mission Control static route and data:
+
+| Route | Result |
+|---|---|
+| `GET http://127.0.0.1:8787/` | `200 text/html`, 29,706 bytes |
+| `GET http://127.0.0.1:8787/data/hermes.json` | `200 application/json`, 11,363 bytes, `generated_at=2026-05-30T06:30:26Z` |
+| `GET http://127.0.0.1:8787/data/roadmap.json` | `200 application/json`, 346,460 bytes, 6 projects |
+
+Hermes dashboard read-only API routes:
+
+| Route | Result |
+|---|---|
+| `GET /api/status` | `200 application/json`, 608 bytes |
+| `GET /api/config/defaults` | `200 application/json`, 9,338 bytes |
+| `GET /api/config/schema` | `200 application/json`, 41,621 bytes |
+| `GET /api/model/info` | `200 application/json`, 295 bytes |
+| `GET /api/dashboard/themes` | `200 application/json`, 714 bytes |
+| `GET /api/dashboard/plugins` | `200 application/json`, 679 bytes |
+
+Plugin static assets advertised by `/api/dashboard/plugins`:
+
+| Plugin asset | Result |
+|---|---|
+| `hermes-achievements/dist/index.js` | `200 application/javascript`, 46,829 bytes |
+| `hermes-achievements/dist/style.css` | `200 text/css`, 17,984 bytes |
+| `kanban/dist/index.js` | `200 application/javascript`, 153,361 bytes |
+| `kanban/dist/style.css` | `200 text/css`, 43,297 bytes |
+
+Other verified read-only checks:
+
+- Backup status script completed in read-only mode and reported: `Backup status: ran at 2026-05-30 03:01:04`; restore test status `ok`, files `6417`.
+- Cron output root and jobs registry exist at `/home/jellybot/.hermes/cron/output/` and `/home/jellybot/.hermes/cron/jobs.json`.
+- Source inspection of live Mission Control v2 route found the UI text: `Read-only v0.1. No restart, deploy, or run-command buttons are exposed.`
+
+Note: a predecessor verification card was archived because the upstream implementation path was removed. This section records fresh live route/API checks for this documentation task.
 
 ## Runtime constants and config keys
 
-Use these as the concrete targets unless a deployment config overrides them.
+Use these as the concrete read targets unless deployment config overrides them.
 
 - Mission Control LAN page: `http://192.168.1.159:8787/#/hermes`
 - Mission Control Tailnet page: `http://100.68.81.120:8787/#/hermes`
-- Mission Control data files served by the static app:
-  - `http://192.168.1.159:8787/data/hermes.json`
-  - `http://192.168.1.159:8787/data/roadmap.json`
+- Mission Control local data files served by the static app:
+  - `http://127.0.0.1:8787/data/hermes.json`
+  - `http://127.0.0.1:8787/data/roadmap.json`
 - Hermes dashboard local base URL: `http://127.0.0.1:9119`
 - Hermes dashboard LAN base URL: `http://192.168.1.159:9119`
 - Hermes dashboard service command source: `/home/jellybot/.config/systemd/user/hermes-dashboard.service`, `ExecStart=/home/jellybot/.local/bin/hermes dashboard --host 0.0.0.0 --port 9119 --no-open --skip-build --insecure`
-- Hermes dashboard config keys:
-  - `dashboard.theme`
-  - `dashboard.show_token_analytics`
-  - `dashboard.public_url`
-  - `dashboard.hidden_plugins`
 - Backup status script: `/home/jellybot/.hermes/scripts/check_backup_status.sh`
 - Daily backup cron job id/name/script: `e5448d934cf9` / `daily-hermes-backup-to-github` / `backup_hermes_to_github.sh`
 - Backup status cron job id/name/script: `2377afc113bf` / `weekly-hermes-backup-healthcheck` / `check_backup_status.sh`
@@ -56,46 +87,62 @@ Use these as the concrete targets unless a deployment config overrides them.
   - Hindsight Tailnet UI: `http://100.90.175.59:9999`
   - Hindsight Tailnet API: `http://100.90.175.59:18888`
 
-## Action contract
+## Read-only boundary
+
+Allowed read-only actions may only:
+
+- perform HTTP GET or HEAD requests against fixed known routes;
+- read local files under fixed allowlisted paths;
+- run fixed diagnostic commands with literal argv arrays and no user-supplied arguments;
+- return bounded status/output summaries to the caller;
+- update browser-local/in-memory display state.
+
+Allowed read-only actions must not:
+
+- call POST, PUT, PATCH, or DELETE endpoints;
+- run `hermes doctor --fix`, `hermes update`, `hermes gateway restart`, `systemctl restart`, `docker compose up/down/restart`, `git push`, backup scripts, restore scripts, firewall commands, deploy commands, delete commands, secret rotation, credential reveals, or config writes;
+- accept arbitrary command text, arbitrary file paths, arbitrary service names, or arbitrary URLs from the browser;
+- mutate source repos, runtime data, cron job definitions, dashboard config, plugin enablement, secrets, firewall rules, service state, or backup repositories.
+
+Important nuance: `refresh-mission-control-view` means refreshing the browser/API view from already-generated JSON. It does not mean running collectors that rewrite `hermes.json`, `roadmap.json`, caches, repos, or dashboard data. Runtime generation remains the existing cron/container responsibility.
+
+## Allowed read-only actions
+
+These are the current allowed read-only actions for future controls. If a future UI/API implementation exposes buttons for them, it must use this contract and stay inside the read-only boundary above.
 
 ### 1. Refresh Mission Control data view
 
 - Action id: `refresh-mission-control-view`
 - Label text: `Refresh Mission Control data`
-- UI type: button
-- Endpoint/command to call:
-  - Browser/API performs HTTP GET against:
-    - `http://192.168.1.159:8787/data/hermes.json`
-    - `http://192.168.1.159:8787/data/roadmap.json`
-  - The UI then updates in-memory state from the returned JSON.
-  - Do not run `/home/jellybot/portfolio-intel/scripts/collect_hermes_mission_control.py` from this action.
-  - Do not run `~/.hermes/scripts/refresh_hermes_mission_control.sh` from this action.
+- UI type: button or route refresh
+- Safe implementation:
+  - Browser/API performs HTTP GET against fixed data URLs:
+    - `http://127.0.0.1:8787/data/hermes.json`
+    - `http://127.0.0.1:8787/data/roadmap.json`
+  - The UI updates only in-memory state from returned JSON.
+  - Do not run `/home/jellybot/portfolio-intel/scripts/collect_hermes_mission_control.py`.
+  - Do not run `~/.hermes/scripts/refresh_hermes_mission_control.sh`.
 - Expected output shape:
   - `ok: true|false`
   - `generated_at: string|null` from `hermes.json` when present
   - `sections: {active_work, backups, cron, gateway, ...}` as already present in `hermes.json`
   - `roadmap_projects: number|null` or equivalent count from `roadmap.json`
   - `warnings: string[]`
-- Timeout behavior:
-  - 5 seconds per GET.
-  - If one JSON file times out and the UI has a cached payload, keep the cached payload and show a stale-data warning.
-- Failure behavior:
-  - 404/invalid JSON: show `Mission Control data unavailable` and include the URL and HTTP status.
-  - Timeout/network error: show `Mission Control data refresh timed out`; do not retry more than once from the same button press.
-  - Never fall back to running the collector or Docker commands.
-- Why read-only:
-  - HTTP GET reads static JSON generated by existing scheduled/runtime processes.
-  - It changes only the browser's in-memory view state; it does not rewrite `data/hermes.json`, `data/roadmap.json`, cron jobs, services, repos, or config.
+- Operator interpretation:
+  - `generated_at` tells when the displayed data was produced, not when the button was clicked.
+  - Stale data means the generation pipeline may need manual review; this action must not run the collector as remediation.
+  - Missing or invalid JSON is a display/data-publish problem, not approval to restart services.
 
-### 2. Run backup status check
+### 2. Check Hermes backup status
 
 - Action id: `backup-status-check`
 - Label text: `Check Hermes backup status`
 - UI type: button
-- Command to call:
-  - Fixed argv: `["/usr/bin/env", "bash", "/home/jellybot/.hermes/scripts/check_backup_status.sh"]`
-  - Run with cwd `/home/jellybot`.
-  - Do not accept user-supplied args.
+- Safe implementation:
+  - Fixed argv only: `["/usr/bin/env", "bash", "/home/jellybot/.hermes/scripts/check_backup_status.sh"]`
+  - Cwd: `/home/jellybot`
+  - No user-supplied args.
+  - 10 second hard timeout; kill the process group on timeout.
 - Expected output shape:
   - `ok: true|false`
   - `job_id: "e5448d934cf9"`
@@ -104,27 +151,22 @@ Use these as the concrete targets unless a deployment config overrides them.
   - `raw_stdout_tail: string` capped to 4 KiB
   - `stderr_tail: string` capped to 4 KiB
   - `exit_code: number|null`
-- Timeout behavior:
-  - 10 seconds hard timeout.
-  - On timeout, kill the process group and report `timeout`.
-- Failure behavior:
-  - Non-zero exit: display stdout/stderr tail and `Backup status unavailable`.
-  - Missing output directory/file: display the script's own `No backup run output found for job e5448d934cf9` message.
-  - Do not run the actual backup script (`backup_hermes_to_github.sh`) as remediation.
-- Why read-only:
-  - `check_backup_status.sh` only reads `/home/jellybot/.hermes/cron/output/e5448d934cf9/*.md` and prints a summary.
-  - It does not clone, rsync, commit, push, restore, rotate secrets, or modify cron state.
+- Operator interpretation:
+  - A successful status means the status script found and summarized the latest saved backup output.
+  - A failure means backup status is unavailable or stale; do not trigger `backup_hermes_to_github.sh` from Mission Control.
+  - Treat restore-test failures as follow-up work for the backup runbook, not as approval for a restore or repair.
 
 ### 3. Show latest cron output
 
 - Action id: `latest-cron-output`
 - Label text: `Latest cron output`
 - UI type: button or panel refresh
-- File read to perform:
-  - Root: `/home/jellybot/.hermes/cron/output/`
-  - Allowlisted file pattern: `<job_id>/*.md` where `<job_id>` matches an existing cron job id from `/home/jellybot/.hermes/cron/jobs.json`.
+- Safe implementation:
+  - Read root: `/home/jellybot/.hermes/cron/output/`
+  - Allowlisted file pattern: `<job_id>/*.md`, where `<job_id>` exists in `/home/jellybot/.hermes/cron/jobs.json`.
   - Default target: newest `*.md` across all job directories.
-  - Optional safe filters: exact job id from the jobs file, e.g. `e5448d934cf9` or `2377afc113bf`.
+  - Optional safe filters: exact job id from jobs registry, such as `e5448d934cf9` or `2377afc113bf`.
+  - 5 second budget for directory scan and file read.
 - Expected output shape:
   - `ok: true|false`
   - `job_id: string|null`
@@ -134,142 +176,127 @@ Use these as the concrete targets unless a deployment config overrides them.
   - `bytes: number|null`
   - `content_markdown: string` capped to 16 KiB
   - `truncated: true|false`
-- Timeout behavior:
-  - 5 seconds for directory scan and file read.
-  - If output tree is large, stop after reading the newest candidate per job directory and return a partial warning.
-- Failure behavior:
-  - Missing root: return `No cron output directory found at /home/jellybot/.hermes/cron/output/`.
-  - No output files: return `No saved cron output files found under /home/jellybot/.hermes/cron/output/`.
-  - Permission/read error: return HTTP 500/API error with sanitized path and exception class, not raw secrets.
-- Why read-only:
-  - Reads scheduler output artifacts and the cron jobs registry only.
-  - It does not trigger jobs, pause/resume jobs, edit jobs, delete output, or deliver messages.
+- Operator interpretation:
+  - Output is historical saved job output, not a live job run.
+  - Stale output indicates the scheduled job may not have run or delivery/output retention may need review.
+  - Do not use this action to run, pause, resume, edit, or delete cron jobs.
 
 ### 4. Run Hermes health check
 
 - Action id: `hermes-health-check`
 - Label text: `Run Hermes health check`
 - UI type: button
-- Commands/endpoints to call:
+- Safe implementation:
   - Primary fast probe: HTTP GET `http://127.0.0.1:9119/api/status`.
-  - Optional CLI probe for deeper diagnostics: fixed argv `["/home/jellybot/.local/bin/hermes", "status", "--all"]`.
+  - Optional CLI probe: fixed argv `["/home/jellybot/.local/bin/hermes", "status", "--all"]`.
   - Optional doctor probe: fixed argv `["/home/jellybot/.local/bin/hermes", "doctor"]`.
-  - Never pass `--fix` or `--ack`.
+  - Never pass `--fix`, `--ack`, or any user-supplied args.
 - Expected output shape:
   - `ok: true|false`
   - `dashboard_status: {version, release_date, gateway_running, gateway_pid, gateway_state, gateway_platforms, active_sessions, auth_required}` from `/api/status`
   - `status_text_tail: string|null` capped to 12 KiB if `hermes status --all` is run
   - `doctor_text_tail: string|null` capped to 12 KiB if `hermes doctor` is run
   - `warnings: string[]`
-- Timeout behavior:
-  - `/api/status`: 3 seconds.
-  - `hermes status --all`: 20 seconds.
-  - `hermes doctor`: 45 seconds.
-  - Kill process group on timeout and return partial status if the API probe succeeded.
-- Failure behavior:
-  - API probe failure: show `Hermes dashboard status unavailable` with HTTP status or connection error.
-  - CLI probe failure: preserve the exit code and stderr tail; do not attempt fixes.
-- Why read-only:
-  - `/api/status`, `hermes status --all`, and `hermes doctor` inspect configuration, process state, and provider reachability.
-  - Without `--fix`/`--ack`, they do not edit config, restart services, update code, or acknowledge advisories.
+- Operator interpretation:
+  - Green status means probes responded, not that all future actions are safe.
+  - Doctor warnings are diagnostic only; Mission Control must not auto-fix them.
+  - Gateway/dashboard down results should link to the manual runbook or a guarded future restart request.
 
 ### 5. Link to Grafana, Prometheus, Homepage, and Hindsight UI
 
 - Action id: `external-ui-links`
 - Label text: `Open observability links`
 - UI type: link group
-- URLs/config keys to expose:
-  - Homepage: `home-network.inventory.services.homepage.urls.primary` = `http://192.168.1.1`
-  - Homepage secondary: `home-network.inventory.services.homepage.urls.secondary` = `http://192.168.1.2`
-  - Prometheus: `home-network.inventory.services.prometheus.urls.primary` = `http://192.168.1.2:9090`
-  - Grafana: `home-network.inventory.services.grafana.urls.primary` = `http://192.168.1.2:3001`
-  - Hindsight UI: `home-network.inventory.services.hindsight.urls.primary` = `http://192.168.1.1:9999`
-  - Hindsight API: `home-network.inventory.services.hindsight.urls.api` = `http://192.168.1.1:18888`
+- Safe implementation:
+  - Render fixed links from `/home/jellybot/home-network/inventory/services.yml` or checked-in constants.
+  - Optional reachability badges may use HEAD/GET only, with 3 seconds per URL.
+  - Links render even when optional health badges fail.
 - Expected output shape:
   - Static list: `[{label, href, source_key, category}]`
-  - Optional lightweight health badge from HEAD/GET: `{status_code, reachable, latency_ms}`
-- Timeout behavior:
-  - Links render immediately without health checks.
-  - Optional reachability badge uses 3 seconds per URL and should not block rendering the link list.
-- Failure behavior:
-  - Link click failure is left to the browser.
-  - Optional health badge failures show `unreachable` but keep the link visible.
-- Why read-only:
-  - Rendering an anchor tag does not mutate remote systems.
-  - Optional HEAD/GET reachability checks read public/UI liveness only and do not authenticate or submit forms.
+  - Optional badge: `{status_code, reachable, latency_ms}`
+- Operator interpretation:
+  - Link presence means Mission Control knows the target URL, not that the remote system is healthy.
+  - Badge failure means unreachable from the dashboard host or network path; it is not approval to change firewall, DNS, routing, reverse proxies, or service state.
 
 ### 6. Check dashboard route health
 
 - Action id: `dashboard-route-health`
 - Label text: `Check dashboard route health`
 - UI type: button
-- Endpoints to call:
-  - GET `http://127.0.0.1:9119/api/status`
-  - GET `http://127.0.0.1:9119/api/config/defaults`
-  - GET `http://127.0.0.1:9119/api/config/schema`
-  - GET `http://127.0.0.1:9119/api/model/info`
-  - GET `http://127.0.0.1:9119/api/dashboard/themes`
-  - GET `http://127.0.0.1:9119/api/dashboard/plugins`
+- Safe implementation:
+  - HTTP GET only, against fixed public dashboard routes:
+    - `http://127.0.0.1:9119/api/status`
+    - `http://127.0.0.1:9119/api/config/defaults`
+    - `http://127.0.0.1:9119/api/config/schema`
+    - `http://127.0.0.1:9119/api/model/info`
+    - `http://127.0.0.1:9119/api/dashboard/themes`
+    - `http://127.0.0.1:9119/api/dashboard/plugins`
+  - 3 seconds per route, 15 seconds total budget.
 - Expected output shape:
   - `ok: true|false`
   - `routes: [{path, status_code, latency_ms, content_type, ok, error}]`
   - Overall `ok` is true only when all required routes return 200 and JSON-compatible content where expected.
-- Timeout behavior:
-  - 3 seconds per route, 15 seconds total budget.
-  - Run checks concurrently if possible; otherwise stop when total budget is exhausted and mark remaining routes `not_checked`.
-- Failure behavior:
-  - Return per-route status; do not hide partial success.
-  - 401/403 indicates auth/config mismatch; 404 indicates missing route; 5xx indicates dashboard runtime failure.
-  - Do not restart dashboard or edit auth/config from this action.
-- Why read-only:
-  - All routes are public/read-only dashboard bootstrap/liveness routes from `hermes_cli.dashboard_auth.public_paths.PUBLIC_API_PATHS`.
-  - GET requests do not change dashboard state.
+- Operator interpretation:
+  - 401/403 means auth/config mismatch.
+  - 404 means missing route or deployment mismatch.
+  - 5xx means dashboard runtime failure.
+  - Do not restart the dashboard or edit auth/config from this action.
 
 ### 7. Check dashboard plugin route health
 
 - Action id: `dashboard-plugin-route-health`
 - Label text: `Check dashboard plugin routes`
 - UI type: button
-- Endpoints to call:
-  - GET `http://127.0.0.1:9119/api/dashboard/plugins`
+- Safe implementation:
+  - GET `http://127.0.0.1:9119/api/dashboard/plugins`.
   - For each returned plugin manifest with `entry`, GET `http://127.0.0.1:9119/dashboard-plugins/{name}/{entry}`.
   - For each returned plugin manifest with `css`, GET `http://127.0.0.1:9119/dashboard-plugins/{name}/{css}`.
-  - Current observed plugin assets:
-    - `http://127.0.0.1:9119/dashboard-plugins/hermes-achievements/dist/index.js`
-    - `http://127.0.0.1:9119/dashboard-plugins/hermes-achievements/dist/style.css`
-    - `http://127.0.0.1:9119/dashboard-plugins/kanban/dist/index.js`
-    - `http://127.0.0.1:9119/dashboard-plugins/kanban/dist/style.css`
+  - 3 seconds for manifest, 3 seconds per asset, 20 seconds total budget.
+- Current observed plugin assets:
+  - `hermes-achievements/dist/index.js`
+  - `hermes-achievements/dist/style.css`
+  - `kanban/dist/index.js`
+  - `kanban/dist/style.css`
 - Expected output shape:
   - `ok: true|false`
   - `plugins: [{name, label, version, source, entry, css, has_api}]`
   - `assets: [{plugin, kind: "entry"|"css", url, status_code, content_type, content_length, ok, error}]`
-  - Overall `ok` is true only when the manifest route returns 200 and every advertised entry/css asset returns 200.
-- Timeout behavior:
-  - 3 seconds for manifest.
-  - 3 seconds per asset, 20 seconds total budget.
-- Failure behavior:
-  - Manifest failure: show `Plugin manifest unavailable`.
-  - Asset 404: show `Could not load this plugin's script/style` with the exact plugin and asset path.
+- Operator interpretation:
+  - A plugin asset failure explains why a plugin card or panel may not load.
   - Do not rebuild plugins, hide plugins, edit `dashboard.hidden_plugins`, reinstall plugins, or restart dashboard from this action.
-- Why read-only:
-  - Reads the plugin manifest and static bundled/user asset files via GET.
-  - It does not install, enable, disable, update, hide, remove, rebuild, or rescan plugins.
 
-## Explicitly excluded actions
+## Explicitly excluded write actions
 
-These are intentionally out of scope for Mission Control read-only controls:
+These operations are not read-only controls and must not be exposed as simple Mission Control buttons:
 
 - restarting Hermes gateway, dashboard, Docker services, systemd units, or containers;
-- triggering backups or restore drills;
-- running `backup_hermes_to_github.sh`;
-- running collector scripts that write `hermes.json`/`roadmap.json`;
-- running `hermes doctor --fix`, `hermes update`, `hermes config set`, `hermes tools enable/disable`, `hermes plugins install/remove/update`, `hermes cron create/update/pause/resume/run/remove`;
-- firewall, routing, DNS, Tailscale, SSH, sudo, deploy, or chmod/chown changes;
-- deleting sessions, cron output, logs, plugin files, generated JSON, repos, or state databases;
-- revealing, rotating, writing, or copying secrets/API keys/OAuth tokens;
-- arbitrary shell command execution or arbitrary URL fetches.
+- triggering backups, backup repairs, restore drills, repository checks with mutation risk, backup prune/compact/repair/unlock/init, or production restore overwrites;
+- running `backup_hermes_to_github.sh` or collector scripts that write `hermes.json`, `roadmap.json`, caches, databases, or repo artifacts;
+- running `hermes doctor --fix`, `hermes update`, `hermes config set`, `hermes tools enable/disable`, `hermes plugins install/remove/update`, or `hermes cron create/update/pause/resume/run/remove`;
+- firewall, routing, DNS, Tailscale, SSH, sudo, deploy, chmod/chown, system package, or host config changes;
+- deleting sessions, cron output, logs, plugin files, generated JSON, repos, Docker volumes, or state databases;
+- revealing, rotating, writing, or copying secrets/API keys/OAuth tokens/private keys/passphrases;
+- arbitrary shell command execution, arbitrary Python/script execution, arbitrary URL fetches, git commit/push/merge, or deployment commands.
 
-## Implementation notes for UI/API worker
+## Future write-action request and approval model
+
+Future write actions may be requested only as guarded proposals, not as direct buttons. Examples include restarts, firewall changes, deploys, secret/data operations, backup checks with mutation risk, restore drills, and Docker service recreation.
+
+A compliant future request must include all of the following before any implementation may execute it:
+
+1. Allowlisted action id and template version.
+2. Exact command preview or lossless operation descriptor.
+3. Target host, runtime account, service/subsystem, path/backup/collector scope, and risk level.
+4. Expected side effects, preflight checks, timeout, post-checks, and rollback/recovery plan.
+5. Secret-redaction proof for previews, logs, notifications, Hindsight summaries, and repo records.
+6. Short-lived, single-use explicit approval bound to the exact proposal hash and approver identity.
+7. Backend revalidation immediately before execution.
+8. Refusal on stale, replayed, modified, expired, unknown, unredacted, or unauditable requests.
+9. Durable audit events for proposed, approved/denied/expired, refused, started, completed, failed, and any sink failures.
+
+Operators should request future write actions by opening a Kanban task or adding a reviewed design/runbook entry that names the action, target, risk, command shape, rollback plan, and audit requirements. Until the guarded executor and audit store are separately implemented and reviewed, the correct operator response is manual execution outside Mission Control after explicit human approval.
+
+## Implementation notes for future UI/API workers
 
 - Prefer a closed registry keyed by action id; unknown ids return 404.
 - Use fixed argv arrays for command-backed checks; never concatenate user input into shell commands.
@@ -277,3 +304,4 @@ These are intentionally out of scope for Mission Control read-only controls:
 - Cap stdout/stderr/content returned to the UI.
 - Record `started_at`, `completed_at`, `duration_ms`, `exit_code`, and `timeout` for every action result.
 - Treat read-only actions as status probes, not remediation workflows. If a probe detects a problem, show the problem and link to the relevant runbook/task flow instead of fixing it automatically.
+- Keep route-health and plugin-health checks GET-only. If the next step would mutate state, stop and create a guarded write proposal instead.
