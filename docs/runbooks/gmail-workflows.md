@@ -6,6 +6,9 @@
 **Task:** t_dc60e372 — Finalize Gmail workflow runbook  
 **Related:** t_49146f04 (prompt patterns), t_6e42ae25 (send safeguards), t_66afb058 (tested on demand)
 
+> **Standalone prompt patterns reference:** `docs/runbooks/gmail-prompt-patterns.md`  
+> Each pattern there includes a full send-safety warning and is kept separately for easy reuse without the full runbook context.
+
 ---
 
 ## Quick Start
@@ -72,6 +75,8 @@ Topic: Prometheus/home-network monitoring
 
 **Failure handling:** If search returns too many results, narrow by date or sender. If too few, broaden keywords.
 
+**Send-safety warning:** This pattern reads email only. It must never send replies, forward messages, or compose drafts automatically. All results are presented as plain text for human review. No email is ever sent or modified.
+
 ---
 
 ### Pattern 2: Invoice/Subscription/Renewal Search
@@ -95,7 +100,7 @@ Invoices (last 30 days):
 
 **Failure handling:** Use broader subject terms (`billing`, `order confirmation`, `thanks for your purchase`). If too many results, filter by `from:` common billing domains.
 
-**Safety note:** Do not open attachments or follow payment links automatically. Present results as text only.
+**Send-safety warning:** This pattern searches and reads only. It must never open attachments, follow payment links, or interact with billing portals automatically. All results are presented as plain text for human review. No purchase, unsubscribe, or confirm action is ever taken.
 
 ---
 
@@ -119,6 +124,8 @@ Meeting Digest (last 7 days):
 ```
 
 **Failure handling:** If results are noisy, exclude newsletters and promotions by filtering labels: `-label:CATEGORY_PROMOTIONS -label:CATEGORY_SOCIAL`. Use `has:attachment` to find meeting notes documents.
+
+**Send-safety warning:** This pattern reads email only. It must never reply to threads, send meeting reminders, or compose follow-up messages automatically. All results are presented as plain text for human review.
 
 ---
 
@@ -146,6 +153,8 @@ logk:            1 email  (latest: issue #5 update)
 ```
 
 **Failure handling:** Adjust project-specific keywords if a project uses different names in notifications.
+
+**Send-safety warning:** This pattern searches and reads email only. It must never send notifications, create labels, archive threads, or modify mailbox state automatically. All results are presented as plain text for human review.
 
 ---
 
