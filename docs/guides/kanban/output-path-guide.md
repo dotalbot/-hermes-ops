@@ -31,9 +31,22 @@ portfolio                     -> /home/jellybot/portfolio-intel
 - `docs/runbooks/` — operator procedures with commands and checks.
 - `docs/operations/` — service operations, schedules, dashboards, local rules.
 - `docs/architecture/` — diagrams, integration maps, component boundaries.
-- `docs/decisions/` — ADRs and trade-off records.
+- `docs/decisions/` — ADRs and trade-off records; use `docs/decisions/0000-adr-template.md` as the default template for Hermes Ops / CHI / Mission Control decision documentation.
 - `docs/reports/` — audits, reviews, generated analyses.
 - `docs/plans/` — implementation plans and checklists.
+
+## Default decision-record rule
+
+For Hermes Ops, CHI, Mission Control, Kanban workflow, gateway, memory, dashboard, and operator-process documentation, create an ADR under `docs/decisions/` whenever the work records a durable decision or trade-off that future workers should follow.
+
+Default flow:
+
+1. Copy `docs/decisions/0000-adr-template.md`.
+2. Save the new file as `docs/decisions/NNNN-short-kebab-case-title.md`.
+3. Keep `Status: Proposed` until the operator accepts the decision.
+4. Link the ADR from related specs, runbooks, operating-manual sections, or Kanban completion comments.
+
+Use normal specs/plans/runbooks instead when the document is only implementation steps or temporary project status.
 
 ## Example card body
 
