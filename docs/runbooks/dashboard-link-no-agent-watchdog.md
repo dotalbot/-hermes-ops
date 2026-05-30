@@ -7,7 +7,9 @@ Purpose: deterministic watchdog for stale/broken dashboard and observability lin
 Source of truth in this repo:
 
 - Script: `scripts/dashboard_link_check.py`
-- Config: `config/dashboard-links.json`
+- Executable config: `config/dashboard-links.json`
+- Inventory contract: `config/dashboard-inventory.json`
+- Contract spec: `docs/specs/dashboard-health-check-inventory-contract.md`
 - Runbook: `docs/runbooks/dashboard-link-no-agent-watchdog.md`
 
 Runtime copy for Hermes cron:
@@ -97,6 +99,8 @@ Dashboard link check failed:
 - Overlapping cron runs exit successfully with no stdout.
 
 ## Config format
+
+`config/dashboard-links.json` contains the executable subset consumed by the current no-agent watchdog. `config/dashboard-inventory.json` is the broader source-of-truth contract for future dashboard/Homepage quality checks; see `docs/specs/dashboard-health-check-inventory-contract.md` for field semantics and failure-vs-skip policy.
 
 `config/dashboard-links.json` contains:
 

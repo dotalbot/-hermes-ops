@@ -33,6 +33,7 @@ Good examples:
 - `docs/reports/memory-hygiene-final-handoff.md`
 - `docs/operations/mission-control-read-only-actions.md`
 - `docs/runbooks/dashboard-link-no-agent-watchdog.md`
+- `docs/specs/dashboard-health-check-inventory-contract.md`
 - `docs/reports/dashboard-link-no-agent-validation.md`
 - `docs/reports/recurring-chat-checks-no-agent-conversion-plan.md`
 - `docs/plans/dashboard-link-no-agent-watchdog.md`
