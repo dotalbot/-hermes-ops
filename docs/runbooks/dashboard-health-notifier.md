@@ -15,16 +15,16 @@ The notifier is not a separate watchdog. It is a delivery wrapper around the det
 | `docs/specs/dashboard-health-check-inventory-contract.md` | Inventory field semantics and failure policy |
 | `docs/runbooks/dashboard-health-notifier.md` | This operator runbook |
 
-Runtime copy for the installed `homenetworkworker` Hermes cron job:
+Runtime copy for the installed default-profile Hermes cron job:
 
 | Runtime path | Purpose |
 |---|---|
-| `/home/jellybot/.hermes/profiles/homenetworkworker/scripts/dashboard_health_notifier_cron.sh` | Script scheduled by Hermes cron |
+| `/home/jellybot/.hermes/scripts/dashboard_health_notifier_cron.sh` | Script scheduled by Hermes cron (default profile) |
 | `/home/jellybot/hermes-ops/config/dashboard-inventory.json` | Inventory read by the runtime wrapper |
 | `/home/jellybot/hermes-ops/config/.dashboard-heartbeat-state.json` | Optional heartbeat state, ignored by git |
-| `/home/jellybot/.hermes/profiles/homenetworkworker/cron/output/<job_id>/` | Scheduler run records |
+| `/home/jellybot/.hermes/cron/output/<job_id>/` | Scheduler run records |
 
-If this job is recreated under the default Hermes profile instead, copy the wrapper to `/home/jellybot/.hermes/scripts/` and inspect `/home/jellybot/.hermes/cron/output/<job_id>/`.
+To switch to a different profile, copy the wrapper to that profile's `scripts/` dir and recreate the job with `--profile <name>`.
 
 ## Manual runs
 
@@ -83,23 +83,27 @@ All-green default notifier runs print nothing. This is intentional: Hermes no-ag
 
 ## Scheduled execution
 
-Hermes cron jobs can only execute scripts under the active profile's `scripts/` directory. For the installed `homenetworkworker` job, install or refresh the runtime wrapper from the repo source before creating/updating the job:
+Hermes cron jobs can only execute scripts under the active profile's `scripts/` directory. The cron wrapper is installed at both locations for flexibility:
 
 ```bash
-install -m 0755 /home/jellybot/hermes-ops/scripts/dashboard_health_notifier_cron.sh \
-  /home/jellybot/.hermes/profiles/homenetworkworker/scripts/dashboard_health_notifier_cron.sh
+# Default profile (scripts dir used by the active gateway/cron daemon)
+ls /home/jellybot/.hermes/scripts/dashboard_health_notifier_cron.sh
+
+# Profile-specific copy (for homenetworkworker profile if its scheduler is active)
+ls /home/jellybot/.hermes/profiles/homenetworkworker/scripts/dashboard_health_notifier_cron.sh
 ```
 
-Installed conservative first rollout:
+Installed job (default profile, active gateway scheduler):
 
 | Field | Value |
 |---|---|
-| Job id | `e69cc038fc52` |
+| Job id | `cfb338cf70ff` |
 | Name | `dashboard-health-notifier` |
 | Schedule | `every 30m` |
 | Mode | `no_agent=true` |
 | Script | `dashboard_health_notifier_cron.sh` |
 | Delivery | `local` |
+| Next run | Auto: see `hermes cron list` |
 
 Equivalent install command:
 
@@ -124,6 +128,10 @@ cronjob(
     prompt="Deterministic no-agent dashboard health notifier. Empty stdout means all green; non-empty stdout is the fixed failure digest.",
 )
 ```
+
+> Old homenetworkworker profile job `61c428e54b12` was removed (default profile scheduler runs it now).
+
+To recreate under a different profile, first delete the default job, then create with `--profile <name>`.
 
 `local` delivery is a staging/safety setting, not a human alert route. It avoids accidental Discord noise during first rollout while the real inventory still has known red findings. Before relying on this job for production alerting, update the job delivery target to the preferred Discord/Telegram channel or enable `--to-webhook` with `DASHBOARD_WEBHOOK_URL`. Green runs still stay silent; only red digests or scheduler errors are delivered.
 
