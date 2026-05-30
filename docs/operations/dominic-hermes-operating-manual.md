@@ -222,3 +222,20 @@ If it is operational truth, update the relevant repo docs/runbook instead.
 If it is a reusable workflow, create or patch a skill.
 Do not save transient task progress.
 ```
+
+### Acceptance criteria gate
+
+```text
+Define acceptance criteria for this task before implementation.
+
+Task: <what I want done>
+Acceptance criteria:
+- <measurable outcome 1>
+- <measurable outcome 2>
+- <verification method>
+- <what failure looks like>
+
+I confirm these criteria are correct / change them: <approval or edit>
+```
+
+Use this on every dashboard, service, or infra task. Fill criteria first, get user confirmation, then implement. This prevents scope creep and keeps the diff focused on exactly what was agreed.```
