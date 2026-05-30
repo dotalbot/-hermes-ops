@@ -23,6 +23,7 @@ Good examples:
 
 - `docs/guides/kanban/adoption-and-board-separation-policy.md`
 - `docs/guides/kanban/operating-procedures.md`
+- `docs/runbooks/kanban-default-for-multi-step-hermes-projects.md`
 - `docs/specs/kanban-durable-workspace-standard.md`
 - `docs/reports/hindsight-memory-audit-hermes-main.md`
 - `docs/guides/memory/source-boundaries.md`
