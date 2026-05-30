@@ -1,0 +1,91 @@
+{
+  "defaults": {
+    "method": "GET",
+    "timeout_seconds": 3,
+    "retries": 1,
+    "retry_delay_seconds": 0.5,
+    "user_agent": "HermesDashboardLinkCheck/1.0 (+no-agent-cron)"
+  },
+  "links": [
+    {
+      "label": "Hermes dashboard status API",
+      "url": "http://127.0.0.1:9119/api/status",
+      "expected": {
+        "status": 200,
+        "text_contains": "gateway"
+      }
+    },
+    {
+      "label": "Hermes dashboard plugin manifest",
+      "url": "http://127.0.0.1:9119/api/dashboard/plugins",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "label": "Mission Control static page",
+      "url": "http://127.0.0.1:8787/",
+      "expected": {
+        "status": 200,
+        "text_contains": "Mission"
+      }
+    },
+    {
+      "label": "Mission Control Hermes data",
+      "url": "http://127.0.0.1:8787/data/hermes.json",
+      "expected": {
+        "status": 200,
+        "text_contains": "generated_at"
+      }
+    },
+    {
+      "label": "Mission Control roadmap data",
+      "url": "http://127.0.0.1:8787/data/roadmap.json",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "label": "Prometheus UI",
+      "url": "http://192.168.1.2:9090/-/ready",
+      "expected": {
+        "status": 200
+      },
+      "timeout_seconds": 2
+    },
+    {
+      "label": "Grafana UI",
+      "url": "http://192.168.1.2:3001/api/health",
+      "expected": {
+        "status": 200,
+        "text_contains": "database"
+      },
+      "timeout_seconds": 2
+    },
+    {
+      "label": "Hindsight UI",
+      "url": "http://192.168.1.1:9999/",
+      "expected": {
+        "status_class": "2xx"
+      },
+      "timeout_seconds": 2
+    },
+    {
+      "label": "Hindsight API OpenAPI",
+      "url": "http://192.168.1.1:18888/openapi.json",
+      "expected": {
+        "status": 200,
+        "text_contains": "openapi"
+      },
+      "timeout_seconds": 2
+    },
+    {
+      "label": "Homepage primary",
+      "url": "http://192.168.1.1/",
+      "expected": {
+        "status_class": "2xx"
+      },
+      "timeout_seconds": 2
+    }
+  ]
+}

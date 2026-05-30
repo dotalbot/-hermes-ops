@@ -32,6 +32,8 @@ Good examples:
 - `docs/runbooks/memory-hygiene-runbook.md`
 - `docs/reports/memory-hygiene-final-handoff.md`
 - `docs/operations/mission-control-read-only-actions.md`
+- `docs/runbooks/dashboard-link-no-agent-watchdog.md`
+- `docs/plans/dashboard-link-no-agent-watchdog.md`
 - `docs/operations/dominic-hermes-operating-manual.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`
 
