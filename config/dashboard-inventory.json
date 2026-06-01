@@ -353,7 +353,9 @@
         "path": "/"
       },
       "expected_http": {
-        "status_class": "2xx"
+        "status": 200,
+        "path_override": "/ready",
+        "text_contains": "ready"
       },
       "required": true,
       "check_mode": "http",
@@ -375,14 +377,14 @@
         "port": 9000,
         "path": "/metrics"
       },
-      "expected_http": {
-        "status_class": "2xx"
-      },
-      "required": true,
-      "check_mode": "http",
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
       "network_assumptions": [
-        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
-      ]
+        "MQTT Exporter listens on jellybase for local/Prometheus metrics collection; direct LAN access from jellyberry currently times out.",
+        "Use Prometheus/Jellyoffice dashboard links for operator visibility rather than paging on this direct exporter endpoint."
+      ],
+      "acceptable_skip_reason": "jellybase-local metrics endpoint; reachable from Prometheus/host but not from the LAN checker due current firewall/exposure policy"
     },
     {
       "id": "homepage-monitoring-alloy",
@@ -535,7 +537,9 @@
         "path": "/"
       },
       "expected_http": {
-        "status_class": "2xx"
+        "status": 200,
+        "path_override": "/api/health",
+        "text_contains": "database"
       },
       "required": true,
       "check_mode": "http",
@@ -660,6 +664,31 @@
       ]
     },
     {
+      "id": "homepage-tools-crawl4ai",
+      "display_name": "Crawl4AI",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Tools",
+      "url": "http://192.168.1.2:11235/health",
+      "homepage_href": "http://192.168.1.2:11235/playground",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 11235,
+        "path": "/health"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "status"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN context only; Crawl4AI is bound to jellybase LAN IP and intentionally not exposed on Tailnet/public interfaces.",
+        "Functional extraction requires JWT minted from the host-local Crawl4AI API token; watchdog checks only the unauthenticated health endpoint."
+      ]
+    },
+    {
       "id": "homepage-media-manyfold",
       "display_name": "Manyfold",
       "source": "homepage-service",
@@ -674,7 +703,8 @@
         "path": "/"
       },
       "expected_http": {
-        "status_class": "2xx"
+        "status": 200,
+        "path_override": "/health"
       },
       "required": true,
       "check_mode": "http",
