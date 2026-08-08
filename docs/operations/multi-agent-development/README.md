@@ -15,11 +15,13 @@ The control plane and the code workspace are deliberately separate:
 
 ## Read in this order
 
-1. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
-2. [Feature lifecycle](feature-lifecycle.md)
-3. [Matt Pocock skills](matt-pocock-skills.md)
-4. [Kanban card templates](kanban-card-templates.md)
-5. [Operator checklist](operator-checklist.md)
+1. [Jellyberry Kanban orchestration design V2](jellyberry-kanban-orchestration-design-v2.md) — expanded decision candidate covering the live Hermes setup and Hindsight banks
+2. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
+3. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
+4. [Feature lifecycle](feature-lifecycle.md)
+5. [Matt Pocock skills](matt-pocock-skills.md)
+6. [Kanban card templates](kanban-card-templates.md)
+7. [Operator checklist](operator-checklist.md)
 
 ## Quick start for a new feature
 
