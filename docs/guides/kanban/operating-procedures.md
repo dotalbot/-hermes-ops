@@ -85,7 +85,7 @@ Machine-readable profile roster for scripts:
 hermes kanban --board continuous-hermes-improvement assignees --json
 ```
 
-Use a name from the `Profile` column of `hermes profile list`, or the `name` field from `hermes kanban assignees --json`, as the assignee. On this host at verification time, real on-disk profiles were `default`, `hindsightpilot`, and `homenetworkworker`; re-run discovery before creating new work because profiles can change.
+Use a name from the `Profile` column of `hermes profile list`, or the `name` field from `hermes kanban assignees --json`, as the assignee. On this host at verification time, real on-disk profiles were `default`, `homenetworkworker`, and `jellybase_hermes`; re-run discovery before creating new work because profiles can change.
 
 ## Status / column usage
 
@@ -134,7 +134,7 @@ Create a task with a durable directory workspace:
 hermes kanban --board continuous-hermes-improvement create \
   "Document Kanban operating procedures" \
   --assignee default \
-  --workspace dir:/home/jellybot/hermes-ops \
+  --workspace dir:/home/jellybot/dev_projects/hermes-ops \
   --body "Output path: docs/guides/kanban/operating-procedures.md"
 ```
 
@@ -203,7 +203,7 @@ hermes kanban --board continuous-hermes-improvement assign t_abc12345 none
 Reassign a non-running task:
 
 ```bash
-hermes kanban --board continuous-hermes-improvement reassign t_abc12345 hindsightpilot
+hermes kanban --board home-network reassign t_abc12345 homenetworkworker
 ```
 
 Reassign a running or claimed task by explicitly reclaiming it first:
@@ -234,7 +234,7 @@ hermes kanban --board continuous-hermes-improvement create \
   "Review the Kanban guide" \
   --assignee default \
   --parent t_parent12 \
-  --workspace dir:/home/jellybot/hermes-ops \
+  --workspace dir:/home/jellybot/dev_projects/hermes-ops \
   --body "Review docs/guides/kanban/operating-procedures.md against acceptance criteria."
 ```
 
@@ -486,7 +486,7 @@ Use this when you want the card visible but do not want the dispatcher to claim 
 hermes kanban --board continuous-hermes-improvement create \
   "Draft approval model" \
   --assignee default \
-  --workspace dir:/home/jellybot/hermes-ops \
+  --workspace dir:/home/jellybot/dev_projects/hermes-ops \
   --initial-status blocked \
   --body "Draft docs/specs/approval-model.md; wait for operator to unblock."
 ```

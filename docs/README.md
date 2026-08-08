@@ -11,7 +11,7 @@ Durable documentation produced by operators and Kanban workers.
 - `runbooks/` — operational procedures with commands and verification.
 - `operations/` — local operating rules, schedules, dashboards, and service notes.
 - `architecture/` — system diagrams, design notes, and integration maps.
-- `decisions/` — ADRs and explicit trade-off decisions; copy `decisions/0000-adr-template.md` for new records.
+- `decisions/` — Architecture Decision Records (ADRs); start from `decisions/0000-adr-template.md`. See [decisions/README.md](decisions/README.md) for when and how to add one.
 - `reports/` — audits, reviews, and generated analyses.
 - `plans/` — implementation plans and checklists.
 
@@ -33,10 +33,15 @@ Good examples:
 - `docs/reports/memory-hygiene-final-handoff.md`
 - `docs/operations/mission-control-read-only-actions.md`
 - `docs/runbooks/dashboard-link-no-agent-watchdog.md`
+- `docs/specs/dashboard-health-check-inventory-contract.md`
 - `docs/reports/dashboard-link-no-agent-validation.md`
 - `docs/reports/recurring-chat-checks-no-agent-conversion-plan.md`
+- `docs/reports/backup-metadata-sources.md`
+- `docs/plans/backup-freshness-check.md`
+- `docs/runbooks/backup-freshness-check.md`
 - `docs/plans/dashboard-link-no-agent-watchdog.md`
 - `docs/operations/dominic-hermes-operating-manual.md`
+- `docs/operations/home-directory-project-layout.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`
 
 Bad example:

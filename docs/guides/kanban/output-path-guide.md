@@ -17,9 +17,9 @@ Before moving a card to `ready`:
 ## Board folders
 
 ```text
-continuous-hermes-improvement -> /home/jellybot/hermes-ops
-home-network                  -> /home/jellybot/home-network
-portfolio                     -> /home/jellybot/portfolio-intel
+continuous-hermes-improvement -> /home/jellybot/dev_projects/hermes-ops
+home-network                  -> /home/jellybot/dev_projects/home-network
+portfolio                     -> /home/jellybot/dev_projects/portfolio-intel
 ```
 
 ## Folder choice
@@ -85,7 +85,7 @@ Continuous Hermes improvement doc task:
 ```bash
 hermes kanban --board continuous-hermes-improvement create \
   "Write Kanban output path guide" \
-  --workspace dir:/home/jellybot/hermes-ops \
+  --workspace dir:/home/jellybot/dev_projects/hermes-ops \
   --body "Output path: docs/guides/kanban/output-path-guide.md"
 ```
 
@@ -94,7 +94,7 @@ Home-network task:
 ```bash
 hermes kanban --board home-network create \
   "Document homepage rollback procedure" \
-  --workspace dir:/home/jellybot/home-network \
+  --workspace dir:/home/jellybot/dev_projects/home-network \
   --body "Output path: docs/runbooks/homepage-rollback.md"
 ```
 
@@ -103,7 +103,7 @@ Portfolio task:
 ```bash
 hermes kanban --board portfolio create \
   "Draft portfolio refresh spec" \
-  --workspace dir:/home/jellybot/portfolio-intel \
+  --workspace dir:/home/jellybot/dev_projects/portfolio-intel \
   --body "Output path: docs/specs/portfolio-refresh.md"
 ```
 

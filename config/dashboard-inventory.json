@@ -1,0 +1,864 @@
+{
+  "schema_version": 1,
+  "description": "Source-of-truth inventory contract for dashboard/Homepage health checks. This file is reviewable input; checkers decide which check_mode values they support.",
+  "sources": [
+    "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+    "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/bookmarks.yaml",
+    "/home/jellybot/.config/systemd/user/hermes-dashboard.service",
+    "/home/jellybot/dev_projects/portfolio-intel/mission-control-v2"
+  ],
+  "network_context": {
+    "primary_checker_host": "jellyberry",
+    "lan_cidr": "192.168.1.0/24",
+    "tailnet": "cheetah-iwato.ts.net",
+    "hosts": {
+      "jellyhome": {
+        "lan_ip": "192.168.1.1",
+        "tailscale_ip": "100.90.175.59"
+      },
+      "jellybase": {
+        "lan_ip": "192.168.1.2",
+        "tailscale_ip": "100.125.86.118"
+      },
+      "jellyberry": {
+        "lan_ip": "192.168.1.159"
+      }
+    },
+    "failure_semantics": {
+      "required_true": "Supported failed checks are actionable failures.",
+      "required_false": "Failures are acceptable skips unless explicitly promoted by a future operator decision.",
+      "check_mode_skip": "Documented inventory only; do not probe with the HTTP watchdog.",
+      "check_mode_external_http": "Optional internet dependency; exclude from quiet no-agent LAN watchdog unless running an audit digest."
+    }
+  },
+  "defaults": {
+    "method": "GET",
+    "timeout_seconds": 3,
+    "retries": 1,
+    "retry_delay_seconds": 0.5,
+    "user_agent": "HermesDashboardLinkCheck/1.0 (+no-agent-cron)"
+  },
+  "entries": [
+    {
+      "id": "hermes-dashboard-status-api",
+      "display_name": "Hermes dashboard status API",
+      "source": "hermes-dashboard-runtime",
+      "source_file": "/home/jellybot/.config/systemd/user/hermes-dashboard.service",
+      "category": "Dashboard",
+      "url": "http://127.0.0.1:9119/api/status",
+      "service": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 9119,
+        "path": "/api/status",
+        "runtime_host": "jellyberry"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "gateway"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Run on jellyberry or another host that can reach jellyberry dashboard port 9119.",
+        "Hermes dashboard is intentionally bound with --host 0.0.0.0 --insecure for trusted LAN/Tailnet access."
+      ]
+    },
+    {
+      "id": "hermes-dashboard-plugin-manifest",
+      "display_name": "Hermes dashboard plugin manifest",
+      "source": "hermes-dashboard-runtime",
+      "source_file": "/home/jellybot/.config/systemd/user/hermes-dashboard.service",
+      "category": "Dashboard",
+      "url": "http://127.0.0.1:9119/api/dashboard/plugins",
+      "service": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 9119,
+        "path": "/api/dashboard/plugins",
+        "runtime_host": "jellyberry"
+      },
+      "expected_http": {
+        "status": 200
+      },
+      "assets": [
+        {
+          "plugin": "hermes-achievements",
+          "entry": "dist/index.js",
+          "css": "dist/style.css",
+          "tab_path": "/achievements",
+          "unauthenticated_asset_status": 401
+        },
+        {
+          "plugin": "kanban",
+          "entry": "dist/index.js",
+          "css": "dist/style.css",
+          "tab_path": "/kanban",
+          "unauthenticated_asset_status": 401
+        }
+      ],
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Plugin manifest is public enough for the current watchdog; bundled asset fetches may require dashboard auth and should not be treated as failures when they return 401 unauthenticated."
+      ]
+    },
+    {
+      "id": "mission-control-static-page",
+      "display_name": "Portfolio Mission Control static page",
+      "source": "mission-control-v2-runtime",
+      "source_file": "/home/jellybot/dev_projects/portfolio-intel/mission-control-v2",
+      "category": "Dashboard",
+      "url": "http://127.0.0.1:8787/",
+      "service": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 8787,
+        "path": "/",
+        "runtime_host": "jellyberry"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "Mission"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Local checker may use 127.0.0.1:8787 on jellyberry; Homepage clients should use the LAN URL http://192.168.1.159:8787."
+      ]
+    },
+    {
+      "id": "mission-control-hermes-data",
+      "display_name": "Portfolio Mission Control Hermes data",
+      "source": "mission-control-v2-runtime",
+      "source_file": "/home/jellybot/dev_projects/portfolio-intel/mission-control-v2/data/hermes.json",
+      "category": "Dashboard",
+      "url": "http://127.0.0.1:8787/data/hermes.json",
+      "service": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 8787,
+        "path": "/data/hermes.json",
+        "runtime_host": "jellyberry"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "generated_at"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Local checker may use 127.0.0.1:8787 on jellyberry; Homepage clients should use the LAN URL http://192.168.1.159:8787."
+      ]
+    },
+    {
+      "id": "mission-control-roadmap-data",
+      "display_name": "Portfolio Mission Control roadmap data",
+      "source": "mission-control-v2-runtime",
+      "source_file": "/home/jellybot/dev_projects/portfolio-intel/mission-control-v2/data/roadmap.json",
+      "category": "Dashboard",
+      "url": "http://127.0.0.1:8787/data/roadmap.json",
+      "service": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 8787,
+        "path": "/data/roadmap.json",
+        "runtime_host": "jellyberry"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "generated_at"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Local checker may use 127.0.0.1:8787 on jellyberry; Homepage clients should use the LAN URL http://192.168.1.159:8787."
+      ]
+    },
+    {
+      "id": "homepage-core-homepage",
+      "display_name": "Homepage",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Core",
+      "url": "http://192.168.1.1",
+      "homepage_href": "http://192.168.1.1",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.1",
+        "port": 80,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-core-dozzle",
+      "display_name": "Dozzle",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Core",
+      "url": "http://192.168.1.1:8080",
+      "homepage_href": "http://192.168.1.1:8080",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.1",
+        "port": 8080,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-core-portainer",
+      "display_name": "Portainer",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Core",
+      "url": "https://192.168.1.1:9443",
+      "homepage_href": "https://192.168.1.1:9443",
+      "service": {
+        "scheme": "https",
+        "host": "192.168.1.1",
+        "port": 9443,
+        "path": "/"
+      },
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
+      "acceptable_skip_reason": "Portainer uses HTTPS/auth and may require self-signed TLS handling; keep inventory-only until the checker has explicit auth/TLS policy.",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-core-network-map",
+      "display_name": "Network Map",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Core",
+      "url": "http://192.168.1.2:8788",
+      "homepage_href": "http://192.168.1.2:8788",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 8788,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-monitoring-prometheus",
+      "display_name": "Prometheus",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Monitoring",
+      "url": "http://192.168.1.2:9090",
+      "homepage_href": "http://192.168.1.2:9090",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 9090,
+        "path": "/"
+      },
+      "expected_http": {
+        "status": 200,
+        "path_override": "/-/ready"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-monitoring-alertmanager",
+      "display_name": "Alertmanager",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Monitoring",
+      "url": "http://192.168.1.2:9093",
+      "homepage_href": "http://192.168.1.2:9093",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 9093,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-monitoring-grafana",
+      "display_name": "Grafana",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Monitoring",
+      "url": "http://192.168.1.2:3001",
+      "homepage_href": "http://192.168.1.2:3001",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 3001,
+        "path": "/"
+      },
+      "expected_http": {
+        "status": 200,
+        "path_override": "/api/health",
+        "text_contains": "database"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-monitoring-loki",
+      "display_name": "Loki",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Monitoring",
+      "url": "http://192.168.1.2:3100",
+      "homepage_href": "http://192.168.1.2:3100",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 3100,
+        "path": "/"
+      },
+      "expected_http": {
+        "status": 200,
+        "path_override": "/ready",
+        "text_contains": "ready"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-monitoring-mqtt-exporter",
+      "display_name": "MQTT Exporter",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Monitoring",
+      "url": "http://192.168.1.2:9000/metrics",
+      "homepage_href": "http://192.168.1.2:9000/metrics",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 9000,
+        "path": "/metrics"
+      },
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
+      "network_assumptions": [
+        "MQTT Exporter listens on jellybase for local/Prometheus metrics collection; direct LAN access from jellyberry currently times out.",
+        "Use Prometheus/Jellyoffice dashboard links for operator visibility rather than paging on this direct exporter endpoint."
+      ],
+      "acceptable_skip_reason": "jellybase-local metrics endpoint; reachable from Prometheus/host but not from the LAN checker due current firewall/exposure policy"
+    },
+    {
+      "id": "homepage-monitoring-alloy",
+      "display_name": "Alloy",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Monitoring",
+      "url": "http://127.0.0.1:12345/metrics",
+      "homepage_href": "http://127.0.0.1:12345/metrics",
+      "service": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 12345,
+        "path": "/metrics"
+      },
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
+      "acceptable_skip_reason": "host-local endpoint; 127.0.0.1 would target the checker host, not necessarily the service host",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-iot-home-assistant",
+      "display_name": "Home Assistant",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "IoT",
+      "url": "http://192.168.1.2:8123",
+      "homepage_href": "http://192.168.1.2:8123",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 8123,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-iot-mosquitto-mqtt",
+      "display_name": "Mosquitto MQTT",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "IoT",
+      "url": "mqtt://192.168.1.1:1883",
+      "homepage_href": "mqtt://192.168.1.1:1883",
+      "service": {
+        "scheme": "mqtt",
+        "host": "192.168.1.1",
+        "port": 1883,
+        "path": "/"
+      },
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
+      "acceptable_skip_reason": "non-HTTP scheme 'mqtt'; link inventory only until the checker supports protocol-specific probes",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-iot-jellyoffice-enviro",
+      "display_name": "Jellyoffice Enviro",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "IoT",
+      "url": "http://192.168.1.2:9090/graph?g0.expr=mqtt_temperature%7Bmonitored_host%3D%22jellyoffice%22%7D&g0.tab=0",
+      "homepage_href": "http://192.168.1.2:9090/graph?g0.expr=mqtt_temperature%7Bmonitored_host%3D%22jellyoffice%22%7D&g0.tab=0",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 9090,
+        "path": "/graph"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-projects-portfolio-mission-control",
+      "display_name": "Portfolio Mission Control",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Projects",
+      "url": "http://192.168.1.159:8787",
+      "homepage_href": "http://192.168.1.159:8787",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.159",
+        "port": 8787,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-projects-jellyfood",
+      "display_name": "Jellyfood",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Projects",
+      "url": "http://192.168.1.2:8793",
+      "homepage_href": "http://192.168.1.2:8793",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 8793,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-projects-jellyfood-api",
+      "display_name": "Jellyfood API",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Projects",
+      "url": "http://192.168.1.2:8794",
+      "homepage_href": "http://192.168.1.2:8794",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 8794,
+        "path": "/"
+      },
+      "expected_http": {
+        "status": 200,
+        "path_override": "/api/health",
+        "text_contains": "database"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-projects-3d-print-loader",
+      "display_name": "3D Print Loader",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Projects",
+      "url": "http://192.168.1.1:8793",
+      "homepage_href": "http://192.168.1.1:8793",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.1",
+        "port": 8793,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-study-sc-401-study-hub",
+      "display_name": "SC-401 Study Hub",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Study",
+      "url": "http://192.168.1.159:8791",
+      "homepage_href": "http://192.168.1.159:8791",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.159",
+        "port": 8791,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-tools-image-pastebin",
+      "display_name": "Image Pastebin",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Tools",
+      "url": "http://192.168.1.159:8792",
+      "homepage_href": "http://192.168.1.159:8792",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.159",
+        "port": 8792,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-tools-hindsight",
+      "display_name": "Hindsight",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Tools",
+      "url": "http://192.168.1.1:9999",
+      "homepage_href": "http://192.168.1.1:9999",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.1",
+        "port": 9999,
+        "path": "/"
+      },
+      "expected_http": {
+        "status_class": "2xx"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-tools-hindsight-api-openapi",
+      "display_name": "Hindsight API OpenAPI",
+      "source": "homepage-service-related-route",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Tools",
+      "url": "http://192.168.1.1:18888/openapi.json",
+      "homepage_href": "http://192.168.1.1:9999",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.1",
+        "port": 18888,
+        "path": "/openapi.json"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "openapi"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; Hindsight service exposes UI on 9999 and API on 18888 from jellyhome LAN/Tailnet addresses only."
+      ]
+    },
+    {
+      "id": "homepage-tools-crawl4ai",
+      "display_name": "Crawl4AI",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Tools",
+      "url": "http://192.168.1.2:11235/health",
+      "homepage_href": "http://192.168.1.2:11235/playground",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.2",
+        "port": 11235,
+        "path": "/health"
+      },
+      "expected_http": {
+        "status": 200,
+        "text_contains": "status"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN context only; Crawl4AI is bound to jellybase LAN IP and intentionally not exposed on Tailnet/public interfaces.",
+        "Functional extraction requires JWT minted from the host-local Crawl4AI API token; watchdog checks only the unauthenticated health endpoint."
+      ]
+    },
+    {
+      "id": "homepage-media-manyfold",
+      "display_name": "Manyfold",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Media",
+      "url": "http://192.168.1.1:3214",
+      "homepage_href": "http://192.168.1.1:3214",
+      "service": {
+        "scheme": "http",
+        "host": "192.168.1.1",
+        "port": 3214,
+        "path": "/"
+      },
+      "expected_http": {
+        "status": 200,
+        "path_override": "/health"
+      },
+      "required": true,
+      "check_mode": "http",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-data-central-postgresql",
+      "display_name": "Central PostgreSQL",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Data",
+      "url": "postgresql://192.168.1.2:5432",
+      "homepage_href": "postgresql://192.168.1.2:5432",
+      "service": {
+        "scheme": "postgresql",
+        "host": "192.168.1.2",
+        "port": 5432,
+        "path": "/"
+      },
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
+      "acceptable_skip_reason": "non-HTTP scheme 'postgresql'; link inventory only until the checker supports protocol-specific probes",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-remote-access-seedit4-me-reverse-tunnel",
+      "display_name": "Seedit4.me Reverse Tunnel",
+      "source": "homepage-service",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml",
+      "category": "Remote Access",
+      "url": "ssh://nl13.seedit4.me:2088",
+      "homepage_href": "ssh://nl13.seedit4.me:2088",
+      "service": {
+        "scheme": "ssh",
+        "host": "nl13.seedit4.me",
+        "port": 2088,
+        "path": "/"
+      },
+      "expected_http": null,
+      "required": false,
+      "check_mode": "skip",
+      "acceptable_skip_reason": "non-HTTP scheme 'ssh'; link inventory only until the checker supports protocol-specific probes",
+      "network_assumptions": [
+        "Trusted LAN/Tailnet context; checker must run from a host that can reach 192.168.1.0/24 service addresses."
+      ]
+    },
+    {
+      "id": "homepage-bookmark-operations-home-network-repo",
+      "display_name": "Home Network Repo",
+      "source": "homepage-bookmark",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/bookmarks.yaml",
+      "category": "Operations",
+      "url": "https://github.com/dotalbot/home-network",
+      "service": {
+        "scheme": "https",
+        "host": "github.com",
+        "port": 443,
+        "path": "/dotalbot/home-network"
+      },
+      "expected_http": {
+        "allowed_status_classes": [
+          "2xx",
+          "3xx"
+        ]
+      },
+      "required": false,
+      "check_mode": "external_http",
+      "acceptable_skip_reason": "External GitHub link; useful in manual/audit mode but should not page for LAN dashboard health.",
+      "network_assumptions": [
+        "Requires public internet and GitHub access; skip in LAN-only or no-internet watchdog runs."
+      ]
+    },
+    {
+      "id": "homepage-bookmark-operations-roadmap",
+      "display_name": "Roadmap",
+      "source": "homepage-bookmark",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/bookmarks.yaml",
+      "category": "Operations",
+      "url": "https://github.com/dotalbot/home-network/blob/main/docs/roadmap/product-roadmap.md",
+      "service": {
+        "scheme": "https",
+        "host": "github.com",
+        "port": 443,
+        "path": "/dotalbot/home-network/blob/main/docs/roadmap/product-roadmap.md"
+      },
+      "expected_http": {
+        "allowed_status_classes": [
+          "2xx",
+          "3xx"
+        ]
+      },
+      "required": false,
+      "check_mode": "external_http",
+      "acceptable_skip_reason": "External GitHub link; useful in manual/audit mode but should not page for LAN dashboard health.",
+      "network_assumptions": [
+        "Requires public internet and GitHub access; skip in LAN-only or no-internet watchdog runs."
+      ]
+    },
+    {
+      "id": "homepage-bookmark-operations-ops-docs",
+      "display_name": "Ops Docs",
+      "source": "homepage-bookmark",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/bookmarks.yaml",
+      "category": "Operations",
+      "url": "https://github.com/dotalbot/home-network/tree/main/docs/operations",
+      "service": {
+        "scheme": "https",
+        "host": "github.com",
+        "port": 443,
+        "path": "/dotalbot/home-network/tree/main/docs/operations"
+      },
+      "expected_http": {
+        "allowed_status_classes": [
+          "2xx",
+          "3xx"
+        ]
+      },
+      "required": false,
+      "check_mode": "external_http",
+      "acceptable_skip_reason": "External GitHub link; useful in manual/audit mode but should not page for LAN dashboard health.",
+      "network_assumptions": [
+        "Requires public internet and GitHub access; skip in LAN-only or no-internet watchdog runs."
+      ]
+    },
+    {
+      "id": "homepage-bookmark-operations-network-map-docs",
+      "display_name": "Network Map Docs",
+      "source": "homepage-bookmark",
+      "source_file": "/home/jellybot/dev_projects/home-network/docker/appdata/homepage/bookmarks.yaml",
+      "category": "Operations",
+      "url": "https://github.com/dotalbot/home-network/blob/main/docs/operations/network-map-dashboard.md",
+      "service": {
+        "scheme": "https",
+        "host": "github.com",
+        "port": 443,
+        "path": "/dotalbot/home-network/blob/main/docs/operations/network-map-dashboard.md"
+      },
+      "expected_http": {
+        "allowed_status_classes": [
+          "2xx",
+          "3xx"
+        ]
+      },
+      "required": false,
+      "check_mode": "external_http",
+      "acceptable_skip_reason": "External GitHub link; useful in manual/audit mode but should not page for LAN dashboard health.",
+      "network_assumptions": [
+        "Requires public internet and GitHub access; skip in LAN-only or no-internet watchdog runs."
+      ]
+    }
+  ]
+}
