@@ -23,7 +23,7 @@ from typing import Any
 
 DEFAULT_CONFIG = Path(os.environ.get(
     "DASHBOARD_LINK_CHECK_CONFIG",
-    "/home/jellybot/hermes-ops/config/dashboard-links.json",
+    "/home/jellybot/dev_projects/hermes-ops/config/dashboard-links.json",
 ))
 DEFAULT_STATE = Path(os.environ.get(
     "DASHBOARD_LINK_CHECK_STATE",

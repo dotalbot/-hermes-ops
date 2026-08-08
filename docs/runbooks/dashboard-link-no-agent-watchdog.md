@@ -15,7 +15,7 @@ Source of truth in this repo:
 Runtime copy for Hermes cron:
 
 - Script: `/home/jellybot/.hermes/scripts/dashboard_link_check.py`
-- Default config path: `/home/jellybot/hermes-ops/config/dashboard-links.json`
+- Default config path: `/home/jellybot/dev_projects/hermes-ops/config/dashboard-links.json`
 - State: `/home/jellybot/.hermes/state/dashboard_link_check_state.json`
 - Lock: `/home/jellybot/.hermes/state/dashboard_link_check.lock`
 - Log: `/home/jellybot/.hermes/logs/dashboard_link_check.log`

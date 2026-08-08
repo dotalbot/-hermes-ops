@@ -20,8 +20,8 @@ Runtime copy for the installed default-profile Hermes cron job:
 | Runtime path | Purpose |
 |---|---|
 | `/home/jellybot/.hermes/scripts/dashboard_health_notifier_cron.sh` | Script scheduled by Hermes cron (default profile) |
-| `/home/jellybot/hermes-ops/config/dashboard-inventory.json` | Inventory read by the runtime wrapper |
-| `/home/jellybot/hermes-ops/config/.dashboard-heartbeat-state.json` | Optional heartbeat state, ignored by git |
+| `/home/jellybot/dev_projects/hermes-ops/config/dashboard-inventory.json` | Inventory read by the runtime wrapper |
+| `/home/jellybot/dev_projects/hermes-ops/config/.dashboard-heartbeat-state.json` | Optional heartbeat state, ignored by git |
 | `/home/jellybot/.hermes/cron/output/<job_id>/` | Scheduler run records |
 
 To switch to a different profile, copy the wrapper to that profile's `scripts/` dir and recreate the job with `--profile <name>`.
@@ -31,7 +31,7 @@ To switch to a different profile, copy the wrapper to that profile's `scripts/` 
 Run from the repo root:
 
 ```bash
-cd /home/jellybot/hermes-ops
+cd /home/jellybot/dev_projects/hermes-ops
 
 # Human-readable checker output; non-zero means at least one required red check.
 python3 scripts/dashboard_health_check.py
@@ -51,7 +51,7 @@ python3 scripts/dashboard_notifier.py --console
 python3 scripts/dashboard_notifier.py --dry-run --to-mission-control
 
 # Runtime wrapper exactly as Hermes cron executes it.
-/home/jellybot/hermes-ops/scripts/dashboard_health_notifier_cron.sh
+/home/jellybot/dev_projects/hermes-ops/scripts/dashboard_health_notifier_cron.sh
 ```
 
 Expected exit codes:
@@ -204,7 +204,7 @@ Fix: run the checker on the inventory `network_context.primary_checker_host` (`j
 
 Symptoms: HTTP `404`, `502`, `503`, or timeout after service migration.
 
-Fix: verify the live service endpoint, update `url`, `service.host`, `service.port`, and Homepage entries together, then rerun the notifier. For Docker-managed services, also check the source-of-truth compose/appdata in `/home/jellybot/home-network`.
+Fix: verify the live service endpoint, update `url`, `service.host`, `service.port`, and Homepage entries together, then rerun the notifier. For Docker-managed services, also check the source-of-truth compose/appdata in `/home/jellybot/dev_projects/home-network`.
 
 ### Missing dashboard/plugin assets
 
@@ -235,7 +235,7 @@ Symptoms: manual repo run works but cron fails with missing inventory or stale b
 Fix:
 
 ```bash
-install -m 0755 /home/jellybot/hermes-ops/scripts/dashboard_health_notifier_cron.sh \
+install -m 0755 /home/jellybot/dev_projects/hermes-ops/scripts/dashboard_health_notifier_cron.sh \
   /home/jellybot/.hermes/profiles/homenetworkworker/scripts/dashboard_health_notifier_cron.sh
 hermes cron run <job_id>
 ```
@@ -247,7 +247,7 @@ Then inspect `/home/jellybot/.hermes/cron/output/<job_id>/`.
 This validation does not modify the production inventory. It copies the inventory, injects one intentionally unreachable required port check, and confirms the notifier returns red:
 
 ```bash
-cd /home/jellybot/hermes-ops
+cd /home/jellybot/dev_projects/hermes-ops
 
 tmp=$(mktemp)
 python3 - "$tmp" <<'PY'
@@ -287,7 +287,7 @@ Run before changing the schedule or declaring the branch ready:
 bash -n scripts/dashboard_health_notifier_cron.sh
 python3 -m py_compile scripts/dashboard_health_check.py scripts/dashboard_notifier.py
 python3 scripts/dashboard_notifier.py --console
-/home/jellybot/hermes-ops/scripts/dashboard_health_notifier_cron.sh; echo "repo_exit=$?"
+/home/jellybot/dev_projects/hermes-ops/scripts/dashboard_health_notifier_cron.sh; echo "repo_exit=$?"
 /home/jellybot/.hermes/profiles/homenetworkworker/scripts/dashboard_health_notifier_cron.sh; echo "runtime_exit=$?"
 hermes cron status
 hermes cron list

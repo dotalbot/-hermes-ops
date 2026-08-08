@@ -36,8 +36,12 @@ Good examples:
 - `docs/specs/dashboard-health-check-inventory-contract.md`
 - `docs/reports/dashboard-link-no-agent-validation.md`
 - `docs/reports/recurring-chat-checks-no-agent-conversion-plan.md`
+- `docs/reports/backup-metadata-sources.md`
+- `docs/plans/backup-freshness-check.md`
+- `docs/runbooks/backup-freshness-check.md`
 - `docs/plans/dashboard-link-no-agent-watchdog.md`
 - `docs/operations/dominic-hermes-operating-manual.md`
+- `docs/operations/home-directory-project-layout.md`
 - `docs/bugs/2026-05-29-scratch-artifact-loss.md`
 
 Bad example:

@@ -119,13 +119,13 @@ Action ids:
 Intended target host/service:
 
 - Host: `<PORTFOLIO_HOST>`; current runtime host is `jellyberry` unless config says otherwise.
-- Repository/runtime path: `/home/jellybot/portfolio-intel` or approved deployment path.
+- Repository/runtime path: `/home/jellybot/dev_projects/portfolio-intel` or approved deployment path.
 - Service/subsystem: portfolio-intel collector scripts and generated dashboard data.
 
 Example command shape:
 
 ```bash
-cd /home/jellybot/portfolio-intel
+cd /home/jellybot/dev_projects/portfolio-intel
 <PYTHON> scripts/<ALLOWLISTED_COLLECTOR>.py --config <CONFIG_PATH>
 ```
 

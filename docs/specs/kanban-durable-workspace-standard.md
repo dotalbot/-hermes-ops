@@ -18,9 +18,9 @@ Kanban tasks that produce lasting output must write final deliverables into the 
 
 | Board | Durable folder | Use for |
 |---|---|---|
-| `continuous-hermes-improvement` | `/home/jellybot/hermes-ops` | Hermes operating docs, local standards, guides, reports, plans, decisions |
-| `home-network` | `/home/jellybot/home-network` | Homelab configuration, runbooks, operations docs, specs |
-| `portfolio` | `/home/jellybot/portfolio-intel` | Portfolio/project-awareness roadmap, specs, operations, architecture, plans |
+| `continuous-hermes-improvement` | `/home/jellybot/dev_projects/hermes-ops` | Hermes operating docs, local standards, guides, reports, plans, decisions |
+| `home-network` | `/home/jellybot/dev_projects/home-network` | Homelab configuration, runbooks, operations docs, specs |
+| `portfolio` | `/home/jellybot/dev_projects/portfolio-intel` | Portfolio/project-awareness roadmap, specs, operations, architecture, plans |
 
 ## Required docs layout
 
@@ -58,9 +58,9 @@ Output path:
 Use one of these for durable work:
 
 ```bash
---workspace dir:/home/jellybot/hermes-ops
---workspace dir:/home/jellybot/home-network
---workspace dir:/home/jellybot/portfolio-intel
+--workspace dir:/home/jellybot/dev_projects/hermes-ops
+--workspace dir:/home/jellybot/dev_projects/home-network
+--workspace dir:/home/jellybot/dev_projects/portfolio-intel
 ```
 
 Use `worktree:` for isolated Hermes Agent source-code changes:
@@ -103,9 +103,9 @@ If the repo has no remote, push fails, or credentials are missing, do not silent
 
 Repo-specific push behavior:
 
-- `/home/jellybot/home-network`: commit and push `main` directly for routine home-network work.
-- `/home/jellybot/hermes-ops`: commit and push the active branch when a remote is configured.
-- `/home/jellybot/portfolio-intel`: follow the repo's current branch workflow; do not merge unless Dominic asks.
+- `/home/jellybot/dev_projects/home-network`: commit and push `main` directly for routine home-network work.
+- `/home/jellybot/dev_projects/hermes-ops`: commit and push the active branch when a remote is configured.
+- `/home/jellybot/dev_projects/portfolio-intel`: follow the repo's current branch workflow; do not merge unless Dominic asks.
 - `/home/jellybot/.hermes/hermes-agent`: use a feature/worktree branch for source-code changes and push that branch; do not merge unless Dominic asks.
 
 ## Existing-card review rule

@@ -43,7 +43,7 @@ Rules:
 ## Repo rules
 
 - Work on a feature branch by default.
-- Exception: `/home/jellybot/home-network` usually commits directly to `main` by Dominic's standing preference.
+- Exception: `/home/jellybot/dev_projects/home-network` usually commits directly to `main` by Dominic's standing preference.
 - Inspect `git status --short --branch` before edits, commits, pulls, or pushes.
 - Preserve user or worker changes; do not overwrite unknown diffs.
 - Keep each change to the smallest useful diff.

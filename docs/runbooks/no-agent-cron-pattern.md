@@ -158,8 +158,8 @@ Examples:
 
 - `portfolio_event_refresh.py`:
   - Polls GitHub repo release/tag/successful-merged-PR signals.
-  - Stores state in `/home/jellybot/portfolio-intel/data/portfolio_event_refresh_state.json`.
-  - Uses a lock file `/home/jellybot/portfolio-intel/data/portfolio_event_refresh.lock` with stale-lock handling.
+  - Stores state in `/home/jellybot/dev_projects/portfolio-intel/data/portfolio_event_refresh_state.json`.
+  - Uses a lock file `/home/jellybot/dev_projects/portfolio-intel/data/portfolio_event_refresh.lock` with stale-lock handling.
   - If another run holds the lock, returns with no output.
   - If the fingerprint did not change, writes state and returns with no output.
   - If changed, runs the collector and prints a concise refresh summary plus warnings.

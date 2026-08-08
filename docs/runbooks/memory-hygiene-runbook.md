@@ -216,10 +216,12 @@ Bad answer shape:
 ## Bank taxonomy operating guidance
 
 Current recommendation:
-- Keep `hermes-main` as the shared/default bank for cross-cutting Hermes and user/operator context.
-- Pilot a separate `home-network` bank first because homelab operational facts have a strong domain boundary and high noise pressure.
-- Consider `portfolio` later only if the `home-network` pilot improves recall and portfolio recall remains noisy.
-- Defer `cert-study` until recurring study work creates enough durable recall volume.
+- Keep `hermes-main` as the shared/default bank for cross-cutting Hermes operating memory, profile behavior, tool conventions, Desktop/session/Kanban policy, and memory policy.
+- Route home-network/homelab infrastructure facts to `home-network-main`; `homenetworkworker` is the profile for this bank.
+- Route reusable remote-worker facts for `jellybase_hermes` to `jellybase-worker-main`; keep `auto_retain=false` until the worker has proven low-noise retention behavior.
+- Keep project-specific architecture and durable project decisions in project banks such as `logk-main`, `jellyfood-main`, `portfolio-intel-main`, or future project banks.
+- Use `global-dominic` sparingly for stable user/environment facts that should apply across projects.
+- Do not create one bank per session by default. Session identity belongs in metadata/context unless a short-lived eval/lab bank is explicitly needed.
 
 Bank split rule:
 - A new bank is justified only when the domain boundary is stable, shared-bank noise materially hurts recall, and future queries are usually domain-scoped enough to benefit from isolated recall.
@@ -229,6 +231,16 @@ Migration posture:
 - Route new memories conservatively.
 - Manually migrate only a small set of obviously durable, high-value facts.
 - Reassess after 2-4 weeks using actual recall quality, routing mistakes, and duplicate pressure.
+
+Current profile-to-bank map checked on 2026-08-08:
+- `default` -> `hermes-main`.
+- `homenetworkworker` -> `home-network-main`.
+- `jellybase_hermes` -> `jellybase-worker-main` with `auto_recall=true` and `auto_retain=false`.
+- `hindsightpilot` -> removed after export because it had been writing pilot/test memory into `hermes-main`.
+
+One agent can support several banks only when the Hindsight provider resolves a `bank_id_template` from reliable context. Supported placeholders include `{profile}`, `{workspace}`, `{platform}`, `{user}`, and `{session}`. Prefer explicit profile-to-bank mapping until `{workspace}` is verified across CLI, Desktop, gateway, and Kanban worker contexts. Avoid `{session}` as a default because it creates fragmented banks.
+
+Hindsight container note: creating new banks on `jellyhome` requires more than Docker's default 64 MiB `/dev/shm` because embedded PostgreSQL may allocate large shared-memory segments while creating vector indexes. The Hindsight service should keep `shm_size: "1gb"` in the `jellyhome` Compose overlay.
 
 ## Audit findings to keep watching
 

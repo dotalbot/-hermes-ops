@@ -35,7 +35,7 @@ except ImportError:
 DEFAULT_INVENTORY = Path(
     os.environ.get(
         "DASHBOARD_INVENTORY",
-        "/home/jellybot/hermes-ops/config/dashboard-inventory.json",
+        "/home/jellybot/dev_projects/hermes-ops/config/dashboard-inventory.json",
     )
 )
 USER_AGENT = "HermesDashboardHealthCheck/1.0 (+deterministic-cron)"

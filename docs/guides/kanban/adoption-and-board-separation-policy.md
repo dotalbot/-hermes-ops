@@ -48,17 +48,17 @@ Choose the board by the source of truth for the final artifact:
 
 - `home-network`
   - Use for homelab infrastructure, Docker services, monitoring, backups, network maps, Homepage, Jellyoffice, and runtime deployment work.
-  - Durable repo: `/home/jellybot/home-network`.
+  - Durable repo: `/home/jellybot/dev_projects/home-network`.
   - Example: "Add Borgmatic restore verification for jellyhome" belongs here.
 
 - `portfolio`
   - Use for portfolio intelligence, project tracking, dashboards, investment/research summaries, and portfolio progress digests.
-  - Durable repo: `/home/jellybot/portfolio-intel`.
+  - Durable repo: `/home/jellybot/dev_projects/portfolio-intel`.
   - Example: "Add a source-quality audit to the portfolio digest" belongs here.
 
 - `continuous-hermes-improvement`
   - Use for Hermes operating model, Kanban policy, memory/Hindsight hygiene, assistant workflow, worker standards, gateway behavior, and local Hermes process docs.
-  - Durable repo: `/home/jellybot/hermes-ops` unless changing Hermes Agent source code.
+  - Durable repo: `/home/jellybot/dev_projects/hermes-ops` unless changing Hermes Agent source code.
   - Example: "Define when chat work becomes Kanban work" belongs here.
 
 - Hermes Agent source code

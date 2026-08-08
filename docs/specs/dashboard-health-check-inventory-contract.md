@@ -8,10 +8,10 @@ Machine-readable inventory: `config/dashboard-inventory.json`
 
 ## Sources represented
 
-- Homepage services: `/home/jellybot/home-network/docker/appdata/homepage/services.yaml`
-- Homepage bookmarks: `/home/jellybot/home-network/docker/appdata/homepage/bookmarks.yaml`
+- Homepage services: `/home/jellybot/dev_projects/home-network/docker/appdata/homepage/services.yaml`
+- Homepage bookmarks: `/home/jellybot/dev_projects/home-network/docker/appdata/homepage/bookmarks.yaml`
 - Hermes dashboard runtime: `/home/jellybot/.config/systemd/user/hermes-dashboard.service`, checked through port `9119`
-- Portfolio Mission Control runtime: `/home/jellybot/portfolio-intel/mission-control-v2`, checked through port `8787`
+- Portfolio Mission Control runtime: `/home/jellybot/dev_projects/portfolio-intel/mission-control-v2`, checked through port `8787`
 
 ## Network context
 

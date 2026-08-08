@@ -22,7 +22,7 @@ CLI usage:
 Env vars (secrets go in ~/.hermes/.env, never hard-coded):
   DASHBOARD_WEBHOOK_URL        Discord webhook URL for --to-webhook
   DASHBOARD_MISSION_CONTROL    Path to write Mission Control JSON (default:
-                               /home/jellybot/portfolio-intel/mission-control-v2/data/dashboard-health.json)
+                               /home/jellybot/dev_projects/portfolio-intel/mission-control-v2/data/dashboard-health.json)
   DASHBOARD_HEARTBEAT_HOURS    Optional: send a heartbeat every N hours even
                                when all green (0 = disabled, default)
   DASHBOARD_DRY_RUN            Set to "1" to enable dry-run from env
@@ -55,7 +55,7 @@ DEFAULT_INVENTORY = Path(
 DEFAULT_MISSION_CONTROL_OUTPUT = Path(
     os.environ.get(
         "DASHBOARD_MISSION_CONTROL",
-        "/home/jellybot/portfolio-intel/mission-control-v2/data/dashboard-health.json",
+        "/home/jellybot/dev_projects/portfolio-intel/mission-control-v2/data/dashboard-health.json",
     )
 )
 HEARTBEAT_STATE = REPO / "config" / ".dashboard-heartbeat-state.json"
