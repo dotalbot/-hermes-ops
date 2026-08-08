@@ -1,7 +1,7 @@
 # Hindsight `hermes-main` pollution candidate report
 
 Date: 2026-08-08
-Mode: read-only candidate generation
+Mode: read-only candidate generation plus approved pilot cleanup
 Bank: `hermes-main`
 Total memories fetched: 5386
 
@@ -12,8 +12,15 @@ Raw memory-list backup was written locally with mode `0600` because memory text 
 - Backup JSONL: `/home/jellybot/projects/hindsight-cleanup/hermes-main-memory-list-20260808T003100Z.jsonl`
 - SHA256: `323344ccc542d09f06013af0ea2d62f16ce87543c5e5e121f846c4a24d9a1592`
 - Candidate JSON: `/home/jellybot/projects/hindsight-cleanup/hermes-main-cleanup-candidates-20260808T003100Z.json`
+- Approved cleanup action manifest: `/home/jellybot/projects/hindsight-cleanup/hermes-main-stale-0.6.2-cleanup-actions-20260808T004824Z.json`
 
-No Hindsight memories were deleted or edited by this report.
+The initial report was read-only. After human review, the 11 stale `0.6.2` current-state candidates were cleaned up as a small pilot batch. World/experience facts were soft-invalidated with a curation reason; derived observations were removed with the targeted `/memories/{memory_id}/observations` endpoint. The bank-wide `DELETE /memories` endpoint was not used.
+
+Post-cleanup verification from `/memories/list` found `0` exact stale-current hits for:
+
+- `current version of Hindsight is 0.6.2`
+- `Hindsight v0.6.2 runs on jellyhome`
+- `current version in use is 0.6.2`
 
 ## Candidate counts
 
@@ -41,9 +48,9 @@ These are candidates for review and possible copy/migration to `home-network-mai
 11. `184cefe8-76c8-44ea-a685-80bb0ab30e9f` `observation` 2026-08-07T21:20:27.951676+00:00 — User needs to configure `jellybase_hermes` due to a config bug where the profile states Hindsight provider, but it is unavailable and lacks profile-local Hindsight config. User is recommended to add the config file at `/…
 12. `c43b9723-990a-4559-9370-768398a16a33` `world` 2026-08-08T00:24:40.704067+00:00 — User needs to configure `jellybase_hermes` due to a config bug where the profile states Hindsight provider, which is unavailable, and lacks profile-local Hindsight config. | When: 2026-08-08 | Involving: user
 
-## Stale `0.6.2` current-state candidates
+## Stale `0.6.2` current-state candidates — cleaned up
 
-These are the highest-priority cleanup candidates because Hindsight is now verified at `0.9.0`.
+These were the highest-priority cleanup candidates because Hindsight is now verified at `0.9.0`. They were cleaned up after review on 2026-08-08.
 
 1. `e43953e2-b3db-4018-a0bb-fc0504317f5e` `world` 2026-08-08T00:24:40.684067+00:00 — User identified that current-state facts stating version 0.6.2 of Hindsight are problematic and should be removed or neutralized. | Involving: user | To ensure accurate representation of the current version of Hindsight.
 2. `781b786c-ac87-47d6-a5b3-f82853674ada` `observation` 2026-08-07T21:20:27.931676+00:00 — User identified that current-state facts stating version 0.6.2 of Hindsight are problematic and should be removed or neutralized to ensure accurate representation of the current version of Hindsight.
@@ -121,15 +128,15 @@ The Desktop session did write new memory into `hermes-main`. Some of this may be
 
 ## Recommended next action
 
-Do not delete anything yet.
+The stale-version pilot cleanup is complete. Do not proceed to broader cleanup without another reviewed candidate batch.
 
-1. Review `/home/jellybot/projects/hindsight-cleanup/hermes-main-cleanup-candidates-20260808T003100Z.json`.
-2. Select a very small pilot batch:
-   - stale `0.6.2` current-state observations first;
-   - obvious exact duplicates second;
-   - home-network facts only after checking whether they should be retained into `home-network-main`.
-3. For every selected deletion/edit, record memory ID and reason.
-4. Verify recall before and after:
+Suggested next reviewed batches:
+
+1. Stale profile-routing facts such as `hindsightpilot` still existing or `jellybase_hermes` still lacking Hindsight config.
+2. Obvious exact duplicates that are not useful as historical evidence.
+3. Home-network/domain facts, but only after deciding whether each fact should be copied or retained into `home-network-main` first.
+
+For every selected edit, record memory ID and reason, then verify recall before and after:
    - `current Hindsight version`
    - `home-network source path`
    - `jellybase_hermes memory bank`
