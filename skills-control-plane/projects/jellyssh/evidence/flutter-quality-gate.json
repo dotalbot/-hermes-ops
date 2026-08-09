@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "project": "jellyssh",
+  "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+  "initial_disposable_smoke": {
+    "pub_get": "completed",
+    "analyze": "blocked-exit-1",
+    "analyze_duration_seconds": 15.0,
+    "finding_count": 4,
+    "test": "not-run-set-e-stopped-at-analyze",
+    "cleanup": "completed-after-recovery"
+  },
+  "restricted_controller": {
+    "sandbox_self_check": "PASS",
+    "dart_format": "PASS-135-files-0-changed",
+    "flutter_analyze": "BLOCK",
+    "flutter_test": "BLOCK"
+  },
+  "findings": [
+    {
+      "severity": "info",
+      "path": "app/lib/screens/groups/manage_groups_screen.dart",
+      "line": 67,
+      "rule": "deprecated_member_use",
+      "summary": "onReorder is deprecated; use onReorderItem"
+    },
+    {
+      "severity": "info",
+      "path": "app/lib/screens/sftp/sftp_browser_screen.dart",
+      "line": 58,
+      "rule": "unawaited_futures",
+      "summary": "Future expression is missing await or unawaited handling"
+    },
+    {
+      "severity": "error",
+      "path": "app/test/services/port_forward_service_test.dart",
+      "line": 551,
+      "rule": "non_abstract_class_inherits_abstract_member",
+      "summary": "Missing concrete implementation of SSHSocket.flush"
+    },
+    {
+      "severity": "error",
+      "path": "app/test/services/sftp_service_test.dart",
+      "line": 100,
+      "rule": "invalid_override",
+      "summary": "Synchronous fake close does not override Future<void> SftpClient.close"
+    }
+  ]
+}

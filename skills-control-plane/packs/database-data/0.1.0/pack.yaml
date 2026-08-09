@@ -1,0 +1,15 @@
+schema_version: 1
+kind: capability-pack
+name: database-data
+version: 0.1.0
+state: approved-for-isolated-test
+immutable: true
+activation: mandatory when persistent-data risk triggers fire
+hash_algorithm: sha256(sorted(u64be(path-length) + path + u64be(content-length) + content))
+skills:
+- name: database-data-review
+  path: skills/database-data-review
+  bundle_sha256: sha256:4ea43c31686f5f6c2ac0d99f92a415475ae4fe7a97de9e5be20e4201b0402085
+  approval_state: phase2-isolated-test
+bundle_sha256: sha256:eae9d69125f92eff65d6c249cfcc3e9a3ab6384a2dbc1cbdcf3530d46f18a339
+manifest_sha256: sha256:a5cf371afa85c33b6fe1b6cd6dee8e83fdcca941457220074fe6a969c2f05437

@@ -18,12 +18,12 @@ Run only one Jellybase implementation card at a time until the project has delib
 ```text
 Title: Prepare feature branch for <feature>
 
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 Target remote: jellydev@192.168.1.2 through jellybase-lan
 
 Required actions:
 1. Inspect git status, remotes, current branch, default branch, existing docs, and test commands.
-2. If the repository clone does not exist, clone it under /home/jellydev/src/<repo>.
+2. If the repository clone does not exist, clone it under /home/jellydev/dev_projects/<repo>.
 3. Fetch and fast-forward the default branch without overwriting local changes.
 4. Create feat/<feature>.
 5. Report repository path, branch, HEAD, remote, current status, and test commands.
@@ -38,7 +38,7 @@ Use this only after an interactive design session has settled the feature.
 ```text
 Title: Publish feature specification for <feature>
 
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 Branch: feat/<feature>
 
 Read the agreed design, repository context, ADRs, and domain language.
@@ -52,7 +52,7 @@ Do not implement code.
 ```text
 Title: Implement <ticket title>
 
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 Branch: feat/<feature>
 Ticket: <issue URL or local ticket path>
 Specification: <spec URL or path>
@@ -81,7 +81,7 @@ Make this card dependent on the implementation card.
 ```text
 Title: Review <ticket title> on feat/<feature>
 
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 Branch: feat/<feature>
 Expected commit: <commit from implementation card>
 Specification/Ticket: <references>
@@ -103,7 +103,7 @@ Create a new card only if review finds a real issue.
 ```text
 Title: Resolve review findings for <ticket>
 
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 Branch: feat/<feature>
 Parent review: <review card id>
 

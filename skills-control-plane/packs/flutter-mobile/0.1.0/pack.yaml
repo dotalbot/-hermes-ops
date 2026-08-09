@@ -1,0 +1,15 @@
+schema_version: 1
+kind: capability-pack
+name: flutter-mobile
+version: 0.1.0
+state: approved-for-isolated-test
+immutable: true
+activation: mandatory when Flutter/mobile UI or platform risk triggers fire
+hash_algorithm: sha256(sorted(u64be(path-length) + path + u64be(content-length) + content))
+skills:
+- name: flutter-mobile-review
+  path: skills/flutter-mobile-review
+  bundle_sha256: sha256:571f7e06c21d47f898efeafe522125d5b0a9b8299b5f6eb780a72e077dd8e4cf
+  approval_state: phase2-isolated-test
+bundle_sha256: sha256:fcf64f75fc767c9737df2dfe4849552109cc2a16615e815358daaf591eb6356f
+manifest_sha256: sha256:b12ff53c1b4f9a329fa5786c107101511c2f9d15924c1fd80208235cd5a98459

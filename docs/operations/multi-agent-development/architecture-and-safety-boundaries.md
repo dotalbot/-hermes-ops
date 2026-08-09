@@ -13,7 +13,7 @@ Remote code work runs as `jellydev` through LAN SSH at `192.168.1.2`.
 Use a dedicated, non-production clone for each repository:
 
 ```text
-/home/jellydev/src/<repo>
+/home/jellydev/dev_projects/<repo>
 ```
 
 Do not develop in a deployment checkout, `/opt/...`, a different user's home directory, or a live service bind mount unless that exact location has been reviewed and approved for development.
@@ -27,7 +27,7 @@ Jellyberry owns:
 - orchestration and review coordination;
 - the local SSH configuration used to reach Jellybase.
 
-The current remote implementation profile is `jellybase_hermes`.
+The current generic remote implementation baseline is `jellybase_hermes`. It is not a silent fallback for project work. Use the project-specific profile named by the approved routing manifest; the JellySSH profiles in V3 remain proposed until Phase 2 is separately authorized and completed.
 
 ### 4. Kanban: queue and audit trail
 
@@ -45,7 +45,7 @@ jellydev@192.168.1.2:22
 
 Use the local `jellybase-lan` SSH alias where direct SSH is needed. Do not make operational work depend on Tailscale SSH because interactive reauthentication can interrupt workers.
 
-`jellybase_hermes` is non-privileged:
+Every approved Jellybase implementation profile inherits the non-privileged `jellybase_hermes` baseline:
 
 - no sudo by default;
 - stop and request approval if privileged work is required;
@@ -65,11 +65,11 @@ The operator-facing coordinator: clarify the feature, create and inspect cards, 
 
 ### `jellybase_hermes`
 
-The remote implementation worker: inspect the repository, create feature branches, change code, run tests, commit, and push only the specified branch.
+The generic remote implementation baseline: inspect only the approved repository, create feature branches, change code, run tests, commit, and push only when the card and project policy authorize it. Do not route project work here when an approved project-specific profile is required.
 
 ### Other profiles
 
-Use `homenetworkworker` only for home-network work. Do not assign ordinary app development to it. Add a separate read-only Jellybase reviewer profile only when independent remote code review becomes routine.
+Use `homenetworkworker` only for home-network work. Do not assign ordinary app development to it. Create project-specific implementation and read-only reviewer profiles only in the phase authorized by the operator; until then, block rather than substituting another profile.
 
 ## Concurrency policy
 

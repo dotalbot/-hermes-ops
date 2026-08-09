@@ -1,0 +1,82 @@
+schema_version: 1
+kind: core-release
+name: core-development
+version: 0.1.0
+state: approved-for-isolated-test
+immutable: true
+hash_algorithm: sha256(sorted(u64be(path-length) + path + u64be(content-length) + content))
+skills:
+- name: grill-with-docs
+  path: skills/grill-with-docs
+  bundle_sha256: sha256:717f9874c97277f88ed97d723b62a95e2584e195e596bdf6cd7a17ddd6103e80
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/grill-with-docs
+    bundle_sha256: sha256:717f9874c97277f88ed97d723b62a95e2584e195e596bdf6cd7a17ddd6103e80
+  approval_state: core-approved-for-phase2-isolated-test
+- name: to-spec
+  path: skills/to-spec
+  bundle_sha256: sha256:af351b6e88c6af18165deaa55c6f5615333bd06e6004fe512c5c1c3b02550ff7
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/to-spec
+    bundle_sha256: sha256:af351b6e88c6af18165deaa55c6f5615333bd06e6004fe512c5c1c3b02550ff7
+  approval_state: core-approved-for-phase2-isolated-test
+- name: to-tickets
+  path: skills/to-tickets
+  bundle_sha256: sha256:a9e272d3abd4d1ce46c8969e829e8da2baf9659a461456a77ec6ca25128d58e5
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/to-tickets
+    bundle_sha256: sha256:a9e272d3abd4d1ce46c8969e829e8da2baf9659a461456a77ec6ca25128d58e5
+  approval_state: core-approved-for-phase2-isolated-test
+- name: implement
+  path: skills/implement
+  bundle_sha256: sha256:3b21dbe2529b7c1f7292f0ac4c3db5b282bf139619341e1659e9e5d3a6a143db
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/implement
+    bundle_sha256: sha256:3b21dbe2529b7c1f7292f0ac4c3db5b282bf139619341e1659e9e5d3a6a143db
+  approval_state: core-approved-for-phase2-isolated-test
+- name: tdd
+  path: skills/tdd
+  bundle_sha256: sha256:f7762d76e11000f502a707b08f3ef292cd13c5e752c2d3bb38a66b69ce9c82f2
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/tdd
+    bundle_sha256: sha256:f7762d76e11000f502a707b08f3ef292cd13c5e752c2d3bb38a66b69ce9c82f2
+  approval_state: core-approved-for-phase2-isolated-test
+- name: code-review
+  path: skills/code-review
+  bundle_sha256: sha256:3a8d7babad6dc764fe35201df6d20ef45260f7a5eefc387480b426a731dc57af
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/code-review
+    bundle_sha256: sha256:3a8d7babad6dc764fe35201df6d20ef45260f7a5eefc387480b426a731dc57af
+  approval_state: core-approved-for-phase2-isolated-test
+- name: codebase-design
+  path: skills/codebase-design
+  bundle_sha256: sha256:6a0038980808e81c1cca62da4fd57b795df8f5f82db971ec291c4b026df19b2b
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/codebase-design
+    bundle_sha256: sha256:6a0038980808e81c1cca62da4fd57b795df8f5f82db971ec291c4b026df19b2b
+  approval_state: conditional-approved-for-phase2-isolated-test
+- name: diagnosing-bugs
+  path: skills/diagnosing-bugs
+  bundle_sha256: sha256:dfeef9133561962439463cfdc61ac90e092a10016f69f42d20a589112eb2c9df
+  upstream:
+    repository: https://github.com/mattpocock/skills.git
+    commit: 84fdeffd12f2ee307994d1eb6feb48173b6e0502
+    path: skills/engineering/diagnosing-bugs
+    bundle_sha256: sha256:dfeef9133561962439463cfdc61ac90e092a10016f69f42d20a589112eb2c9df
+  approval_state: conditional-approved-for-phase2-isolated-test
+bundle_sha256: sha256:5b639dd39dbddf6360926df3b4e91c9e9c828f686d2989bad6b8493694105f59
+manifest_sha256: sha256:b6a34b465bc6a552a3fc726fa53157588dfda4a2178cf2ee93b3495b083201b3

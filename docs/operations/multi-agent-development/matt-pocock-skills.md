@@ -13,9 +13,11 @@ Current copies exist in:
 
 Jellybase receives only ordinary remote terminal/file operations against application repositories. Its durable `~/.hermes` directory is outside this workflow and must not be synchronized.
 
-## Current upstream snapshot
+## Current managed snapshot
 
-The official source is `https://github.com/mattpocock/skills`. The current full collection contains 35 skills. The Jellybase worker profile has a matching copy of this collection.
+The official source is `https://github.com/mattpocock/skills`. The managed Jellyberry snapshot contains 35 selected skills in both the default and `jellybase_hermes` profiles. Phase 1 verified that all 35 profile copies match each other, 34 match upstream commit `84fdeffd12f2ee307994d1eb6feb48173b6e0502` exactly, and `research` matches that commit plus the local `DESCRIPTION.md` overlay. The exact hashes, target profiles, approval states, and rollback path are recorded in [the JellySSH Phase 1 skill manifest](manifests/jellyssh-phase1-skill-manifest.json).
+
+The upstream repository contained 41 skill directories at that observed commit; the extra upstream skills are not implicitly installed or approved. Some existing Hermes hub lock entries still describe an older revision, so active-content hashes and the Phase 1 manifest govern the pilot until a later controlled promotion refreshes provenance.
 
 ### Engineering
 
@@ -91,13 +93,13 @@ Use `wayfinder` only for genuinely large, unclear work that cannot be settled in
 Run from Jellyberry:
 
 ```bash
-hermes --profile jellybase_hermes chat -s grill-with-docs
+hermes --profile <approved-design-profile> chat -s grill-with-docs
 ```
 
 State the exact remote repository path at the start of the session:
 
 ```text
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 ```
 
 Use an interactive session for `setup-matt-pocock-skills`, `grill-with-docs`, `to-spec`, and `to-tickets` because they require ongoing design context and may ask operator questions.
@@ -108,33 +110,26 @@ Force-load only the skills required by a bounded card:
 
 ```bash
 hermes kanban --board <project-board> create "Implement <ticket>" \
-  --assignee jellybase_hermes \
+  --assignee <approved-project-profile> \
   --skill implement \
   --skill tdd \
   --skill code-review \
-  --body "Repository: /home/jellydev/src/<repo>
+  --body "Repository: /home/jellydev/dev_projects/<repo>
 Branch: feat/<feature>
 Ticket: <issue URL or local ticket path>"
 ```
 
 `--skill` is repeatable. The card must still describe the exact task; a skill is a workflow aid, not a replacement for a complete task brief.
 
-## Safe update procedure
+## Controlled update procedure
 
-To obtain the current full upstream collection on Jellyberry:
+Phase 1 produced a proposed manifest containing each managed skill's source, pinned commit, integrity/provenance record, local overlay path, target profiles, compatibility state, promotion state, and rollback location. Phase 1 does not authorize installing, updating, synchronizing, or promoting skills; those actions remain gated on acceptance of the Phase 1 report and the Phase 2 isolated profile tests.
 
-```bash
-npx --yes skills@latest add mattpocock/skills \
-  --skill '*' \
-  --agent hermes-agent \
-  --global \
-  --copy \
-  --yes
-```
+After that gate, use the lifecycle defined by V3 and the [Skill Control Plane](skill-control-plane-and-project-initialization.md): inventory the active copy, fetch upstream into an isolated candidate area, diff it against upstream and local overlays, run security and compatibility review, test it in an isolated profile/session, obtain operator approval, promote it only to the named profiles, and retain the rollback copy. Never run a global install/update command directly against active skills, and never overwrite local expert or project assets silently.
 
-Before overwriting worker-profile copies, create a dated backup and then sync only the named Matt collection from `/home/jellybot/.hermes/skills/` to `/home/jellybot/.hermes/profiles/jellybase_hermes/skills/`. Verify every `SKILL.md` exists and that the source and profile copies match.
+Core procedures are immutable versioned releases; optional database/data, Flutter, security, and other capability packs are globally governed but enabled per project; project-only procedures use project-prefixed overlay names in the project repository. Native Hermes bundles are convenience aliases and skip missing members, so Kanban preflight must resolve and hash-check every member before dispatch.
 
-Review upstream skills before relying on new behavior. The install scanner should be treated as a signal, not proof: some broad workflow skills mention subagents, Git, or long-running coordination and can produce heuristic findings.
+Treat install-scanner output as a signal, not proof: broad workflow skills can mention subagents, Git, or long-running coordination and produce heuristic findings.
 
 ## Hermes compatibility
 

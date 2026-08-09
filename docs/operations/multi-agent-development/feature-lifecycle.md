@@ -5,7 +5,7 @@
 The operator supplies:
 
 ```text
-Repository: Git URL or existing /home/jellydev/src/<repo> path
+Repository: Git URL or existing /home/jellydev/dev_projects/<repo> path
 Feature: desired user-visible outcome
 Constraints: technology, security, compatibility, time, and non-goals
 Acceptance criteria: observable conditions for success
@@ -18,7 +18,7 @@ Before editing, inspect repository status, remotes, default branch, existing doc
 For a new clone, place the code under:
 
 ```text
-/home/jellydev/src/<repo>
+/home/jellydev/dev_projects/<repo>
 ```
 
 Then:
@@ -60,7 +60,7 @@ The operator approves ticket granularity and dependencies before implementation 
 
 ## 5. Implement one ticket at a time
 
-Assign one code-editing card to `jellybase_hermes` with the exact remote repository and branch. Force-load `implement`, `tdd`, and `code-review` as appropriate.
+Assign one code-editing card to the approved project-specific profile from the routing manifest, with the exact remote repository and branch. Pin only the approved versions of `implement`, `tdd`, and other required skills. If the route, bank, profile, or skill manifest is missing, block rather than falling back to `jellybase_hermes`.
 
 The implementation sequence is:
 

@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "status": "phase1-inventory-no-assets-promoted",
+  "observed_at": "2026-08-09T05:01:01+01:00",
+  "shared_assets": [
+    {
+      "name": "code-review",
+      "path": "/home/jellybot/.hermes/skills/code-review",
+      "layer": "upstream-workflow",
+      "present": true,
+      "bundle_sha256": "sha256:3a8d7babad6dc764fe35201df6d20ef45260f7a5eefc387480b426a731dc57af",
+      "assessment": "approved procedure; not a complete JellySSH expert alone"
+    },
+    {
+      "name": "codebase-design",
+      "path": "/home/jellybot/.hermes/skills/codebase-design",
+      "layer": "upstream-workflow",
+      "present": true,
+      "bundle_sha256": "sha256:6a0038980808e81c1cca62da4fd57b795df8f5f82db971ec291c4b026df19b2b",
+      "assessment": "approved architecture procedure"
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "path": "/home/jellybot/.hermes/skills/improve-codebase-architecture",
+      "layer": "upstream-workflow",
+      "present": true,
+      "bundle_sha256": "sha256:5d2a14ec8d21d55f4394b90d8fce70dc1f541c67acc774a77eef0e448a8a76a5",
+      "assessment": "inventory only; broad refactor flow"
+    },
+    {
+      "name": "code-quality-workflows",
+      "path": "/home/jellybot/.hermes/skills/software-development/code-quality-workflows",
+      "layer": "shared-local",
+      "present": true,
+      "bundle_sha256": "sha256:7d0b6ac72173b8ef8c1b1de6652226e0e92143b9d88e5dc80e0543daa523765b",
+      "assessment": "approved supporting code-quality procedure"
+    },
+    {
+      "name": "repository-development-discipline",
+      "path": "/home/jellybot/.hermes/skills/software-development/repository-development-discipline",
+      "layer": "shared-local",
+      "present": true,
+      "bundle_sha256": "sha256:acbffce87d04a1c23c2b0fa800941bb7fec267a8aa92781f97d558860ec79c68",
+      "assessment": "mandatory repository governance"
+    },
+    {
+      "name": "governed-agent-workflows",
+      "path": "/home/jellybot/.hermes/skills/software-development/governed-agent-workflows",
+      "layer": "shared-local",
+      "present": true,
+      "bundle_sha256": "sha256:145b0fc8d3b166964b5667cc291ccd85d55e58ddde57cddb96cd175edc9a6e8d",
+      "assessment": "mandatory skill/expert governance"
+    },
+    {
+      "name": "secure-self-hosted-app-delivery",
+      "path": "/home/jellybot/.hermes/skills/devops/secure-self-hosted-app-delivery",
+      "layer": "shared-local",
+      "present": true,
+      "bundle_sha256": "sha256:09b5641958fb981f1a3f48a644e9a09413509b87be06f010fd9280bb841a7f4b",
+      "assessment": "not applicable to Flutter app-code security review"
+    },
+    {
+      "name": "sensitive-knowledge-runtime-governance",
+      "path": "/home/jellybot/.hermes/skills/devops/sensitive-knowledge-runtime-governance",
+      "layer": "shared-local",
+      "present": true,
+      "bundle_sha256": "sha256:755ac8663f4b29fcce83a181611df2664b31b5485468d13f0d478a3295ab1624",
+      "assessment": "not a substitute for Flutter credential/SSH security review"
+    },
+    {
+      "name": "claude-design",
+      "path": "/home/jellybot/.hermes/skills/creative/claude-design",
+      "layer": "builtin",
+      "present": true,
+      "bundle_sha256": "sha256:22318b9170a76dfb66bb85d5871efbaafd1964982853668ea9dea4b17c794d13",
+      "assessment": "web-artifact design; not approved as Flutter/mobile UI expert"
+    }
+  ],
+  "jellyssh_reference": {
+    "remote": "git@github.com:dotalbot/jellyssh.git",
+    "commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+    "intake_mode": "ephemeral-bare-no-checkout",
+    "assets": [
+      {
+        "path": ".opencode/agents/code-reviewer.md",
+        "sha256": "sha256:83f43c4718d16200c38e8f5239ac6f0715bf8f212b7928edde4f583861ede556",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/coder.md",
+        "sha256": "sha256:e4413913d9b80f81282d3619fa78df4e30367e2fd7a039e61ad12c41a5e3ef51",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/drift-riverpod-engineer.md",
+        "sha256": "sha256:e1445a74ac52024e511506d6c470c2486e7c0d4d0eb6082f2ef262ebcce1a65d",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/flutter-architect.md",
+        "sha256": "sha256:e152325fba032f3b78bbcb0e218879959a80d53f0aac1fb13f1808f1f7101567",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/jellyssh-orchestrator.md",
+        "sha256": "sha256:53324d20a4cbaa5988ee843f45b3b50f72b880a57e320d13152989ad40435b42",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/mobile-ux-designer.md",
+        "sha256": "sha256:3c083ba85120e5813378305f7153cf7d2c70f5b4f7350f87d68f74bcfe54ae38",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/project-scribe.md",
+        "sha256": "sha256:ec57fbff0721be413ec00d88203cf5f03e86bad508236049bc86607207537029",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/ssh-terminal-engineer.md",
+        "sha256": "sha256:02ae3d0264018e085f989483a819103880db7e3aa1bef7d3ff84e258805ded40",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/agents/tester.md",
+        "sha256": "sha256:a1e001d51c2c34d5dbd09bd9c62b46b834093c30da0c4bcf3bc88451c353d221",
+        "kind": "agent"
+      },
+      {
+        "path": ".opencode/commands/bug.md",
+        "sha256": "sha256:4e742cd7c6385b5f606a51b8900de2331840cc2466067f84e897779a1d59a9a8",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/commands/handover.md",
+        "sha256": "sha256:dc044294bd483ae9686648963b6315ef44aa48256bb2ce2bbf65ec7b3f7265c7",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/commands/implement-spec.md",
+        "sha256": "sha256:b4f60968fc918e7cadf4d9d0d54b9a81d5f44311faba2c1b7c19e570082a3bb2",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/commands/jellyssh-build.md",
+        "sha256": "sha256:70696351a0ac9973ffcadf10a7ac66d68e965010494970931821fcfff26064b7",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/commands/review.md",
+        "sha256": "sha256:01b2081950b13c5dba78d5f790411f4ba395cf803037a129a98c96b7ef610ba3",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/commands/spec.md",
+        "sha256": "sha256:36da75b4988f835f4515e896107a1f7a1b2abce59f4d332379693e904dde2650",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/commands/test.md",
+        "sha256": "sha256:127517bac4caeb230f37b988383a284426ffdab4eb937b2e3c89e1dcf7e44e19",
+        "kind": "command"
+      },
+      {
+        "path": ".opencode/plugins/jellyssh-guard.js",
+        "sha256": "sha256:a2736bfcebc5bb7fe4a2de4e148c24a6e7c76a418b467b89880806509a0948d0",
+        "kind": "guard"
+      },
+      {
+        "path": "CLAUDE.md",
+        "sha256": "sha256:37d51e6266a4b5de2a25a9c2aa93a68f0954b16edd38631b7badab2076870d2d",
+        "kind": "authority"
+      },
+      {
+        "path": "docs/ai/agent-routing.md",
+        "sha256": "sha256:f3fbf4d4402b3298be63e45b494997944e3d0874da8e71b358b6e367b9e03e83",
+        "kind": "authority"
+      },
+      {
+        "path": "docs/ai/implementation-checklists.md",
+        "sha256": "sha256:175736bb1e65846e67942ef3abb7b942112be1a27ba7560705932ec32efa5b2c",
+        "kind": "authority"
+      },
+      {
+        "path": "opencode.json",
+        "sha256": "sha256:d19580fef4433809d02297f430db8d0af934173fca48f79a574dbd912f01e245",
+        "kind": "authority"
+      }
+    ]
+  },
+  "gaps": [
+    "no shared local skill is a complete Flutter/SSH credential-security expert",
+    "no shared local skill is a complete Flutter/mobile UX expert",
+    "JellySSH OpenCode agents without explicit model fields inherit runtime defaults and are not deterministic bindings",
+    "only .opencode/agents/code-reviewer.md is read-only; implementation specialists must not be reused as reviewer identities"
+  ],
+  "promotion_state": "none"
+}
