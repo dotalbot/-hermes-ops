@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="820" viewBox="0 0 1480 820">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#52606d"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<rect id="p1-control" x="250.0" y="80.0" width="660.0" height="500.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="250.0" y1="114.0" x2="910.0" y2="114.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="262.0" y="103.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="262.0" dy="0">Control plane · Jellyberry</tspan></text>
+<rect id="p1-exec" x="950.0" y="80.0" width="490.0" height="500.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="950.0" y1="114.0" x2="1440.0" y2="114.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="962.0" y="103.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="962.0" dy="0">Execution and evidence plane · Jellybase / target workspace</tspan></text>
+<path id="p1-e1" d="M 125.0,200.0 L 125.0,230.0 L 125.0,230.0 L 125.0,260.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e2" d="M 210.0,300.0 L 240.0,300.0 L 240.0,312.5 L 270.0,312.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e3" d="M 455.0,182.5 L 470.0,182.5 L 470.0,182.5 L 485.0,182.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e4" d="M 670.0,182.5 L 685.0,182.5 L 685.0,182.5 L 700.0,182.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e5" d="M 577.5,225.0 L 577.5,247.5 L 362.5,247.5 L 362.5,270.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p1-e6" d="M 455.0,312.5 L 470.0,312.5 L 470.0,312.5 L 485.0,312.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e7" d="M 670.0,312.5 L 685.0,312.5 L 685.0,312.5 L 700.0,312.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e8" d="M 792.5,355.0 L 792.5,375.0 L 362.5,375.0 L 362.5,420.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e9" d="M 792.5,355.0 L 792.5,375.0 L 577.5,375.0 L 577.5,420.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e10" d="M 792.5,355.0 L 792.5,375.0 L 792.5,375.0 L 792.5,420.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p1-e13" d="M 1075.0,430.0 L 1075.0,400.0 L 1075.0,400.0 L 1075.0,370.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e14" d="M 1075.0,285.0 L 1075.0,255.0 L 1195.0,255.0 L 1195.0,225.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e15" d="M 1195.0,225.0 L 1195.0,255.0 L 1310.0,255.0 L 1310.0,285.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e16" d="M 1310.0,370.0 L 1310.0,400.0 L 1310.0,400.0 L 1310.0,430.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e18" d="M 362.5,505.0 L 362.5,600.0 L 365.0,600.0 L 365.0,640.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p1-e19" d="M 577.5,505.0 L 577.5,600.0 L 365.0,600.0 L 365.0,640.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p1-e20" d="M 485.0,182.5 L 470.0,182.5 L 470.0,620.0 L 635.0,620.0 L 635.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e21" d="M 750.0,680.0 L 775.0,680.0 L 775.0,680.0 L 800.0,680.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e22" d="M 1310.0,515.0 L 1310.0,620.0 L 915.0,620.0 L 915.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e23" d="M 1030.0,680.0 L 1060.0,680.0 L 1060.0,680.0 L 1090.0,680.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="740.0" y="44.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="#1f2937"><tspan x="740.0" dy="0">Hermes Skills Manager — Full Operating Map</tspan></text>
+<rect id="p1-operator" x="40.0" y="120.0" width="170.0" height="80.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="125.0" y="146.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="125.0" dy="0">Operator</tspan><tspan x="125.0" dy="19">scope, approval,</tspan><tspan x="125.0" dy="19">acceptance</tspan></text>
+<rect id="p1-surfaces" x="40.0" y="260.0" width="170.0" height="80.0" rx="10" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2"/>
+<text x="125.0" y="286.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="125.0" dy="0">Hermes surfaces</tspan><tspan x="125.0" dy="19">Desktop · CLI ·</tspan><tspan x="125.0" dy="19">Discord</tspan></text>
+<path id="p1-authority" d="M270.0,150.0 A92.5,10 0 0 1 455.0,150.0 L455.0,215.0 A92.5,10 0 0 1 270.0,215.0 Z" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<ellipse cx="362.5" cy="150.0" rx="92.5" ry="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="362.5" y="169.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="362.5" dy="0">Git authority</tspan><tspan x="362.5" dy="19">specs · manifests ·</tspan><tspan x="362.5" dy="19">catalogue</tspan></text>
+<rect id="p1-manager" x="485.0" y="140.0" width="185.0" height="85.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="577.5" y="159.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="577.5" dy="0">managerctl</tspan><tspan x="577.5" dy="19">plan · apply ·</tspan><tspan x="577.5" dy="19">doctor</tspan><tspan x="577.5" dy="19">verify · fleet</tspan></text>
+<rect id="p1-fleet" x="700.0" y="140.0" width="185.0" height="85.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="792.5" y="159.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="792.5" dy="0">Read-only fleet</tspan><tspan x="792.5" dy="19">view</tspan><tspan x="792.5" dy="19">health · drift ·</tspan><tspan x="792.5" dy="19">impact</tspan></text>
+<rect id="p1-coordinator" x="270.0" y="270.0" width="185.0" height="85.0" rx="10" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2"/>
+<text x="362.5" y="299.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="362.5" dy="0">Coordinator profile</tspan><tspan x="362.5" dy="19">exact model · tools</tspan><tspan x="362.5" dy="19">· bank</tspan></text>
+<rect id="p1-kanban" x="485.0" y="270.0" width="185.0" height="85.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="577.5" y="289.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="577.5" dy="0">Hermes Kanban</tspan><tspan x="577.5" dy="19">cards ·</tspan><tspan x="577.5" dy="19">dependencies ·</tspan><tspan x="577.5" dy="19">state</tspan></text>
+<polygon id="p1-routing" points="792.5,270.0 885.0,312.5 792.5,355.0 700.0,312.5" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="792.5" y="299.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="792.5" dy="0">Fail-closed routing</tspan><tspan x="792.5" dy="19">profile · skills ·</tspan><tspan x="792.5" dy="19">experts</tspan></text>
+<rect id="p1-impl" x="270.0" y="420.0" width="185.0" height="85.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="362.5" y="439.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="362.5" dy="0">Implementation</tspan><tspan x="362.5" dy="19">profile</tspan><tspan x="362.5" dy="19">write-capable</tspan><tspan x="362.5" dy="19">adapter</tspan></text>
+<rect id="p1-review" x="485.0" y="420.0" width="185.0" height="85.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="577.5" y="458.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="577.5" dy="0">Reviewer profile</tspan><tspan x="577.5" dy="19">fresh · read-only</tspan></text>
+<rect id="p1-experts" x="700.0" y="420.0" width="185.0" height="85.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="792.5" y="439.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="792.5" dy="0">Triggered experts</tspan><tspan x="792.5" dy="19">architecture ·</tspan><tspan x="792.5" dy="19">security</tspan><tspan x="792.5" dy="19">UI · data · code</tspan></text>
+<rect id="p1-implws" x="975.0" y="430.0" width="200.0" height="85.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="1075.0" y="449.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1075.0" dy="0">Isolated</tspan><tspan x="1075.0" dy="19">implementation</tspan><tspan x="1075.0" dy="19">checkout · feature</tspan><tspan x="1075.0" dy="19">branch</tspan></text>
+<rect id="p1-tests" x="975.0" y="285.0" width="200.0" height="85.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="1075.0" y="314.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1075.0" dy="0">Tests and checks</tspan><tspan x="1075.0" dy="19">exact command</tspan><tspan x="1075.0" dy="19">evidence</tspan></text>
+<rect id="p1-reviewws" x="1210.0" y="285.0" width="200.0" height="85.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="1310.0" y="304.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1310.0" dy="0">Separate review</tspan><tspan x="1310.0" dy="19">worktree</tspan><tspan x="1310.0" dy="19">exact commit · no</tspan><tspan x="1310.0" dy="19">writes</tspan></text>
+<rect id="p1-evidence" x="1210.0" y="430.0" width="200.0" height="85.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="1310.0" y="459.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1310.0" dy="0">Independent verdict</tspan><tspan x="1310.0" dy="19">PASS or numbered</tspan><tspan x="1310.0" dy="19">blockers</tspan></text>
+<path id="p1-remote" d="M1095.0,150.0 A100.0,10 0 0 1 1295.0,150.0 L1295.0,215.0 A100.0,10 0 0 1 1095.0,215.0 Z" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<ellipse cx="1195.0" cy="150.0" rx="100.0" ry="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="1195.0" y="159.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1195.0" dy="0">Authoritative Git</tspan><tspan x="1195.0" dy="19">remote</tspan><tspan x="1195.0" dy="19">branch · commit ·</tspan><tspan x="1195.0" dy="19">rollback</tspan></text>
+<path id="p1-memory" d="M260.0,650.0 A105.0,10 0 0 1 470.0,650.0 L470.0,710.0 A105.0,10 0 0 1 260.0,710.0 Z" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<ellipse cx="365.0" cy="650.0" rx="105.0" ry="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="365.0" y="666.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="365.0" dy="0">Scoped Hindsight banks</tspan><tspan x="365.0" dy="19">reusable knowledge</tspan><tspan x="365.0" dy="19">only</tspan></text>
+<rect id="p1-journals" x="520.0" y="640.0" width="230.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="635.0" y="657.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="635.0" dy="0">Immutable plans +</tspan><tspan x="635.0" dy="19">journals</tspan><tspan x="635.0" dy="19">hash-bound · rollback</tspan><tspan x="635.0" dy="19">retained</tspan></text>
+<polygon id="p1-gate" points="915.0,640.0 1030.0,680.0 915.0,720.0 800.0,680.0" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="915.0" y="666.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="915.0" dy="0">Operator hash gate</tspan><tspan x="915.0" dy="19">inspect exact plan;</tspan><tspan x="915.0" dy="19">supply SHA-256</tspan></text>
+<rect id="p1-accept" x="1090.0" y="640.0" width="230.0" height="80.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="1205.0" y="666.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1205.0" dy="0">Acceptance / promotion</tspan><tspan x="1205.0" dy="19">separate explicit</tspan><tspan x="1205.0" dy="19">decision</tspan></text>
+<text x="740.0" y="764.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="740.0" dy="0">Matching profile colours map to isolated implementation, review, and evidence paths. Solid arrows show</tspan><tspan x="740.0" dy="17">control flow; dashed arrows show policy or optional relationships.</tspan></text>
+</svg>

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="820" viewBox="0 0 1480 820">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#52606d"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<rect id="p3-stage" x="40.0" y="95.0" width="1400.0" height="175.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="40.0" y1="129.0" x2="1440.0" y2="129.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="52.0" y="118.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="52.0" dy="0">1 · Discover and stage</tspan></text>
+<rect id="p3-prove" x="40.0" y="315.0" width="1400.0" height="175.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="40.0" y1="349.0" x2="1440.0" y2="349.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="52.0" y="338.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="52.0" dy="0">2 · Prove compatibility and canary</tspan></text>
+<rect id="p3-promote" x="40.0" y="535.0" width="1400.0" height="220.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="40.0" y1="569.0" x2="1440.0" y2="569.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="52.0" y="558.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="52.0" dy="0">3 · Promote, verify and retain rollback</tspan></text>
+<path id="p3-e1" d="M 265.0,190.0 L 280.0,190.0 L 280.0,190.0 L 295.0,190.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e2" d="M 495.0,190.0 L 510.0,190.0 L 510.0,190.0 L 525.0,190.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e3" d="M 725.0,190.0 L 740.0,190.0 L 740.0,190.0 L 755.0,190.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e4" d="M 955.0,190.0 L 970.0,190.0 L 970.0,190.0 L 985.0,190.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e5" d="M 1185.0,190.0 L 1200.0,190.0 L 1200.0,190.0 L 1215.0,190.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e6" d="M 1315.0,230.0 L 1315.0,300.0 L 165.0,300.0 L 165.0,370.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="711.0" y="280.0" width="58.0" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="740.0" y="294.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="740.0" dy="0">YES</tspan></text>
+<path id="p3-e7" d="M 265.0,410.0 L 280.0,410.0 L 280.0,410.0 L 295.0,410.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e8" d="M 495.0,410.0 L 510.0,410.0 L 510.0,410.0 L 525.0,410.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e9" d="M 725.0,410.0 L 740.0,410.0 L 740.0,410.0 L 755.0,410.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e10" d="M 955.0,410.0 L 970.0,410.0 L 970.0,410.0 L 985.0,410.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e11" d="M 1185.0,410.0 L 1200.0,410.0 L 1200.0,410.0 L 1215.0,410.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e12" d="M 1315.0,450.0 L 1315.0,525.0 L 165.0,525.0 L 165.0,600.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e13" d="M 265.0,640.0 L 280.0,640.0 L 280.0,640.0 L 295.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e14" d="M 495.0,640.0 L 510.0,640.0 L 510.0,640.0 L 525.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e15" d="M 725.0,640.0 L 740.0,640.0 L 740.0,640.0 L 755.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e16" d="M 955.0,640.0 L 970.0,640.0 L 970.0,640.0 L 985.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p3-e17" d="M 1415.0,190.0 L 1450.0,190.0 L 1450.0,275.0 L 395.0,275.0 L 395.0,230.0" fill="none" stroke="#b85450" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<rect x="880.5" y="255.0" width="84.0" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="922.5" y="269.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="922.5" dy="0">NO · BLOCK</tspan></text>
+<path id="p3-e18" d="M 165.0,600.0 L 165.0,580.0 L 1315.0,580.0 L 1315.0,600.0" fill="none" stroke="#b85450" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<rect x="683.6" y="560.0" width="112.8" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="740.0" y="574.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="740.0" dy="0">rollback state</tspan></text>
+<text x="740.0" y="44.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="#1f2937"><tspan x="740.0" dy="0">Shared Skill Lifecycle — Candidate to Controlled Promotion</tspan></text>
+<rect id="p3-inventory" x="65.0" y="150.0" width="200.0" height="80.0" rx="10" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2"/>
+<text x="165.0" y="186.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="165.0" dy="0">Inventory</tspan><tspan x="165.0" dy="19">catalogue + projects</tspan></text>
+<rect id="p3-cplan" x="295.0" y="150.0" width="200.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="395.0" y="176.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="395.0" dy="0">Candidate plan</tspan><tspan x="395.0" dy="19">new semver +</tspan><tspan x="395.0" dy="19">provenance</tspan></text>
+<rect id="p3-capply" x="525.0" y="150.0" width="200.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="625.0" y="186.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="625.0" dy="0">Candidate apply</tspan><tspan x="625.0" dy="19">non-routable only</tspan></text>
+<rect id="p3-git" x="755.0" y="150.0" width="200.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="855.0" y="176.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="855.0" dy="0">Commit candidate</tspan><tspan x="855.0" dy="19">immutable Git</tspan><tspan x="855.0" dy="19">identity</tspan></text>
+<rect id="p3-impact" x="985.0" y="150.0" width="200.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="1085.0" y="186.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1085.0" dy="0">Fleet impact</tspan><tspan x="1085.0" dy="19">all affected projects</tspan></text>
+<polygon id="p3-block" points="1315.0,150.0 1415.0,190.0 1315.0,230.0 1215.0,190.0" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="1315.0" y="176.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1315.0" dy="0">Impact complete?</tspan><tspan x="1315.0" dy="19">every affected</tspan><tspan x="1315.0" dy="19">project listed</tspan></text>
+<rect id="p3-compat" x="65.0" y="370.0" width="200.0" height="80.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="165.0" y="387.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="165.0" dy="0">Compatibility</tspan><tspan x="165.0" dy="19">evidence</tspan><tspan x="165.0" dy="19">every impacted</tspan><tspan x="165.0" dy="19">project</tspan></text>
+<rect id="p3-canaryplan" x="295.0" y="370.0" width="200.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="395.0" y="406.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="395.0" dy="0">Canary plan</tspan><tspan x="395.0" dy="19">one exact profile</tspan></text>
+<rect id="p3-canary" x="525.0" y="370.0" width="200.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="625.0" y="396.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="625.0" dy="0">Canary apply</tspan><tspan x="625.0" dy="19">backed up +</tspan><tspan x="625.0" dy="19">hash-bound</tspan></text>
+<rect id="p3-fresh" x="755.0" y="370.0" width="200.0" height="80.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="855.0" y="396.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="855.0" dy="0">Fresh-session checks</tspan><tspan x="855.0" dy="19">structured PASS</tspan><tspan x="855.0" dy="19">evidence</tspan></text>
+<rect id="p3-uplan" x="985.0" y="370.0" width="200.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="1085.0" y="396.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1085.0" dy="0">Promotion plan</tspan><tspan x="1085.0" dy="19">complete manifests +</tspan><tspan x="1085.0" dy="19">targets</tspan></text>
+<polygon id="p3-gate" points="1315.0,370.0 1415.0,410.0 1315.0,450.0 1215.0,410.0" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="1315.0" y="406.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1315.0" dy="0">Operator hash gate</tspan><tspan x="1315.0" dy="19">approve exact plan</tspan></text>
+<rect id="p3-promoteact" x="65.0" y="600.0" width="200.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="165.0" y="636.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="165.0" dy="0">Controlled promote</tspan><tspan x="165.0" dy="19">exact owned targets</tspan></text>
+<rect id="p3-verify" x="295.0" y="600.0" width="200.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="395.0" y="626.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="395.0" dy="0">managerctl verify</tspan><tspan x="395.0" dy="19">schemas · hashes ·</tspan><tspan x="395.0" dy="19">journals</tspan></text>
+<rect id="p3-doctor" x="525.0" y="600.0" width="200.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="625.0" y="626.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="625.0" dy="0">Project doctor</tspan><tspan x="625.0" dy="19">every impacted</tspan><tspan x="625.0" dy="19">project</tspan></text>
+<rect id="p3-sessions" x="755.0" y="600.0" width="200.0" height="80.0" rx="10" fill="#e1d5e7" stroke="#9673a6" stroke-width="2"/>
+<text x="855.0" y="617.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="855.0" dy="0">Fresh profile</tspan><tspan x="855.0" dy="19">sessions</tspan><tspan x="855.0" dy="19">route preflight +</tspan><tspan x="855.0" dy="19">reviews</tspan></text>
+<rect id="p3-accept" x="985.0" y="600.0" width="200.0" height="80.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="1085.0" y="636.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1085.0" dy="0">Separate acceptance</tspan><tspan x="1085.0" dy="19">no automatic dispatch</tspan></text>
+<rect id="p3-rollback" x="1215.0" y="600.0" width="200.0" height="80.0" rx="10" fill="#f8cecc" stroke="#b85450" stroke-width="2"/>
+<text x="1315.0" y="626.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1315.0" dy="0">Rollback retained</tspan><tspan x="1315.0" dy="19">prior release +</tspan><tspan x="1315.0" dy="19">profile state</tspan></text>
+<text x="755.0" y="709.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="755.0" dy="0">Dashed paths are blocking, evidence, or recovery relationships. Promotion never modifies an immutable release in place.</tspan></text>
+</svg>

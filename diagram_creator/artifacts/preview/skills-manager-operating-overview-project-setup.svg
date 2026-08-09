@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="820" viewBox="0 0 1480 820">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#52606d"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<rect id="p2-sources" x="40.0" y="90.0" width="270.0" height="570.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="40.0" y1="124.0" x2="310.0" y2="124.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="52.0" y="113.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="52.0" dy="0">Inputs · no secrets</tspan></text>
+<rect id="p2-control" x="350.0" y="90.0" width="650.0" height="570.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="350.0" y1="124.0" x2="1000.0" y2="124.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="362.0" y="113.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="362.0" dy="0">Approval-bound control path</tspan></text>
+<rect id="p2-outputs" x="1040.0" y="90.0" width="400.0" height="570.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<line x1="1040.0" y1="124.0" x2="1440.0" y2="124.0" stroke="#9e9e9e" stroke-width="1.5"/>
+<text x="1052.0" y="113.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="#1f2937"><tspan x="1052.0" dy="0">Managed outputs · setup remains non-routable</tspan></text>
+<path id="p2-e1" d="M 285.0,200.0 L 330.0,200.0 L 330.0,190.0 L 375.0,190.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e2" d="M 175.0,300.0 L 175.0,265.0 L 465.0,265.0 L 465.0,230.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e3" d="M 175.0,450.0 L 175.0,340.0 L 465.0,340.0 L 465.0,230.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e4" d="M 555.0,190.0 L 570.0,190.0 L 570.0,200.0 L 585.0,200.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e5" d="M 775.0,200.0 L 792.5,200.0 L 792.5,200.0 L 810.0,200.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e6" d="M 890.0,250.0 L 890.0,277.5 L 680.0,277.5 L 680.0,305.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e7" d="M 775.0,350.0 L 792.5,350.0 L 792.5,350.0 L 810.0,350.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e8" d="M 890.0,305.0 L 890.0,272.5 L 1240.0,272.5 L 1240.0,240.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e9" d="M 970.0,350.0 L 1017.5,350.0 L 1017.5,330.0 L 1065.0,330.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e10" d="M 970.0,350.0 L 1017.5,350.0 L 1017.5,465.0 L 1065.0,465.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e12" d="M 585.0,350.0 L 570.0,350.0 L 570.0,350.0 L 555.0,350.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e13" d="M 175.0,400.0 L 175.0,430.0 L 465.0,430.0 L 465.0,460.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p2-e14" d="M 285.0,500.0 L 330.0,500.0 L 330.0,500.0 L 375.0,500.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p2-e15" d="M 555.0,500.0 L 570.0,500.0 L 570.0,500.0 L 585.0,500.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p2-e16" d="M 775.0,500.0 L 792.5,500.0 L 792.5,500.0 L 810.0,500.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p2-e11" d="M 970.0,350.0 L 1020.0,350.0 L 1020.0,590.0 L 1065.0,590.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<rect x="985.2" y="450.0" width="69.6" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="1020.0" y="464.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="1020.0" dy="0">evidence</tspan></text>
+<path id="p2-e17" d="M 375.0,350.0 L 330.0,350.0 L 330.0,680.0 L 690.0,680.0 L 690.0,700.0" fill="none" stroke="#b85450" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<rect x="424.8" y="660.0" width="170.4" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="510.0" y="674.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="510.0" dy="0">journal-bound rollback</tspan></text>
+<text x="740.0" y="44.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="#1f2937"><tspan x="740.0" dy="0">Project Setup — Plan, Apply, Doctor, Reconcile and Rollback</tspan></text>
+<rect id="p2-request" x="65.0" y="150.0" width="220.0" height="100.0" rx="10" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2"/>
+<text x="175.0" y="167.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="175.0" dy="0">Setup request</tspan><tspan x="175.0" dy="19">repo · profiles ·</tspan><tspan x="175.0" dy="19">skills</tspan><tspan x="175.0" dy="19">experts · board ·</tspan><tspan x="175.0" dy="19">effects</tspan></text>
+<path id="p2-authority" d="M65.0,310.0 A110.0,10 0 0 1 285.0,310.0 L285.0,390.0 A110.0,10 0 0 1 65.0,390.0 Z" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<ellipse cx="175.0" cy="310.0" rx="110.0" ry="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="175.0" y="336.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="175.0" dy="0">Git authority</tspan><tspan x="175.0" dy="19">catalogue · releases</tspan><tspan x="175.0" dy="19">project manifest</tspan></text>
+<rect id="p2-observed" x="65.0" y="450.0" width="220.0" height="100.0" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+<text x="175.0" y="486.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="175.0" dy="0">Observed state</tspan><tspan x="175.0" dy="19">repo · profiles · board</tspan><tspan x="175.0" dy="19">workspaces · runtime</tspan></text>
+<rect id="p2-plan" x="375.0" y="150.0" width="180.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="465.0" y="186.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="465.0" dy="0">project plan</tspan><tspan x="465.0" dy="19">discover + validate</tspan></text>
+<rect id="p2-immutable" x="585.0" y="150.0" width="190.0" height="100.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="680.0" y="158.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="680.0" dy="0">Immutable action</tspan><tspan x="680.0" dy="19">plan</tspan><tspan x="680.0" dy="19">preconditions ·</tspan><tspan x="680.0" dy="19">blockers</tspan><tspan x="680.0" dy="19">rollback · plan</tspan><tspan x="680.0" dy="19">SHA-256</tspan></text>
+<polygon id="p2-approval" points="890.0,150.0 970.0,200.0 890.0,250.0 810.0,200.0" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="890.0" y="186.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="890.0" dy="0">Exact approval?</tspan><tspan x="890.0" dy="19">operator</tspan><tspan x="890.0" dy="19">supplies hash</tspan></text>
+<rect id="p2-apply" x="585.0" y="305.0" width="190.0" height="90.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="680.0" y="336.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="680.0" dy="0">project apply</tspan><tspan x="680.0" dy="19">recheck first; stop</tspan><tspan x="680.0" dy="19">on drift</tspan></text>
+<rect id="p2-adapter" x="810.0" y="305.0" width="160.0" height="90.0" rx="10" fill="#f8cecc" stroke="#b85450" stroke-width="2"/>
+<text x="890.0" y="327.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="890.0" dy="0">Typed adapters</tspan><tspan x="890.0" dy="19">only</tspan><tspan x="890.0" dy="19">no arbitrary</tspan><tspan x="890.0" dy="19">shell/actions</tspan></text>
+<rect id="p2-journal" x="375.0" y="305.0" width="180.0" height="90.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="465.0" y="327.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="465.0" dy="0">Private durable</tspan><tspan x="465.0" dy="19">journal</tspan><tspan x="465.0" dy="19">one entry per</tspan><tspan x="465.0" dy="19">action</tspan></text>
+<rect id="p2-doctor" x="375.0" y="460.0" width="180.0" height="80.0" rx="10" fill="#d5f5f6" stroke="#3b9fa5" stroke-width="2"/>
+<text x="465.0" y="496.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="465.0" dy="0">project doctor</tspan><tspan x="465.0" dy="19">desired vs observed</tspan></text>
+<rect id="p2-health" x="585.0" y="450.0" width="190.0" height="100.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="680.0" y="486.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="680.0" dy="0">Health report</tspan><tspan x="680.0" dy="19">GREEN · BLUE · AMBER</tspan><tspan x="680.0" dy="19">RED · GREY</tspan></text>
+<rect id="p2-reconcile" x="810.0" y="460.0" width="160.0" height="80.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="890.0" y="486.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="890.0" dy="0">reconcile plan</tspan><tspan x="890.0" dy="19">plan only; never</tspan><tspan x="890.0" dy="19">auto-apply</tspan></text>
+<rect id="p2-manifests" x="1065.0" y="150.0" width="350.0" height="90.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="1240.0" y="181.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1240.0" dy="0">Authority contracts</tspan><tspan x="1240.0" dy="19">control-plane manifest</tspan><tspan x="1240.0" dy="19">.hermes-project/project.yaml</tspan></text>
+<rect id="p2-profiles" x="1065.0" y="280.0" width="350.0" height="100.0" rx="10" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2"/>
+<text x="1240.0" y="316.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1240.0" dy="0">Exact profiles + skills</tspan><tspan x="1240.0" dy="19">baseline · model · tools · bank</tspan><tspan x="1240.0" dy="19">hash-verified materialization</tspan></text>
+<rect id="p2-board" x="1065.0" y="420.0" width="350.0" height="90.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
+<text x="1240.0" y="451.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1240.0" dy="0">Empty project board</tspan><tspan x="1240.0" dy="19">absolute workdir · zero cards</tspan><tspan x="1240.0" dy="19">conservative limits</tspan></text>
+<rect id="p2-evidence" x="1065.0" y="550.0" width="350.0" height="80.0" rx="10" fill="#d5e8d4" stroke="#82b366" stroke-width="2"/>
+<text x="1240.0" y="576.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1240.0" dy="0">Generated evidence</tspan><tspan x="1240.0" dy="19">setup/runtime state · fleet projection</tspan><tspan x="1240.0" dy="19">no execution authorization</tspan></text>
+<rect id="p2-rollback" x="560.0" y="700.0" width="260.0" height="80.0" rx="10" fill="#f8cecc" stroke="#b85450" stroke-width="2"/>
+<text x="690.0" y="717.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="690.0" dy="0">Explicit rollback</tspan><tspan x="690.0" dy="19">journal hash + drift check</tspan><tspan x="690.0" dy="19">restore managed state in</tspan><tspan x="690.0" dy="19">reverse order</tspan></text>
+</svg>
