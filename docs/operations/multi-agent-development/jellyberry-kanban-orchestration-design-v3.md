@@ -1,14 +1,16 @@
 # Jellyberry Kanban orchestration design — V3: JellySSH pilot and expert-agent governance
 
-> **Status:** Operator-approved design; Phase 0 completed and awaiting operator acceptance
+> **Status:** Operator-approved design; Phase 0 accepted; Phase 1 completed and awaiting operator acceptance
 >
 > **Based on:** V2 plus the operator's LogK exclusion, JellySSH pilot selection, live Jellyhome LogK/OpenCode inspection, and read-only JellySSH repository intake
 >
-> **Checked:** 2026-08-09 04:24 BST
+> **Checked:** 2026-08-09 05:13 BST
 >
-> **Operator approval:** Approved in the Hermes CLI session on 2026-08-09. Execute Phase 0 only, then stop for the next operator gate.
+> **Original design approval:** Approved in the Hermes CLI session on 2026-08-09 with Phase 0 as the first authorized action.
 >
-> **Implementation state:** Phase 0 corrections were executed and verified; see the [Phase 0 completion report](../../reports/jellyberry-kanban-orchestration-phase0-2026-08-09.md). Phase 1 remains unauthorized pending operator acceptance. This approval does not authorize cloning JellySSH, creating JellySSH profiles or boards, installing or promoting skills, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
+> **Phase transition:** Phase 0 accepted and Phase 1 authorized by the operator on 2026-08-09.
+>
+> **Implementation state:** Phase 0 corrections were accepted by the operator on 2026-08-09. Phase 1 inventory and design are complete; see the [Phase 1 completion report](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md). Phase 2 remains unauthorized pending operator acceptance. No skill was installed or promoted, and this status does not authorize cloning JellySSH, creating JellySSH profiles or boards, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
 
 ## What V3 changes
 
@@ -295,19 +297,19 @@ projects:
     experts:
       architecture:
         required_when: architecture_or_multi_module_change
-        binding: pending-phase-1
+        binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
       security:
         required_when: credentials_auth_host_keys_network_forwarding_storage_or_external_process
-        binding: pending-phase-1
+        binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
       ui:
         required_when: user_visible_or_interaction_change
-        binding: pending-phase-1
+        binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
       code_quality:
         required_when: every_implementation
-        binding: pending-phase-1
+        binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
       cross_model_final_review:
         required_when: every_implementation
-        binding: pending-phase-1
+        binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
     repository_guards:
       jellyssh_guard: required
       guard_failure: block
@@ -317,7 +319,7 @@ projects:
       max_in_progress: 1
       auto_decompose: false
     skills_governance:
-      manifest: pending-phase-1
+      manifest: manifests/jellyssh-phase1-skill-manifest.json
       candidate_updates_are_routable: false
 ```
 
@@ -899,9 +901,9 @@ The revised design is:
 - [x] Repository and live evidence override conflicting memory.
 - [x] PR, merge, release, signing, sideloading, deployment, sudo, and secrets remain operator-controlled.
 
-### First practical action after approval
+### Current authorized action
 
-Execute **Phase 0 only**. Verify and report the exact control-plane corrections. Do not create the JellySSH board, clone JellySSH, create specialist profiles, or dispatch development until the Phase 0 report is accepted.
+Review and accept, revise, or roll back the **Phase 1 completion report**. Phase 2 is not authorized. Do not create the JellySSH board, clone JellySSH, create specialist profiles, promote skills, or dispatch development until a new explicit operator decision.
 
 ---
 
@@ -916,6 +918,11 @@ Execute **Phase 0 only**. Verify and report the exact control-plane corrections.
 - Operator checklist: [operator-checklist.md](operator-checklist.md)
 - Applied Hindsight routing: [../../reports/hindsight-bank-routing-2026-08-08.md](../../reports/hindsight-bank-routing-2026-08-08.md)
 - Phase 0 completion evidence: [../../reports/jellyberry-kanban-orchestration-phase0-2026-08-09.md](../../reports/jellyberry-kanban-orchestration-phase0-2026-08-09.md)
+- Phase 1 skill manifest: [manifests/jellyssh-phase1-skill-manifest.json](manifests/jellyssh-phase1-skill-manifest.json)
+- Phase 1 expert inventory: [manifests/jellyssh-phase1-expert-inventory.json](manifests/jellyssh-phase1-expert-inventory.json)
+- Phase 1 expert/model bindings: [jellyssh-phase1-expert-model-bindings.md](jellyssh-phase1-expert-model-bindings.md)
+- Matt-to-Kanban bridge: [matt-kanban-development-bridge.md](matt-kanban-development-bridge.md)
+- Phase 1 completion evidence: [../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md)
 - Memory hygiene: [../../runbooks/memory-hygiene-runbook.md](../../runbooks/memory-hygiene-runbook.md)
 - Hermes Projects, profiles, and sessions: [../hermes-desktop-projects-profiles-and-sessions.md](../hermes-desktop-projects-profiles-and-sessions.md)
 - Hermes Kanban documentation: <https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban>

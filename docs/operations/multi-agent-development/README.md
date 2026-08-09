@@ -15,7 +15,7 @@ The control plane and the code workspace are deliberately separate:
 
 ## Read in this order
 
-1. [Jellyberry Kanban orchestration design V3](jellyberry-kanban-orchestration-design-v3.md) — approved design using JellySSH for the Jellybase pilot, deferring LogK to a later Jellyhome/OpenCode lane, and adding skills/expert governance; Phase 0 only is currently authorized
+1. [Jellyberry Kanban orchestration design V3](jellyberry-kanban-orchestration-design-v3.md) — approved design using JellySSH for the Jellybase pilot, deferring LogK to a later Jellyhome/OpenCode lane, and adding skills/expert governance; Phase 1 is complete and awaiting operator acceptance
 2. [Jellyberry Kanban orchestration design V2](jellyberry-kanban-orchestration-design-v2.md) — preserved expanded candidate covering the live Hermes setup and Hindsight banks
 3. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
 4. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)

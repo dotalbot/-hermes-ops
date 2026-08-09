@@ -1,0 +1,1076 @@
+{
+  "schema_version": 1,
+  "project": "jellyssh",
+  "status": "phase1-proposed-awaiting-operator-acceptance",
+  "generated_at": "2026-08-09T05:01:01+01:00",
+  "upstream": {
+    "repository": "https://github.com/mattpocock/skills",
+    "pinned_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+    "observed_main_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+    "candidate_updates_routable": false
+  },
+  "governance": {
+    "silent_overwrite": false,
+    "promotion_requires": [
+      "candidate_fetch_outside_active_profiles",
+      "integrity_and_provenance_record",
+      "security_review",
+      "compatibility_review",
+      "isolated_profile_test",
+      "routing_preflight",
+      "operator_approval",
+      "fresh_rollback_copy"
+    ],
+    "phase1_permits_promotion": false
+  },
+  "summary": {
+    "skills_inventory_count": 35,
+    "profile_copies_matching": 35,
+    "active_exact_upstream": 34,
+    "local_overlay_skills": [
+      "research"
+    ],
+    "core_approved": [
+      "code-review",
+      "grill-with-docs",
+      "implement",
+      "tdd",
+      "to-spec",
+      "to-tickets"
+    ],
+    "conditional_approved": [
+      "codebase-design",
+      "diagnosing-bugs"
+    ]
+  },
+  "skills": [
+    {
+      "name": "ask-matt",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/ask-matt",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:ec74e1e3b2bae1689c1e0b780b55bde17dbe4f6a3f3bcd90f0e5fdcb11015b23",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/ask-matt",
+          "bundle_sha256": "sha256:ec74e1e3b2bae1689c1e0b780b55bde17dbe4f6a3f3bcd90f0e5fdcb11015b23"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/ask-matt",
+          "bundle_sha256": "sha256:ec74e1e3b2bae1689c1e0b780b55bde17dbe4f6a3f3bcd90f0e5fdcb11015b23"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "skills.sh",
+        "identifier": "skills-sh/mattpocock/skills/skills/engineering/ask-matt",
+        "content_hash": "sha256:4cc1a6c0a9ba552c",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T15:54:51.613239+00:00",
+        "updated_at": "2026-07-21T15:54:51.613254+00:00"
+      },
+      "existing_hub_lock_source_revision": "ed37663cc5fbef691ddfecd080dff42f7e7e350d",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "code-review",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/code-review",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:3a8d7babad6dc764fe35201df6d20ef45260f7a5eefc387480b426a731dc57af",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/code-review",
+          "bundle_sha256": "sha256:3a8d7babad6dc764fe35201df6d20ef45260f7a5eefc387480b426a731dc57af"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/code-review",
+          "bundle_sha256": "sha256:3a8d7babad6dc764fe35201df6d20ef45260f7a5eefc387480b426a731dc57af"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "core-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "testing",
+        "review",
+        "cross_model_final_review"
+      ],
+      "target_profiles": [
+        "default",
+        "jellybase_jellyssh_reviewer"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "url",
+        "identifier": "https://raw.githubusercontent.com/mattpocock/skills/ed37663cc5fbef691ddfecd080dff42f7e7e350d/skills/engineering/code-review/SKILL.md",
+        "content_hash": "sha256:5769a13d4b3ccf19",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T14:38:18.079060+00:00",
+        "updated_at": "2026-07-21T14:38:18.079074+00:00"
+      },
+      "existing_hub_lock_source_revision": "",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "codebase-design",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/codebase-design",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:6a0038980808e81c1cca62da4fd57b795df8f5f82db971ec291c4b026df19b2b",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/codebase-design",
+          "bundle_sha256": "sha256:6a0038980808e81c1cca62da4fd57b795df8f5f82db971ec291c4b026df19b2b"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/codebase-design",
+          "bundle_sha256": "sha256:6a0038980808e81c1cca62da4fd57b795df8f5f82db971ec291c4b026df19b2b"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "conditional-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "architecture_expert"
+      ],
+      "target_profiles": [
+        "default"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "skills.sh",
+        "identifier": "skills-sh/mattpocock/skills/skills/engineering/codebase-design",
+        "content_hash": "sha256:292217b4faa24941",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T14:32:30.570806+00:00",
+        "updated_at": "2026-07-21T14:32:30.570819+00:00"
+      },
+      "existing_hub_lock_source_revision": "",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "diagnosing-bugs",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/diagnosing-bugs",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:dfeef9133561962439463cfdc61ac90e092a10016f69f42d20a589112eb2c9df",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/diagnosing-bugs",
+          "bundle_sha256": "sha256:dfeef9133561962439463cfdc61ac90e092a10016f69f42d20a589112eb2c9df"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/diagnosing-bugs",
+          "bundle_sha256": "sha256:dfeef9133561962439463cfdc61ac90e092a10016f69f42d20a589112eb2c9df"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "conditional-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "bounded_fix_only"
+      ],
+      "target_profiles": [
+        "jellybase_jellyssh"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "url",
+        "identifier": "https://raw.githubusercontent.com/mattpocock/skills/ed37663cc5fbef691ddfecd080dff42f7e7e350d/skills/engineering/diagnosing-bugs/SKILL.md",
+        "content_hash": "sha256:88449e38e311c215",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T14:36:43.913244+00:00",
+        "updated_at": "2026-07-21T14:36:43.913258+00:00"
+      },
+      "existing_hub_lock_source_revision": "",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "domain-modeling",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/domain-modeling",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:df407341e313fde8323571b80d2da11cd35d58a362eb5f792edd67ccec30c814",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/domain-modeling",
+          "bundle_sha256": "sha256:df407341e313fde8323571b80d2da11cd35d58a362eb5f792edd67ccec30c814"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/domain-modeling",
+          "bundle_sha256": "sha256:df407341e313fde8323571b80d2da11cd35d58a362eb5f792edd67ccec30c814"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "skills.sh",
+        "identifier": "skills-sh/mattpocock/skills/skills/engineering/domain-modeling",
+        "content_hash": "sha256:f6f691e49ea976ac",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T14:32:28.755392+00:00",
+        "updated_at": "2026-07-21T14:32:28.755408+00:00"
+      },
+      "existing_hub_lock_source_revision": "ed37663cc5fbef691ddfecd080dff42f7e7e350d",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "grill-with-docs",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/grill-with-docs",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:717f9874c97277f88ed97d723b62a95e2584e195e596bdf6cd7a17ddd6103e80",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/grill-with-docs",
+          "bundle_sha256": "sha256:717f9874c97277f88ed97d723b62a95e2584e195e596bdf6cd7a17ddd6103e80"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/grill-with-docs",
+          "bundle_sha256": "sha256:717f9874c97277f88ed97d723b62a95e2584e195e596bdf6cd7a17ddd6103e80"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "core-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "interactive_design"
+      ],
+      "target_profiles": [
+        "default"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "skills.sh",
+        "identifier": "skills-sh/mattpocock/skills/skills/engineering/grill-with-docs",
+        "content_hash": "sha256:da2afc844ffffba4",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T15:53:38.362513+00:00",
+        "updated_at": "2026-07-21T15:53:38.362528+00:00"
+      },
+      "existing_hub_lock_source_revision": "ed37663cc5fbef691ddfecd080dff42f7e7e350d",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "implement",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/implement",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:3b21dbe2529b7c1f7292f0ac4c3db5b282bf139619341e1659e9e5d3a6a143db",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/implement",
+          "bundle_sha256": "sha256:3b21dbe2529b7c1f7292f0ac4c3db5b282bf139619341e1659e9e5d3a6a143db"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/implement",
+          "bundle_sha256": "sha256:3b21dbe2529b7c1f7292f0ac4c3db5b282bf139619341e1659e9e5d3a6a143db"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "core-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "implementation"
+      ],
+      "target_profiles": [
+        "jellybase_jellyssh"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/improve-codebase-architecture",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:5d2a14ec8d21d55f4394b90d8fce70dc1f541c67acc774a77eef0e448a8a76a5",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/improve-codebase-architecture",
+          "bundle_sha256": "sha256:5d2a14ec8d21d55f4394b90d8fce70dc1f541c67acc774a77eef0e448a8a76a5"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/improve-codebase-architecture",
+          "bundle_sha256": "sha256:5d2a14ec8d21d55f4394b90d8fce70dc1f541c67acc774a77eef0e448a8a76a5"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "prototype",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/prototype",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:02a0c96a0cb2a0e0efb3cc9ceee734a88d4692432ae4656b38d91db1ddb6d2ec",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/prototype",
+          "bundle_sha256": "sha256:02a0c96a0cb2a0e0efb3cc9ceee734a88d4692432ae4656b38d91db1ddb6d2ec"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/prototype",
+          "bundle_sha256": "sha256:02a0c96a0cb2a0e0efb3cc9ceee734a88d4692432ae4656b38d91db1ddb6d2ec"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "research",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/research",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:c45f968cf11f2c136e03fa5d874d952b9d4dfd461e9dd3ae7202527705cd5ba0",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/research",
+          "bundle_sha256": "sha256:4d82fc9a0e18d20fbb54f7a37e1c9130575527bc2f77e85a4f42744a4e22c728"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/research",
+          "bundle_sha256": "sha256:4d82fc9a0e18d20fbb54f7a37e1c9130575527bc2f77e85a4f42744a4e22c728"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": false,
+      "local_overlay_files": [
+        "DESCRIPTION.md"
+      ],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "resolving-merge-conflicts",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/resolving-merge-conflicts",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:844baba1a2dab71380a3c7d92d92bd2d464ec41d0dd2e813a7fd5f26a736ca75",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/resolving-merge-conflicts",
+          "bundle_sha256": "sha256:844baba1a2dab71380a3c7d92d92bd2d464ec41d0dd2e813a7fd5f26a736ca75"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/resolving-merge-conflicts",
+          "bundle_sha256": "sha256:844baba1a2dab71380a3c7d92d92bd2d464ec41d0dd2e813a7fd5f26a736ca75"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "setup-matt-pocock-skills",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/setup-matt-pocock-skills",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:46f28b22513093c975c7fda68601eb14ac0953b5dfe57e070c27c08100ed8f44",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/setup-matt-pocock-skills",
+          "bundle_sha256": "sha256:46f28b22513093c975c7fda68601eb14ac0953b5dfe57e070c27c08100ed8f44"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/setup-matt-pocock-skills",
+          "bundle_sha256": "sha256:46f28b22513093c975c7fda68601eb14ac0953b5dfe57e070c27c08100ed8f44"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "tdd",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/tdd",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:f7762d76e11000f502a707b08f3ef292cd13c5e752c2d3bb38a66b69ce9c82f2",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/tdd",
+          "bundle_sha256": "sha256:f7762d76e11000f502a707b08f3ef292cd13c5e752c2d3bb38a66b69ce9c82f2"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/tdd",
+          "bundle_sha256": "sha256:f7762d76e11000f502a707b08f3ef292cd13c5e752c2d3bb38a66b69ce9c82f2"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "core-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "implementation",
+        "testing"
+      ],
+      "target_profiles": [
+        "jellybase_jellyssh"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "url",
+        "identifier": "https://raw.githubusercontent.com/mattpocock/skills/ed37663cc5fbef691ddfecd080dff42f7e7e350d/skills/engineering/tdd/SKILL.md",
+        "content_hash": "sha256:58260facd3bbc2d4",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T14:37:30.958749+00:00",
+        "updated_at": "2026-07-21T14:37:30.958763+00:00"
+      },
+      "existing_hub_lock_source_revision": "",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "to-spec",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/to-spec",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:af351b6e88c6af18165deaa55c6f5615333bd06e6004fe512c5c1c3b02550ff7",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/to-spec",
+          "bundle_sha256": "sha256:af351b6e88c6af18165deaa55c6f5615333bd06e6004fe512c5c1c3b02550ff7"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/to-spec",
+          "bundle_sha256": "sha256:af351b6e88c6af18165deaa55c6f5615333bd06e6004fe512c5c1c3b02550ff7"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "core-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "specification"
+      ],
+      "target_profiles": [
+        "default"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "to-tickets",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/to-tickets",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:a9e272d3abd4d1ce46c8969e829e8da2baf9659a461456a77ec6ca25128d58e5",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/to-tickets",
+          "bundle_sha256": "sha256:a9e272d3abd4d1ce46c8969e829e8da2baf9659a461456a77ec6ca25128d58e5"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/to-tickets",
+          "bundle_sha256": "sha256:a9e272d3abd4d1ce46c8969e829e8da2baf9659a461456a77ec6ca25128d58e5"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "core-approved-for-phase2-isolated-test",
+      "pilot_routes": [
+        "ticketing"
+      ],
+      "target_profiles": [
+        "default"
+      ],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "triage",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/triage",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:a4496ee7df666eae9c69f2c276d2ea7358aa18b7dd7b97371cf27f70a521cc4e",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/triage",
+          "bundle_sha256": "sha256:a4496ee7df666eae9c69f2c276d2ea7358aa18b7dd7b97371cf27f70a521cc4e"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/triage",
+          "bundle_sha256": "sha256:a4496ee7df666eae9c69f2c276d2ea7358aa18b7dd7b97371cf27f70a521cc4e"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "wayfinder",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/wayfinder",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:3f3f104bad8a2554b09af7dd10aba40a2035c07e9aa5ded05eb9ce7f7aef3f28",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/wayfinder",
+          "bundle_sha256": "sha256:3f3f104bad8a2554b09af7dd10aba40a2035c07e9aa5ded05eb9ce7f7aef3f28"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/wayfinder",
+          "bundle_sha256": "sha256:3f3f104bad8a2554b09af7dd10aba40a2035c07e9aa5ded05eb9ce7f7aef3f28"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "wizard",
+      "layer": "upstream-workflow",
+      "source_path": "skills/engineering/wizard",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:b4da6a168d70c286606f490819d23e8b78d5cb40d23e306334e8f1570bd9ac68",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/wizard",
+          "bundle_sha256": "sha256:b4da6a168d70c286606f490819d23e8b78d5cb40d23e306334e8f1570bd9ac68"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/wizard",
+          "bundle_sha256": "sha256:b4da6a168d70c286606f490819d23e8b78d5cb40d23e306334e8f1570bd9ac68"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "grill-me",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/grill-me",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:e7d8c6b656725325043d0691c14cfcfe11baa8dd3bb32686d963d4e38ecb4520",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/grill-me",
+          "bundle_sha256": "sha256:e7d8c6b656725325043d0691c14cfcfe11baa8dd3bb32686d963d4e38ecb4520"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/grill-me",
+          "bundle_sha256": "sha256:e7d8c6b656725325043d0691c14cfcfe11baa8dd3bb32686d963d4e38ecb4520"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z",
+      "existing_hub_lock_record": {
+        "source": "skills.sh",
+        "identifier": "skills-sh/mattpocock/skills/skills/engineering/grill-me",
+        "content_hash": "sha256:b395482d739d3e41",
+        "scan_verdict": "safe",
+        "installed_at": "2026-07-21T15:52:55.940615+00:00",
+        "updated_at": "2026-07-21T15:52:55.940634+00:00"
+      },
+      "existing_hub_lock_source_revision": "ed37663cc5fbef691ddfecd080dff42f7e7e350d",
+      "hub_lock_note": "existing record may predate the direct-copy refresh; active-content hashes and the pinned upstream commit govern this manifest"
+    },
+    {
+      "name": "grilling",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/grilling",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:0e2a85f20a5f721ab35b9ed5628db478d70634db639e7ab9d5a990dd47d121d5",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/grilling",
+          "bundle_sha256": "sha256:0e2a85f20a5f721ab35b9ed5628db478d70634db639e7ab9d5a990dd47d121d5"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/grilling",
+          "bundle_sha256": "sha256:0e2a85f20a5f721ab35b9ed5628db478d70634db639e7ab9d5a990dd47d121d5"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "handoff",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/handoff",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:75b23d67b04e129fb536193e033b1fc8c3caa99f42652077556f051e92f75cfa",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/handoff",
+          "bundle_sha256": "sha256:75b23d67b04e129fb536193e033b1fc8c3caa99f42652077556f051e92f75cfa"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/handoff",
+          "bundle_sha256": "sha256:75b23d67b04e129fb536193e033b1fc8c3caa99f42652077556f051e92f75cfa"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "teach",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/teach",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:51170bde4a202a163bf246b1023623cd654e38697f11cdc7778e9d69966bd08f",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/teach",
+          "bundle_sha256": "sha256:51170bde4a202a163bf246b1023623cd654e38697f11cdc7778e9d69966bd08f"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/teach",
+          "bundle_sha256": "sha256:51170bde4a202a163bf246b1023623cd654e38697f11cdc7778e9d69966bd08f"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "to-questionnaire",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/to-questionnaire",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:bc37cd96a59118ad1d42621da3b1ef6eefb03c7bb0782f1704f86665199e6de2",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/to-questionnaire",
+          "bundle_sha256": "sha256:bc37cd96a59118ad1d42621da3b1ef6eefb03c7bb0782f1704f86665199e6de2"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/to-questionnaire",
+          "bundle_sha256": "sha256:bc37cd96a59118ad1d42621da3b1ef6eefb03c7bb0782f1704f86665199e6de2"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "wait-what",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/wait-what",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:8378397164f0a5397e271ab9306d81b706b37ed0e97947a61658a7c8e104b773",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/wait-what",
+          "bundle_sha256": "sha256:8378397164f0a5397e271ab9306d81b706b37ed0e97947a61658a7c8e104b773"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/wait-what",
+          "bundle_sha256": "sha256:8378397164f0a5397e271ab9306d81b706b37ed0e97947a61658a7c8e104b773"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "writing-for-agents",
+      "layer": "upstream-workflow",
+      "source_path": "skills/productivity/writing-for-agents",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:c6833cfae282543485ef511867e5798d9cdc9fb2c39a716ee7cb3ff535bedeae",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/writing-for-agents",
+          "bundle_sha256": "sha256:c6833cfae282543485ef511867e5798d9cdc9fb2c39a716ee7cb3ff535bedeae"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/writing-for-agents",
+          "bundle_sha256": "sha256:c6833cfae282543485ef511867e5798d9cdc9fb2c39a716ee7cb3ff535bedeae"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "claude-handoff",
+      "layer": "upstream-workflow",
+      "source_path": "skills/in-progress/claude-handoff",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:2c49c73e445c142425d7e689c55cadf3ca678b7997e52cc9353aa9ea5090d32a",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/claude-handoff",
+          "bundle_sha256": "sha256:2c49c73e445c142425d7e689c55cadf3ca678b7997e52cc9353aa9ea5090d32a"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/claude-handoff",
+          "bundle_sha256": "sha256:2c49c73e445c142425d7e689c55cadf3ca678b7997e52cc9353aa9ea5090d32a"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "loop-me",
+      "layer": "upstream-workflow",
+      "source_path": "skills/in-progress/loop-me",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:69f78f4c149c815d78aeb0f24cbcd51e6f8907b36e47777ec61815f405706b13",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/loop-me",
+          "bundle_sha256": "sha256:69f78f4c149c815d78aeb0f24cbcd51e6f8907b36e47777ec61815f405706b13"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/loop-me",
+          "bundle_sha256": "sha256:69f78f4c149c815d78aeb0f24cbcd51e6f8907b36e47777ec61815f405706b13"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "setup-ts-deep-modules",
+      "layer": "upstream-workflow",
+      "source_path": "skills/in-progress/setup-ts-deep-modules",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:2423a13d9be3c15a327e5e609540448fdb8d90bffa7ad797065b37ccdbb189b4",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/setup-ts-deep-modules",
+          "bundle_sha256": "sha256:2423a13d9be3c15a327e5e609540448fdb8d90bffa7ad797065b37ccdbb189b4"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/setup-ts-deep-modules",
+          "bundle_sha256": "sha256:2423a13d9be3c15a327e5e609540448fdb8d90bffa7ad797065b37ccdbb189b4"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "writing-beats",
+      "layer": "upstream-workflow",
+      "source_path": "skills/in-progress/writing-beats",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:c97cc21b4dc3f6d57723aea6b9b5f487538602694a4d53ca739c279229d92c62",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/writing-beats",
+          "bundle_sha256": "sha256:c97cc21b4dc3f6d57723aea6b9b5f487538602694a4d53ca739c279229d92c62"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/writing-beats",
+          "bundle_sha256": "sha256:c97cc21b4dc3f6d57723aea6b9b5f487538602694a4d53ca739c279229d92c62"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "writing-fragments",
+      "layer": "upstream-workflow",
+      "source_path": "skills/in-progress/writing-fragments",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:8c67ee3407e5b753018d01fc7688c794ff1a196d4b85e5e4c078a83ac9988982",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/writing-fragments",
+          "bundle_sha256": "sha256:8c67ee3407e5b753018d01fc7688c794ff1a196d4b85e5e4c078a83ac9988982"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/writing-fragments",
+          "bundle_sha256": "sha256:8c67ee3407e5b753018d01fc7688c794ff1a196d4b85e5e4c078a83ac9988982"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "writing-shape",
+      "layer": "upstream-workflow",
+      "source_path": "skills/in-progress/writing-shape",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:5907b77b445385d4b6a87481b6db1353145cb2a19508cc2a193f0fc4cc1bc70d",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/writing-shape",
+          "bundle_sha256": "sha256:5907b77b445385d4b6a87481b6db1353145cb2a19508cc2a193f0fc4cc1bc70d"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/writing-shape",
+          "bundle_sha256": "sha256:5907b77b445385d4b6a87481b6db1353145cb2a19508cc2a193f0fc4cc1bc70d"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "git-guardrails-claude-code",
+      "layer": "upstream-workflow",
+      "source_path": "skills/misc/git-guardrails-claude-code",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:16e15c3d4f70b188a10ce31d20334a9039b9c44416505de1265b6413d6952558",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/git-guardrails-claude-code",
+          "bundle_sha256": "sha256:16e15c3d4f70b188a10ce31d20334a9039b9c44416505de1265b6413d6952558"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/git-guardrails-claude-code",
+          "bundle_sha256": "sha256:16e15c3d4f70b188a10ce31d20334a9039b9c44416505de1265b6413d6952558"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "migrate-to-shoehorn",
+      "layer": "upstream-workflow",
+      "source_path": "skills/misc/migrate-to-shoehorn",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:8fd7f8dd2f63a2a9c825d9af26c8210f86789c85beebbb98615d25584de755e0",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/migrate-to-shoehorn",
+          "bundle_sha256": "sha256:8fd7f8dd2f63a2a9c825d9af26c8210f86789c85beebbb98615d25584de755e0"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/migrate-to-shoehorn",
+          "bundle_sha256": "sha256:8fd7f8dd2f63a2a9c825d9af26c8210f86789c85beebbb98615d25584de755e0"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "scaffold-exercises",
+      "layer": "upstream-workflow",
+      "source_path": "skills/misc/scaffold-exercises",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:52f4bf9bf9251cce9cfe8e552f8115e1941f7bf40562180a2f33d92cd040e10a",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/scaffold-exercises",
+          "bundle_sha256": "sha256:52f4bf9bf9251cce9cfe8e552f8115e1941f7bf40562180a2f33d92cd040e10a"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/scaffold-exercises",
+          "bundle_sha256": "sha256:52f4bf9bf9251cce9cfe8e552f8115e1941f7bf40562180a2f33d92cd040e10a"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    },
+    {
+      "name": "setup-pre-commit",
+      "layer": "upstream-workflow",
+      "source_path": "skills/misc/setup-pre-commit",
+      "upstream_revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "upstream_bundle_sha256": "sha256:b36727fe0eaa7dbef398b3211426fa2490d5df7c2532fec6ec464710edfb8496",
+      "active_profiles": {
+        "default": {
+          "path": "/home/jellybot/.hermes/skills/setup-pre-commit",
+          "bundle_sha256": "sha256:b36727fe0eaa7dbef398b3211426fa2490d5df7c2532fec6ec464710edfb8496"
+        },
+        "jellybase_hermes": {
+          "path": "/home/jellybot/.hermes/profiles/jellybase_hermes/skills/setup-pre-commit",
+          "bundle_sha256": "sha256:b36727fe0eaa7dbef398b3211426fa2490d5df7c2532fec6ec464710edfb8496"
+        }
+      },
+      "profile_copies_match": true,
+      "active_matches_upstream": true,
+      "local_overlay_files": [],
+      "missing_upstream_files": [],
+      "pilot_approval_state": "inventory-only-not-approved-for-pilot",
+      "pilot_routes": [],
+      "target_profiles": [],
+      "promotion_state": "not-promoted-phase1",
+      "rollback_location": "/home/jellybot/.hermes/backups/jellybase_hermes-mattpocock-skills-20260806T215958Z"
+    }
+  ]
+}

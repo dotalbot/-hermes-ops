@@ -13,9 +13,11 @@ Current copies exist in:
 
 Jellybase receives only ordinary remote terminal/file operations against application repositories. Its durable `~/.hermes` directory is outside this workflow and must not be synchronized.
 
-## Current upstream snapshot
+## Current managed snapshot
 
-The official source is `https://github.com/mattpocock/skills`. The current full collection contains 35 skills. The Jellybase worker profile has a matching copy of this collection.
+The official source is `https://github.com/mattpocock/skills`. The managed Jellyberry snapshot contains 35 selected skills in both the default and `jellybase_hermes` profiles. Phase 1 verified that all 35 profile copies match each other, 34 match upstream commit `84fdeffd12f2ee307994d1eb6feb48173b6e0502` exactly, and `research` matches that commit plus the local `DESCRIPTION.md` overlay. The exact hashes, target profiles, approval states, and rollback path are recorded in [the JellySSH Phase 1 skill manifest](manifests/jellyssh-phase1-skill-manifest.json).
+
+The upstream repository contained 41 skill directories at that observed commit; the extra upstream skills are not implicitly installed or approved. Some existing Hermes hub lock entries still describe an older revision, so active-content hashes and the Phase 1 manifest govern the pilot until a later controlled promotion refreshes provenance.
 
 ### Engineering
 
@@ -121,7 +123,7 @@ Ticket: <issue URL or local ticket path>"
 
 ## Controlled update procedure
 
-Phase 0 does not authorize fetching, installing, updating, synchronizing, or promoting skills. Phase 1 must first approve a manifest containing each skill's source, pinned version or commit, integrity/provenance record, local overlay path, target profiles, compatibility evidence, promotion state, and rollback location.
+Phase 1 produced a proposed manifest containing each managed skill's source, pinned commit, integrity/provenance record, local overlay path, target profiles, compatibility state, promotion state, and rollback location. Phase 1 does not authorize installing, updating, synchronizing, or promoting skills; those actions remain gated on acceptance of the Phase 1 report and the Phase 2 isolated profile tests.
 
 After that gate, use the lifecycle defined by V3: inventory the active copy, fetch upstream into an isolated candidate area, diff it against upstream and local overlays, run security and compatibility review, test it in an isolated profile/session, obtain operator approval, promote it only to the named profiles, and retain the rollback copy. Never run a global install/update command directly against active skills, and never overwrite local expert or project assets silently.
 

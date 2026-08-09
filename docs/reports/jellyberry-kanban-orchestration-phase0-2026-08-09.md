@@ -1,6 +1,6 @@
 # Jellyberry Kanban orchestration V3 — Phase 0 completion report
 
-> **Status:** Phase 0 completed and verified; awaiting operator acceptance
+> **Status:** Phase 0 completed, verified, and accepted by the operator on 2026-08-09
 >
 > **Completed:** 2026-08-09 04:24 BST
 >
@@ -90,4 +90,4 @@ The guarded helper updated all three workdirs successfully, then stopped before 
 
 ## Gate
 
-Phase 0 completion does not authorize Phase 1. The next action is operator acceptance, revision, or rollback of this report. No skill inventory, model binding, JellySSH preparation, cloning, profile creation, board creation, or dispatch may begin without a new explicit decision.
+The operator accepted Phase 0 and separately authorized Phase 1 on 2026-08-09. That decision authorizes read-only skill/expert inventory and governance design only. It does not authorize skill installation or promotion, JellySSH preparation, cloning, profile creation, board creation, or dispatch.
