@@ -25,6 +25,12 @@
 <path id="p2-e14" d="M 285.0,500.0 L 330.0,500.0 L 330.0,500.0 L 375.0,500.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
 <path id="p2-e15" d="M 555.0,500.0 L 570.0,500.0 L 570.0,500.0 L 585.0,500.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p2-e16" d="M 775.0,500.0 L 792.5,500.0 L 792.5,500.0 L 810.0,500.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p2-e11" d="M 970.0,350.0 L 1020.0,350.0 L 1020.0,590.0 L 1065.0,590.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<rect x="985.2" y="450.0" width="69.6" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="1020.0" y="464.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="1020.0" dy="0">evidence</tspan></text>
+<path id="p2-e17" d="M 375.0,350.0 L 330.0,350.0 L 330.0,680.0 L 690.0,680.0 L 690.0,700.0" fill="none" stroke="#b85450" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<rect x="424.8" y="660.0" width="170.4" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>
+<text x="510.0" y="674.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="510.0" dy="0">journal-bound rollback</tspan></text>
 <text x="740.0" y="44.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="#1f2937"><tspan x="740.0" dy="0">Project Setup — Plan, Apply, Doctor, Reconcile and Rollback</tspan></text>
 <rect id="p2-request" x="65.0" y="150.0" width="220.0" height="100.0" rx="10" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2"/>
 <text x="175.0" y="167.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="175.0" dy="0">Setup request</tspan><tspan x="175.0" dy="19">repo · profiles ·</tspan><tspan x="175.0" dy="19">skills</tspan><tspan x="175.0" dy="19">experts · board ·</tspan><tspan x="175.0" dy="19">effects</tspan></text>

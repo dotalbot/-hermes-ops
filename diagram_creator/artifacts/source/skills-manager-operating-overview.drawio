@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='UTF-8'?>
 <mxfile host="Hermes Agent" modified="2026-08-09T00:00:00.000Z" agent="Hermes Agent" version="24.7.17" type="device" compressed="false">
   <diagram id="operating-map" name="Operating Map">
     <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="820" math="0" shadow="0" adaptiveColors="auto">
@@ -108,40 +108,24 @@
         <mxCell id="p1-e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-routing" target="p1-impl">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="792.5" y="387.5" />
-              <mxPoint x="362.5" y="387.5" />
+              <mxPoint x="792.5" y="375" />
+              <mxPoint x="362.5" y="375" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="p1-e9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-routing" target="p1-review">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="792.5" y="387.5" />
-              <mxPoint x="577.5" y="387.5" />
+              <mxPoint x="792.5" y="375" />
+              <mxPoint x="577.5" y="375" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="p1-e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p1-routing" target="p1-experts">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="792.5" y="387.5" />
-              <mxPoint x="792.5" y="387.5" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="p1-e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-impl" target="p1-implws">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="362.5" y="395" />
-              <mxPoint x="1075" y="395" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="p1-e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-review" target="p1-reviewws">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="577.5" y="395" />
-              <mxPoint x="1310" y="395" />
+              <mxPoint x="792.5" y="375" />
+              <mxPoint x="792.5" y="375" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -177,35 +161,28 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="p1-e17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p1-experts" target="p1-evidence">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="792.5" y="395" />
-              <mxPoint x="1310" y="395" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
         <mxCell id="p1-e18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p1-impl" target="p1-memory">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="362.5" y="572.5" />
-              <mxPoint x="365" y="572.5" />
+              <mxPoint x="362.5" y="600" />
+              <mxPoint x="365" y="600" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="p1-e19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p1-review" target="p1-memory">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="577.5" y="572.5" />
-              <mxPoint x="365" y="572.5" />
+              <mxPoint x="577.5" y="600" />
+              <mxPoint x="365" y="600" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="p1-e20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-manager" target="p1-journals">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="577.5" y="432.5" />
-              <mxPoint x="635" y="432.5" />
+              <mxPoint x="470" y="182.5" />
+              <mxPoint x="470" y="620" />
+              <mxPoint x="635" y="620" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -215,15 +192,15 @@
         <mxCell id="p1-e22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-evidence" target="p1-gate">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1310" y="577.5" />
-              <mxPoint x="915" y="577.5" />
+              <mxPoint x="1310" y="620" />
+              <mxPoint x="915" y="620" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="p1-e23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p1-gate" target="p1-accept">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p1-note" value="Solid arrows show the controlled operating path; dashed arrows show policy, evidence, or optional relationships." style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;html=1;fontSize=14;fontColor=#374151;fontStyle=2;" vertex="1" parent="1">
+        <mxCell id="p1-note" value="Matching profile colours map to isolated implementation, review, and evidence paths. Solid arrows show control flow; dashed arrows show policy or optional relationships." style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;html=1;fontSize=14;fontColor=#374151;fontStyle=2;" vertex="1" parent="1">
           <mxGeometry x="330" y="750" width="820" height="35" as="geometry" />
         </mxCell>
       </root>
@@ -367,6 +344,23 @@
         <mxCell id="p2-e16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p2-health" target="p2-reconcile">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="p2-e11" value="evidence" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p2-adapter" target="p2-evidence">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1020" y="350" />
+              <mxPoint x="1020" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p2-e17" value="journal-bound rollback" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#b85450;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p2-journal" target="p2-rollback">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="330" y="350" />
+              <mxPoint x="330" y="680" />
+              <mxPoint x="690" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
@@ -396,7 +390,7 @@
         <mxCell id="p3-impact" value="&lt;b&gt;Fleet impact&lt;/b&gt;&lt;br&gt;all affected projects" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontSize=16;fontColor=#1f2937;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;spacing=6;" vertex="1" parent="p3-stage">
           <mxGeometry x="945" y="55" width="200" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="p3-block" value="&lt;b&gt;Incomplete impact?&lt;/b&gt;&lt;br&gt;BLOCK" style="rhombus;whiteSpace=wrap;html=1;fontSize=16;fontColor=#1f2937;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;spacing=6;" vertex="1" parent="p3-stage">
+        <mxCell id="p3-block" value="&lt;b&gt;Impact complete?&lt;/b&gt;&lt;br&gt;every affected project listed" style="rhombus;whiteSpace=wrap;html=1;fontSize=16;fontColor=#1f2937;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;spacing=6;" vertex="1" parent="p3-stage">
           <mxGeometry x="1175" y="55" width="200" height="80" as="geometry" />
         </mxCell>
         <mxCell id="p3-prove" value="2 · Prove compatibility and canary" style="swimlane;startSize=34;horizontal=1;rounded=1;arcSize=8;container=1;pointerEvents=0;html=1;fontSize=17;fontStyle=1;fillColor=#f5f5f5;strokeColor=#9e9e9e;strokeWidth=2;fontColor=#1f2937;" vertex="1" parent="1">
@@ -459,10 +453,10 @@
         <mxCell id="p3-e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p3-impact" target="p3-block">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p3-e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p3-impact" target="p3-compat">
+        <mxCell id="p3-e6" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p3-block" target="p3-compat">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1085" y="300" />
+              <mxPoint x="1315" y="300" />
               <mxPoint x="165" y="300" />
             </Array>
           </mxGeometry>
@@ -501,6 +495,23 @@
         </mxCell>
         <mxCell id="p3-e16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#52606d;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="p3-sessions" target="p3-accept">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-e17" value="NO · BLOCK" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#b85450;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p3-block" target="p3-cplan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1450" y="190" />
+              <mxPoint x="1450" y="275" />
+              <mxPoint x="395" y="275" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p3-e18" value="rollback state" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontColor=#374151;strokeColor=#b85450;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="p3-promoteact" target="p3-rollback">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="165" y="580" />
+              <mxPoint x="1315" y="580" />
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>

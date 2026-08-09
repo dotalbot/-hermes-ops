@@ -14,21 +14,18 @@
 <path id="p1-e5" d="M 577.5,225.0 L 577.5,247.5 L 362.5,247.5 L 362.5,270.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
 <path id="p1-e6" d="M 455.0,312.5 L 470.0,312.5 L 470.0,312.5 L 485.0,312.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p1-e7" d="M 670.0,312.5 L 685.0,312.5 L 685.0,312.5 L 700.0,312.5" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
-<path id="p1-e8" d="M 792.5,355.0 L 792.5,387.5 L 362.5,387.5 L 362.5,420.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
-<path id="p1-e9" d="M 792.5,355.0 L 792.5,387.5 L 577.5,387.5 L 577.5,420.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
-<path id="p1-e10" d="M 792.5,355.0 L 792.5,387.5 L 792.5,387.5 L 792.5,420.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
-<path id="p1-e11" d="M 362.5,420.0 L 362.5,395.0 L 1075.0,395.0 L 1075.0,430.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
-<path id="p1-e12" d="M 577.5,420.0 L 577.5,395.0 L 1310.0,395.0 L 1310.0,370.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e8" d="M 792.5,355.0 L 792.5,375.0 L 362.5,375.0 L 362.5,420.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e9" d="M 792.5,355.0 L 792.5,375.0 L 577.5,375.0 L 577.5,420.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e10" d="M 792.5,355.0 L 792.5,375.0 L 792.5,375.0 L 792.5,420.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
 <path id="p1-e13" d="M 1075.0,430.0 L 1075.0,400.0 L 1075.0,400.0 L 1075.0,370.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p1-e14" d="M 1075.0,285.0 L 1075.0,255.0 L 1195.0,255.0 L 1195.0,225.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p1-e15" d="M 1195.0,225.0 L 1195.0,255.0 L 1310.0,255.0 L 1310.0,285.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p1-e16" d="M 1310.0,370.0 L 1310.0,400.0 L 1310.0,400.0 L 1310.0,430.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
-<path id="p1-e17" d="M 792.5,420.0 L 792.5,395.0 L 1310.0,395.0 L 1310.0,430.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
-<path id="p1-e18" d="M 362.5,505.0 L 362.5,572.5 L 365.0,572.5 L 365.0,640.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
-<path id="p1-e19" d="M 577.5,505.0 L 577.5,572.5 L 365.0,572.5 L 365.0,640.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
-<path id="p1-e20" d="M 577.5,225.0 L 577.5,432.5 L 635.0,432.5 L 635.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e18" d="M 362.5,505.0 L 362.5,600.0 L 365.0,600.0 L 365.0,640.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p1-e19" d="M 577.5,505.0 L 577.5,600.0 L 365.0,600.0 L 365.0,640.0" fill="none" stroke="#52606d" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path id="p1-e20" d="M 485.0,182.5 L 470.0,182.5 L 470.0,620.0 L 635.0,620.0 L 635.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p1-e21" d="M 750.0,680.0 L 775.0,680.0 L 775.0,680.0 L 800.0,680.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
-<path id="p1-e22" d="M 1310.0,515.0 L 1310.0,577.5 L 915.0,577.5 L 915.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
+<path id="p1-e22" d="M 1310.0,515.0 L 1310.0,620.0 L 915.0,620.0 L 915.0,640.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <path id="p1-e23" d="M 1030.0,680.0 L 1060.0,680.0 L 1060.0,680.0 L 1090.0,680.0" fill="none" stroke="#52606d" stroke-width="2" marker-end="url(#arrow)"/>
 <text x="740.0" y="44.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="#1f2937"><tspan x="740.0" dy="0">Hermes Skills Manager — Full Operating Map</tspan></text>
 <rect id="p1-operator" x="40.0" y="120.0" width="170.0" height="80.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
@@ -74,5 +71,5 @@
 <text x="915.0" y="666.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="915.0" dy="0">Operator hash gate</tspan><tspan x="915.0" dy="19">inspect exact plan;</tspan><tspan x="915.0" dy="19">supply SHA-256</tspan></text>
 <rect id="p1-accept" x="1090.0" y="640.0" width="230.0" height="80.0" rx="10" fill="#fff2cc" stroke="#d6b656" stroke-width="2"/>
 <text x="1205.0" y="666.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="normal" fill="#1f2937"><tspan x="1205.0" dy="0">Acceptance / promotion</tspan><tspan x="1205.0" dy="19">separate explicit</tspan><tspan x="1205.0" dy="19">decision</tspan></text>
-<text x="740.0" y="764.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="740.0" dy="0">Solid arrows show the controlled operating path; dashed arrows show policy, evidence, or optional</tspan><tspan x="740.0" dy="17">relationships.</tspan></text>
+<text x="740.0" y="764.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="normal" fill="#1f2937"><tspan x="740.0" dy="0">Matching profile colours map to isolated implementation, review, and evidence paths. Solid arrows show</tspan><tspan x="740.0" dy="17">control flow; dashed arrows show policy or optional relationships.</tspan></text>
 </svg>

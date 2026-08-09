@@ -9,6 +9,7 @@ import math
 import re
 import textwrap
 import xml.etree.ElementTree as ET
+from itertools import combinations
 from pathlib import Path
 
 REQUIRED_PAGES = {
@@ -26,6 +27,39 @@ REQUIRED_PAGES = {
         "Compatibility evidence", "Canary apply", "Promotion plan",
         "Controlled promote", "Rollback retained",
     ],
+}
+
+REQUIRED_EDGES = {
+    "Project Setup": {
+        ("p2-adapter", "p2-evidence"),
+        ("p2-journal", "p2-rollback"),
+    },
+    "Skill Lifecycle": {
+        ("p3-impact", "p3-block"),
+        ("p3-block", "p3-compat"),
+        ("p3-block", "p3-cplan"),
+        ("p3-promoteact", "p3-rollback"),
+    },
+}
+
+REQUIRED_DASHED_EDGES = {
+    "Project Setup": {
+        ("p2-adapter", "p2-evidence"),
+        ("p2-journal", "p2-rollback"),
+    },
+    "Skill Lifecycle": {
+        ("p3-block", "p3-cplan"),
+        ("p3-promoteact", "p3-rollback"),
+    },
+}
+
+FORBIDDEN_EDGES = {
+    "Skill Lifecycle": {("p3-impact", "p3-compat")},
+}
+
+REQUIRED_CONNECTED_NODES = {
+    "Project Setup": {"p2-evidence", "p2-rollback"},
+    "Skill Lifecycle": {"p3-block", "p3-rollback"},
 }
 
 
@@ -184,11 +218,16 @@ def render_page(model: ET.Element, page_name: str, output: Path) -> None:
         d = "M " + " L ".join(f"{px:.1f},{py:.1f}" for px, py in points)
         st = style_map(cell.get("style", ""))
         dash = ' stroke-dasharray="7 5"' if st.get("dashed") == "1" else ""
-        parts.append(f'<path id="{cid}" d="{d}" fill="none" stroke="#52606d" stroke-width="2"{dash} marker-end="url(#arrow)"/>')
+        stroke = st.get("strokeColor", "#52606d")
+        parts.append(f'<path id="{cid}" d="{d}" fill="none" stroke="{stroke}" stroke-width="2"{dash} marker-end="url(#arrow)"/>')
         label = plain_text(cell.get("value", ""))
         if label:
-            lx = (start[0] + end[0]) / 2
-            ly = (start[1] + end[1]) / 2 - 6
+            longest = max(
+                zip(points, points[1:]),
+                key=lambda pair: abs(pair[1][0] - pair[0][0]) + abs(pair[1][1] - pair[0][1]),
+            )
+            lx = (longest[0][0] + longest[1][0]) / 2
+            ly = (longest[0][1] + longest[1][1]) / 2 - 6
             label_width = max(58, len(label) * 7.2 + 12)
             parts.append(f'<rect x="{lx-label_width/2:.1f}" y="{ly-14:.1f}" width="{label_width:.1f}" height="20" rx="4" fill="#ffffff" fill-opacity="0.94"/>')
             parts.append(svg_text([label], lx, ly, 14))
@@ -234,6 +273,77 @@ def render_page(model: ET.Element, page_name: str, output: Path) -> None:
             raise ValueError(f"{page_name}: preview missing required label {required!r}")
 
 
+def waypoint_segments(cell: ET.Element) -> list[tuple[str, float, float, float]]:
+    """Return axis, fixed coordinate, interval start, interval end for source-owned routes."""
+    points = [
+        (float(point.get("x", "nan")), float(point.get("y", "nan")))
+        for point in cell.findall("mxGeometry/Array[@as='points']/mxPoint")
+    ]
+    segments: list[tuple[str, float, float, float]] = []
+    for first, second in zip(points, points[1:]):
+        if math.isclose(first[1], second[1], abs_tol=0.01):
+            segments.append(("h", first[1], min(first[0], second[0]), max(first[0], second[0])))
+        elif math.isclose(first[0], second[0], abs_tol=0.01):
+            segments.append(("v", first[0], min(first[1], second[1]), max(first[1], second[1])))
+    return segments
+
+
+def validate_operating_contracts(name: str, cells: list[ET.Element]) -> None:
+    edges = [cell for cell in cells if cell.get("edge") == "1"]
+    pairs = {(cell.get("source", ""), cell.get("target", "")) for cell in edges}
+
+    missing = REQUIRED_EDGES.get(name, set()) - pairs
+    if missing:
+        raise ValueError(f"{name}: missing required edges {sorted(missing)!r}")
+    forbidden = FORBIDDEN_EDGES.get(name, set()) & pairs
+    if forbidden:
+        raise ValueError(f"{name}: forbidden bypass edges present {sorted(forbidden)!r}")
+
+    dashed_pairs = {
+        (cell.get("source", ""), cell.get("target", ""))
+        for cell in edges
+        if style_map(cell.get("style", "")).get("dashed") == "1"
+    }
+    missing_dashed = REQUIRED_DASHED_EDGES.get(name, set()) - dashed_pairs
+    if missing_dashed:
+        raise ValueError(f"{name}: required recovery/blocking edges are not dashed {sorted(missing_dashed)!r}")
+
+    degree: dict[str, int] = {}
+    for source, target in pairs:
+        degree[source] = degree.get(source, 0) + 1
+        degree[target] = degree.get(target, 0) + 1
+    disconnected = sorted(node for node in REQUIRED_CONNECTED_NODES.get(name, set()) if degree.get(node, 0) == 0)
+    if disconnected:
+        raise ValueError(f"{name}: required nodes are disconnected {disconnected!r}")
+
+    if name == "Skill Lifecycle":
+        decision = next(cell for cell in cells if cell.get("id") == "p3-block")
+        if "rhombus" not in style_map(decision.get("style", "")):
+            raise ValueError("Skill Lifecycle: impact completeness gate must be a decision")
+        labels = {
+            (cell.get("source", ""), cell.get("target", "")): plain_text(cell.get("value", ""))
+            for cell in edges
+        }
+        if labels.get(("p3-block", "p3-compat")) != "YES":
+            raise ValueError("Skill Lifecycle: success output from impact gate must be labelled YES")
+        if "NO" not in labels.get(("p3-block", "p3-cplan"), ""):
+            raise ValueError("Skill Lifecycle: blocked output from impact gate must be labelled NO")
+
+    for left, right in combinations(edges, 2):
+        if left.get("source") == right.get("source") or left.get("target") == right.get("target"):
+            continue
+        for lseg in waypoint_segments(left):
+            for rseg in waypoint_segments(right):
+                if lseg[0] != rseg[0] or not math.isclose(lseg[1], rseg[1], abs_tol=0.01):
+                    continue
+                overlap = min(lseg[3], rseg[3]) - max(lseg[2], rseg[2])
+                if overlap > 8:
+                    raise ValueError(
+                        f"{name}: edges {left.get('id')} and {right.get('id')} overlap "
+                        f"the same {lseg[0]} corridor by {overlap:.1f}px"
+                    )
+
+
 def validate_and_render(source: Path, preview_dir: Path) -> list[Path]:
     tree = ET.parse(source)
     mxfile = tree.getroot()
@@ -266,6 +376,7 @@ def validate_and_render(source: Path, preview_dir: Path) -> list[Path]:
         for required in REQUIRED_PAGES[name]:
             if required not in labels:
                 raise ValueError(f"{name}: missing required label {required!r}")
+        validate_operating_contracts(name, cells)
         for cell in cells:
             for attr in ("parent", "source", "target"):
                 ref = cell.get(attr)
