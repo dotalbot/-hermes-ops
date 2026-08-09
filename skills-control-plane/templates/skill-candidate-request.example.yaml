@@ -1,0 +1,15 @@
+schema_version: 1
+candidate:
+  layer: release
+  name: core-development
+  version: 0.2.0
+  source_path: /absolute/private/path/to/core-development-0.2.0
+  manifest_path: release.yaml
+  bundle_sha256: sha256:1111111111111111111111111111111111111111111111111111111111111111
+  manifest_sha256: sha256:2222222222222222222222222222222222222222222222222222222222222222
+provenance:
+  source: reviewed local source at an exact Git commit
+  commit: '3333333333333333333333333333333333333333'
+compatibility:
+  tested_against:
+  - core-development@0.1.0

@@ -1,0 +1,84 @@
+{
+  "control_blockers": [],
+  "pending_candidates": [],
+  "projects": [
+    {
+      "core": "core-development@0.1.0",
+      "display_name": "JellySSH",
+      "manifest_sha256": "sha256:587d4ea107f2a885ffcd9d544cb0d2a6d7b14643ae20a756a6d2f83bfc753ca3",
+      "overlays": [
+        "jellyssh-controller-evidence-review",
+        "jellyssh-drift-data-review",
+        "jellyssh-mobile-ux-review",
+        "jellyssh-ssh-security-review"
+      ],
+      "packs": [
+        "database-data@0.1.0",
+        "flutter-mobile@0.1.0"
+      ],
+      "routing_state": "setup-verified-routing-blocked",
+      "runtime_sha256": "sha256:2eccacc3de5b3593d21da12afe3fc378e66b2b9e0f0f88165aa0f56306f97962",
+      "slug": "jellyssh",
+      "state": "RED"
+    }
+  ],
+  "schema_version": 1,
+  "skills": [
+    {
+      "bundle_sha256": "sha256:eae9d69125f92eff65d6c249cfcc3e9a3ab6384a2dbc1cbdcf3530d46f18a339",
+      "layer": "pack",
+      "name": "database-data",
+      "projects": [
+        {
+          "profiles": [
+            "default",
+            "jellybase_jellyssh",
+            "jellybase_jellyssh_reviewer"
+          ],
+          "slug": "jellyssh"
+        }
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "bundle_sha256": "sha256:fcf64f75fc767c9737df2dfe4849552109cc2a16615e815358daaf591eb6356f",
+      "layer": "pack",
+      "name": "flutter-mobile",
+      "projects": [
+        {
+          "profiles": [
+            "default",
+            "jellybase_jellyssh",
+            "jellybase_jellyssh_reviewer"
+          ],
+          "slug": "jellyssh"
+        }
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "bundle_sha256": "sha256:5b639dd39dbddf6360926df3b4e91c9e9c828f686d2989bad6b8493694105f59",
+      "layer": "release",
+      "name": "core-development",
+      "projects": [
+        {
+          "profiles": [
+            "default",
+            "jellybase_jellyssh",
+            "jellybase_jellyssh_reviewer"
+          ],
+          "slug": "jellyssh"
+        }
+      ],
+      "version": "0.1.0"
+    }
+  ],
+  "state": "RED",
+  "summary": {
+    "AMBER": 0,
+    "BLUE": 0,
+    "GREEN": 0,
+    "GREY": 0,
+    "RED": 1
+  }
+}

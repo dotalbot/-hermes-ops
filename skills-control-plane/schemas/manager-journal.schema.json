@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.local/hermes/manager-journal.schema.json",
+  "title": "Skills Manager apply or rollback journal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation", "plan_sha256", "state", "entries", "journal_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "operation": {"enum": ["apply", "rollback"]},
+    "plan_sha256": {"$ref": "#/$defs/sha256"},
+    "state": {"enum": ["in-progress", "completed", "blocked", "failed", "rolled-back"]},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action_id", "kind", "target", "state", "before", "after", "message"],
+        "properties": {
+          "action_id": {"type": "string", "pattern": "^a[0-9]{3}$"},
+          "kind": {"type": "string", "minLength": 1},
+          "target": {"type": "string", "minLength": 1},
+          "state": {"enum": ["applied", "noop", "blocked", "failed", "rolled-back"]},
+          "before": {"type": ["object", "null"]},
+          "after": {"type": ["object", "null"]},
+          "message": {"type": "string"}
+        }
+      }
+    },
+    "journal_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

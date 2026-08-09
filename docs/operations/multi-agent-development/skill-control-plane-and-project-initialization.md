@@ -302,6 +302,17 @@ The plugin is a renderer and dry-run launcher only. A “Plan update” action g
 - Model aliases such as `latest` are not accepted bindings.
 - No generic profile, model, bank, or skill fallback is allowed.
 
-## 12. Phase boundary
+## 12. Implementation status
 
-This is a Phase 1 control-plane design. Implementing `projectctl`, `/project-init`, the generated fleet report, the Desktop plugin, immutable release directories, scheduled audits, or profile materialization requires a later explicitly authorized phase and its own tests and review.
+Phase 1 defined this control-plane design. Phase 2 implemented the immutable catalogue, releases, packs, JellySSH overlays, schemas, JellySSH-specific read-only controller and generated project status. The accepted Phase 2 branch was merged into the repository's default branch on 2026-08-09.
+
+Phase 2.5 implements the reusable manual management backend described here:
+
+- approval-bound `project plan/apply/doctor/reconcile/rollback`;
+- generic project schema paths and semantic authority checks;
+- skill inventory plus evidence-bound release/pack update planning and promotion;
+- durable apply/rollback journals;
+- deterministic JSON/Markdown fleet projections;
+- isolated fake-adapter tests that never touch live profiles or boards.
+
+The read-only Desktop renderer, scheduled audits, automatic upstream discovery and automatic promotion remain deferred. Phase 2.5 does not authorize a JellySSH development card, LogK rollout or any production operation.

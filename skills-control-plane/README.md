@@ -1,23 +1,191 @@
-# Skill Control Plane — Phase 2 minimum
+# Skill Control Plane and Skills Manager
 
-This directory is the Git-backed authority for the isolated JellySSH pilot. It does not mutate global skills or make a project routable by itself.
+This directory is the Git-backed authority for governed Hermes project setup and manual skill lifecycle management. JellySSH remains the first registered pilot. The manager does not make a project routable, create development cards, or promote mutable upstream content automatically.
 
-## Layout
+## Authority layers
 
-- `catalog.yaml` — release, capability-pack, and project index.
-- `releases/core-development/0.1.0/` — immutable snapshots of the eight Phase 1-approved shared workflow skills.
-- `packs/` — optional database/data and Flutter/mobile capability packs.
-- `projects/jellyssh/project.yaml` — schema-validated project declaration with exact artifact hashes.
-- `projects/jellyssh/runtime.yaml` — observed setup state and explicit blockers.
-- `projects/jellyssh/overlays/` — uniquely named, project-specific overlays held by the Phase 2 control-plane authority; mirroring them into the JellySSH repository is deferred until repository governance and authentication are authorized.
-- `schemas/` — authoritative project and runtime-evidence schemas used by the CLI.
-- `scripts/projectctl.py` — read-only scan, verify, audit, plan, dry-run initialization, and status projection.
-- `scripts/review_boundary.py` and `scripts/jellyssh_review_mcp.py` — six-tool, read-only adapter over SSH to the isolated Jellybase review checkout; tracked blobs are read from the exact commit, not the worktree, and Git refs are limited to the exact target plus the transient controller-supplied base (target-only for interactive profile use).
-- `scripts/reviewctl.py` — validates one immutable profile/host/model/commit snapshot, pins controller and project-authority hashes, loads and hash-verifies an execution-compatible specialist procedure into the model prompt, launches MCP from a private verified snapshot, calls exactly six MCP tools, semantically revalidates metadata/checks before and after collection, materializes regular blobs independently of `.gitattributes`, and runs fixed Flutter checks in a digest-pinned `--network none`, read-only-root Docker sandbox with no host home/runtime sockets. Final/code-quality review uses the no-tools `jellyssh-controller-evidence-review` adapter over the controller-collected diff/checks; exact no-fallback DeepSeek final-review and Gemini conditional mobile-UX routes return bounded JSON and never write board state.
-- `tests/` — standard-library unit and negative-boundary tests.
-- `generated/` — derived status only; manifests remain authoritative.
+- `catalog.yaml` — immutable releases, capability packs and registered projects.
+- `releases/` — reviewed, immutable shared skill releases.
+- `packs/` — reviewed, immutable optional capability packs.
+- `candidates/` — immutable, non-routable candidate bytes awaiting evidence-bound promotion.
+- `projects/<slug>/project.yaml` — exact desired skill/profile/model/workspace/expert policy.
+- `projects/<slug>/runtime.yaml` — observed runtime evidence and explicit blockers.
+- `projects/<slug>/overlays/` — project-only skills; never silently promoted globally.
+- `schemas/` — project, setup-request, plan, journal, lifecycle and runtime schemas.
+- `templates/` — non-secret setup inputs that must be completed before planning.
+- `generated/` — derived fleet/project projections; never authority.
 
-## Commands
+JellySSH-specific review routing remains in `projectctl.py`, `reviewctl.py`, `review_boundary.py`, and `jellyssh_review_mcp.py`. Generic setup and maintenance are isolated in `managerlib.py` behind the thin `managerctl.py` CLI.
+
+## Safety model
+
+Every manager mutation uses the same sequence:
+
+```text
+request -> read-only discovery -> immutable JSON plan -> exact precondition recheck
+        -> operator supplies sha256:<plan-hash> -> typed allowlisted actions
+        -> durable journal after every action -> explicit hash-approved rollback
+```
+
+Important properties:
+
+- planning, doctor, inventory and fleet status are read-only;
+- apply accepts no shell command or environment fragment;
+- plans cannot contain secret-shaped keys or values;
+- full provider/model/fallback, bank, workspace, skills and review boundaries are declared before setup;
+- profile baselines and empty boards are verified before mutation;
+- setup-owned profiles and boards carry project-scoped ownership markers; unowned name collisions block;
+- requested profile bundles are resolved from exact release/pack/overlay descriptors and hash-materialized during setup;
+- unrelated repository changes, configuration drift, symlinks, traversal and unknown object types block;
+- exact existing state becomes `noop`; conflicting state blocks;
+- candidate releases require a new semantic version and exact tree/descriptor hashes;
+- skill promotion requires complete impacted-project declarations plus hash-bound compatibility and canary evidence;
+- previous managed bytes/trees and created resources are represented in the rollback journal;
+- project setup and skill promotion never authorize implementation, cards, commits, PRs, merges, deployment, signing, sideloading, secrets or `sudo`.
+
+The SHA approval token is an anti-accident and stale-plan gate, not a cryptographic trust boundary against another process already running as the same UID. The operator must inspect the immutable plan and personally provide its exact digest. The manager never discovers or refreshes approval automatically.
+
+## Generic project setup
+
+Start from:
+
+```text
+skills-control-plane/templates/project-setup-request.example.yaml
+```
+
+Replace every example repository, commit, path, profile, model, bank, bundle and trigger declaration. The file must contain no credentials.
+
+Generate a plan:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py project plan \
+  --request /absolute/path/to/project-setup.yaml \
+  --output /absolute/path/to/project-setup.plan.json
+```
+
+Inspect the complete plan and its `blockers`. Applying requires the exact printed `plan_sha256`:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py project apply \
+  --plan /absolute/path/to/project-setup.plan.json \
+  --approve sha256:<exact-plan-hash> \
+  --journal-dir /absolute/private/path/to/setup-journal
+```
+
+Run health and reconciliation planning:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py project doctor \
+  --request /absolute/path/to/project-setup.yaml \
+  --output /absolute/path/to/doctor.report.json
+
+python3 skills-control-plane/scripts/managerctl.py project reconcile \
+  --doctor-report /absolute/path/to/doctor.report.json \
+  --output /absolute/path/to/reconcile.plan.json
+```
+
+`doctor` records the exact setup request path and digest. `reconcile` consumes that doctor report, rechecks the request digest, and writes a plan only. It never applies automatically.
+
+Rollback a completed apply journal:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py project rollback \
+  --journal /absolute/path/to/apply-....json \
+  --approve sha256:<exact-journal-hash> \
+  --journal-dir /absolute/private/path/to/rollback-journal
+```
+
+Rollback blocks if any managed result has changed since apply.
+
+## Skill lifecycle
+
+Inventory current authority, create a non-routable candidate plan and calculate impact:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py skill inventory
+
+python3 skills-control-plane/scripts/managerctl.py skill candidate-plan \
+  --request /absolute/path/to/skill-candidate.yaml \
+  --output /absolute/path/to/skill-candidate.plan.json
+
+python3 skills-control-plane/scripts/managerctl.py skill candidate \
+  --plan /absolute/path/to/skill-candidate.plan.json \
+  --approve sha256:<exact-plan-hash> \
+  --journal-dir /absolute/private/path/to/candidate-journal
+
+python3 skills-control-plane/scripts/managerctl.py skill impact \
+  --request /absolute/path/to/skill-candidate.yaml \
+  --output /absolute/path/to/skill-impact.json
+```
+
+After approving and applying the candidate plan, commit the candidate authority bytes for review. The candidate is not added to the active catalogue and does not affect profiles.
+
+Plan an explicit canary rollout only after exact compatibility evidence exists:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py skill canary-plan \
+  --request /absolute/path/to/skill-canary.yaml \
+  --output /absolute/path/to/skill-canary.plan.json
+
+python3 skills-control-plane/scripts/managerctl.py skill canary \
+  --plan /absolute/path/to/skill-canary.plan.json \
+  --approve sha256:<exact-plan-hash> \
+  --journal-dir /absolute/private/path/to/canary-journal
+```
+
+A later promotion request declares:
+
+- the exact committed candidate authority path and hashes;
+- the exact derived impacted-project set;
+- one hash-verified compatibility record per impacted project;
+- a hash-verified canary record;
+- complete updated project manifests pinning the candidate;
+- exact project/profile/skill materialization targets.
+
+Plan, inspect and promote:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py skill update-plan \
+  --request /absolute/path/to/skill-update.yaml \
+  --output /absolute/path/to/skill-promotion.plan.json
+
+python3 skills-control-plane/scripts/managerctl.py skill promote \
+  --plan /absolute/path/to/skill-promotion.plan.json \
+  --approve sha256:<exact-plan-hash> \
+  --journal-dir /absolute/private/path/to/promotion-journal
+```
+
+Roll back a candidate, canary or promotion journal with the skill-specific seam:
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py skill rollback \
+  --journal /absolute/path/to/apply-....json \
+  --approve sha256:<exact-journal-hash> \
+  --journal-dir /absolute/private/path/to/rollback-journal
+```
+
+Candidate source bytes, authority commit, evidence content and target preconditions are rechecked immediately before apply. A canary is not considered successful merely because files copied: the promotion request requires a separate structured `PASS` evidence document bound to the exact candidate, project and authority commit. Project-only overlays remain project-scoped; the V1 shared promotion path handles releases and packs.
+
+## Fleet status
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py fleet status --format json \
+  --output /absolute/path/to/fleet-status.json
+python3 skills-control-plane/scripts/managerctl.py fleet status --format markdown \
+  --output /absolute/path/to/fleet-status.md
+```
+
+States are projections:
+
+- `GREEN` — authority files are readable and runtime is not reporting a blocker;
+- `BLUE` — reviewed update available (reserved for update-inbox integration);
+- `AMBER` — deliberately pinned or rebase/test due;
+- `RED` — blocked, drifted, missing or unsafe;
+- `GREY` — inventory-only/non-routable.
+
+JellySSH currently appears `RED` because its runtime is deliberately `setup-verified-routing-blocked`; this is accurate and does not invalidate the manager.
+
+## JellySSH Phase 2 commands
 
 ```bash
 python3 skills-control-plane/scripts/projectctl.py scan
@@ -25,16 +193,18 @@ python3 skills-control-plane/scripts/projectctl.py plan
 python3 skills-control-plane/scripts/projectctl.py project-init --dry-run
 python3 skills-control-plane/scripts/projectctl.py verify
 python3 skills-control-plane/scripts/projectctl.py audit
-python3 skills-control-plane/scripts/projectctl.py status \
-  --output skills-control-plane/generated/jellyssh-status.md
-python3 skills-control-plane/scripts/projectctl.py status --format json \
-  --output skills-control-plane/generated/jellyssh-status.json
-python3 -m unittest discover -s skills-control-plane/tests -v
-/home/jellybot/.hermes/hermes-agent/venv/bin/python \
-  skills-control-plane/scripts/reviewctl.py REVIEW_SPEC.json
+python3 skills-control-plane/scripts/projectctl.py status --output skills-control-plane/generated/jellyssh-status.md
+python3 skills-control-plane/scripts/projectctl.py status --format json --output skills-control-plane/generated/jellyssh-status.json
 ```
 
-`project-init` deliberately has no apply mode in this Phase 2 minimum. Calling it without `--dry-run` fails closed. Runtime side effects are performed only after the plan is reviewed and are then reconciled back into `runtime.yaml` with evidence. `plan`, dry-run initialization, and `status` return exit `1` while required live gates remain blocked; status files are still generated so the blockers are inspectable.
+## Verification
+
+```bash
+python3 skills-control-plane/scripts/managerctl.py verify
+python3 -m unittest discover -s skills-control-plane/tests -p 'test_*.py'
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 -m py_compile skills-control-plane/scripts/*.py
+```
 
 ## Hash contract
 
@@ -45,11 +215,17 @@ sha256(sorted(u64be(path-byte-length) + UTF-8-relative-path
               + u64be(content-byte-length) + content-bytes))
 ```
 
-This is the Phase 1 inventory algorithm, retained for compatibility with the
-accepted upstream skill hashes. Symlinks and non-regular files are rejected.
+Symlinks and non-regular files are rejected. Release/pack aggregate hashes use canonical JSON over artifact name, version and sorted skill name/hash pairs. Descriptor hashes cover governance metadata, provenance, ownership, compatibility, approvals, state and aggregate hash. Content or metadata drift requires a new reviewed version; changing an immutable directory in place is not an update path.
 
-Release/pack aggregate hashes use canonical JSON over artifact name, version, and sorted skill name/hash pairs. A second descriptor hash covers governance metadata, provenance, ownership, compatibility, approvals, state, and the aggregate hash. The catalogue and project manifest pin both values. Content or metadata drift therefore requires a new reviewed version; changing an immutable directory in place is not an update path.
+## Deferred capabilities
 
-## Routing state
+Not part of this V1 manager:
 
-The Phase 2 schemas do not contain a routable runtime state, and semantic validation rejects `project.state=routable`; `promotion.candidate_routable` must remain false. A later phase would require a separately reviewed schema/manifest change after every live gate passes. Phase 2 creates no development card.
+- scheduled/automatic audits or promotion;
+- mutable upstream tracking or automatic downloads;
+- a write-capable Desktop control surface;
+- automatic overlay conflict resolution;
+- JellySSH Phase 3 development cards;
+- LogK adapter rollout.
+
+Generated JSON/Markdown may later feed a read-only Desktop view. Git remains authoritative.
