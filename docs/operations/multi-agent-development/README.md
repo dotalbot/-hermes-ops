@@ -15,29 +15,31 @@ The control plane and the code workspace are deliberately separate:
 
 ## Read in this order
 
-1. [Jellyberry Kanban orchestration design V2](jellyberry-kanban-orchestration-design-v2.md) — expanded decision candidate covering the live Hermes setup and Hindsight banks
-2. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
-3. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
-4. [Feature lifecycle](feature-lifecycle.md)
-5. [Matt Pocock skills](matt-pocock-skills.md)
-6. [Kanban card templates](kanban-card-templates.md)
-7. [Operator checklist](operator-checklist.md)
+1. [Jellyberry Kanban orchestration design V3](jellyberry-kanban-orchestration-design-v3.md) — approved design using JellySSH for the Jellybase pilot, deferring LogK to a later Jellyhome/OpenCode lane, and adding skills/expert governance; Phase 0 only is currently authorized
+2. [Jellyberry Kanban orchestration design V2](jellyberry-kanban-orchestration-design-v2.md) — preserved expanded candidate covering the live Hermes setup and Hindsight banks
+3. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
+4. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
+5. [Feature lifecycle](feature-lifecycle.md)
+6. [Matt Pocock skills](matt-pocock-skills.md)
+7. [Kanban card templates](kanban-card-templates.md)
+8. [Operator checklist](operator-checklist.md)
 
 ## Quick start for a new feature
 
-1. Identify the Git remote or existing Jellybase repository path.
-2. Use a dedicated development clone owned by `jellydev`, normally `/home/jellydev/src/<repo>`.
+1. Identify the Git remote and the intended Jellyberry/Jellybase repository paths.
+2. Use a dedicated development clone owned by `jellydev`, normally `/home/jellydev/dev_projects/<repo>`.
 3. Create a feature branch such as `feat/report-csv-export`; never edit `main` for normal repository work.
-4. Run the one-time Matt workflow setup for a repository if it is not already configured.
+4. Inventory and approve the repository's workflow skills and expert bindings before dispatch.
 5. Design with `grill-with-docs`, then produce a spec and dependency-aware tickets.
-6. Create a dedicated board for the project; do not mix unrelated application work into `Spawner`.
-7. Dispatch one bounded implementation card at a time to `jellybase_hermes`.
-8. Require tests, independent review, commit, and push before calling a feature ready.
-9. Create a pull request or merge only after explicit operator approval.
+6. Run required architecture, security, and UI expert reviews before implementation.
+7. Create a dedicated board for the project; do not mix application work into `spawner`.
+8. Dispatch one bounded implementation card at a time to the approved project-specific profile.
+9. Require tests, independent review, commit evidence, and the project's push gate before calling a feature ready.
+10. Create a pull request or merge only after explicit operator approval.
 
 ## Completion standard
 
-A feature is ready for human decision only when its feature branch is pushed and all of the following exist:
+A feature is ready for human decision only when its exact commit exists, its push state is recorded, the project's push policy is satisfied, and all of the following exist:
 
 - a design/spec and accepted scope;
 - an implementation ticket with recorded acceptance criteria;
