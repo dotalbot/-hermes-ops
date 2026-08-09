@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.local/hermes/skill-update-request.schema.json",
+  "title": "Governed skill candidate and promotion request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "candidate", "declared_impacted_projects", "compatibility_evidence", "canary_evidence", "project_manifest_updates", "profile_targets"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "name", "version", "source_path", "manifest_path", "bundle_sha256", "manifest_sha256"],
+      "properties": {
+        "layer": {"enum": ["release", "pack"]},
+        "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "version": {"$ref": "#/$defs/semver"},
+        "source_path": {"type": "string", "pattern": "^/", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "manifest_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+\\.ya?ml$", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "declared_impacted_projects": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+    },
+    "compatibility_evidence": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidence"}
+    },
+    "canary_evidence": {"$ref": "#/$defs/evidence"},
+    "project_manifest_updates": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["project", "manifest"],
+        "properties": {
+          "project": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "manifest": {"type": "object"}
+        }
+      }
+    },
+    "profile_targets": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["project", "profile", "skills"],
+        "properties": {
+          "project": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "profile": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["name", "source_relative_path"],
+              "properties": {
+                "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+                "source_relative_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "not": {"pattern": "(^|/)\\.\\.(/|$)"}}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project", "path", "sha256"],
+      "properties": {
+        "project": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "path": {"type": "string", "pattern": "^/", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

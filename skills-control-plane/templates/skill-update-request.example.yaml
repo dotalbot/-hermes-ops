@@ -1,0 +1,17 @@
+schema_version: 1
+candidate:
+  layer: release
+  name: core-development
+  version: 0.2.0
+  source_path: /absolute/path/to/hermes-ops/skills-control-plane/candidates/releases/core-development/0.2.0
+  manifest_path: release.yaml
+  bundle_sha256: sha256:1111111111111111111111111111111111111111111111111111111111111111
+  manifest_sha256: sha256:2222222222222222222222222222222222222222222222222222222222222222
+declared_impacted_projects: []
+compatibility_evidence: []
+canary_evidence:
+  project: example-project
+  path: /absolute/private/path/to/canary-evidence.json
+  sha256: sha256:7777777777777777777777777777777777777777777777777777777777777777
+project_manifest_updates: []
+profile_targets: []

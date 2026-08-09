@@ -1,10 +1,10 @@
 # Jellyberry Kanban orchestration design — V3: JellySSH pilot and expert-agent governance
 
-> **Status:** Operator-approved design; Phases 0 and 1 accepted; Phase 2 setup authorized and in progress
+> **Status:** Operator-approved design; Phases 0, 1 and 2 accepted; Phase 2 merged; reusable Skills Manager/Project Setup Phase 2.5 authorized and in progress
 >
 > **Based on:** V2 plus the operator's LogK exclusion, JellySSH pilot selection, live Jellyhome LogK/OpenCode inspection, and read-only JellySSH repository intake
 >
-> **Checked:** 2026-08-09 06:30 BST
+> **Checked:** 2026-08-09 after Phase 2 acceptance
 >
 > **Original design approval:** Approved in the Hermes CLI session on 2026-08-09 with Phase 0 as the first authorized action.
 >
@@ -12,7 +12,9 @@
 >
 > **Phase transition:** Phase 1 was accepted and Phase 2 setup was authorized by the operator on 2026-08-09.
 >
-> **Implementation state:** Phase 0 corrections and the independently reviewed Phase 1 governance package were accepted by the operator on 2026-08-09. Phase 2 may implement and verify the minimum control plane, JellySSH checkouts, profiles, skills, bank route, non-executable board, and safety/routing smoke tests. Phase 2 does not authorize JellySSH development cards, LogK changes, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
+> **Phase transition:** Phase 2 was accepted, merged into the repository default branch, and Phase 2.5 Skills Manager/Project Setup work was authorized by the operator on 2026-08-09.
+>
+> **Implementation state:** Phase 0 corrections, Phase 1 governance, and Phase 2's independently reviewed JellySSH control-plane/setup route are complete. Phase 2.5 may generalize approval-bound project setup, doctor/reconciliation, skill lifecycle and fleet projections without creating or dispatching a JellySSH card. Phase 2.5 does not authorize the JellySSH Phase 3 pilot, LogK changes, privilege use, PR creation, release, signing, sideloading or deployment. V1 and V2 remain preserved separately.
 
 ## What V3 changes
 

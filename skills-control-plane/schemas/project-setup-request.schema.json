@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.local/hermes/project-setup-request.schema.json",
+  "title": "Governed Hermes project setup request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "repository", "project_manifest", "profiles", "board", "effects"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "display_name"],
+      "properties": {
+        "slug": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "display_name": {"type": "string", "minLength": 1, "maxLength": 120}
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "remote", "branch", "commit", "contract_path"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "remote": {"type": "string", "minLength": 1},
+        "branch": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "contract_path": {"type": "string", "pattern": "^\\.hermes-project/[A-Za-z0-9._/-]+\\.ya?ml$", "not": {"pattern": "(^|/)\\.\\.(/|$)"}}
+      }
+    },
+    "project_manifest": {"type": "object"},
+    "runtime_manifest": {"type": "object"},
+    "profiles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "name", "clone_from", "description", "no_skills", "settings"],
+        "properties": {
+          "role": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+          "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+          "clone_from": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+          "description": {"type": "string", "minLength": 1, "maxLength": 240},
+          "no_skills": {"type": "boolean"},
+          "settings": {
+            "type": "object",
+            "propertyNames": {"pattern": "^(model|terminal|memory|hindsight|skills|kanban|mcp_servers)\\.[A-Za-z0-9_.-]+$"},
+            "additionalProperties": {"type": ["string", "number", "integer", "boolean", "array", "object", "null"]}
+          }
+        }
+      }
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "name", "description", "default_workdir"],
+      "properties": {
+        "slug": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "description": {"type": "string", "maxLength": 500},
+        "default_workdir": {"type": "string", "pattern": "^/", "not": {"pattern": "(^|/)\\.\\.(/|$)"}}
+      }
+    },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["write_control_manifest", "write_project_contract", "create_profiles", "materialize_profile_skills", "create_empty_board"],
+      "properties": {
+        "write_control_manifest": {"type": "boolean"},
+        "write_project_contract": {"type": "boolean"},
+        "create_profiles": {"type": "boolean"},
+        "materialize_profile_skills": {"type": "boolean"},
+        "create_empty_board": {"type": "boolean"}
+      }
+    }
+  }
+}

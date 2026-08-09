@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.local/hermes/manager-plan.schema.json",
+  "title": "Skills Manager immutable typed action plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "project", "created_from", "preconditions", "actions", "blockers", "plan_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"enum": ["project-setup", "project-reconcile", "skill-candidate", "skill-canary", "skill-promotion", "skill-rollback"]},
+    "project": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "created_from": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_sha256", "control_commit"],
+      "properties": {
+        "request_sha256": {"$ref": "#/$defs/sha256"},
+        "control_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "preconditions": {"type": "array", "items": {"$ref": "#/$defs/precondition"}},
+    "actions": {"type": "array", "items": {"$ref": "#/$defs/action"}},
+    "blockers": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "plan_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "absolutePath": {"type": "string", "pattern": "^/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//).+$"},
+    "ownership": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "owner", "project"],
+      "properties": {
+        "schema_version": {"const": 1}, "owner": {"const": "skills-manager"},
+        "project": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+      }
+    },
+    "precondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target", "expected"],
+      "properties": {
+        "kind": {"enum": ["git", "file", "tree", "profile", "profile-config", "board", "authority"]},
+        "target": {"type": "string", "minLength": 1},
+        "expected": {"type": ["string", "boolean", "integer", "object", "null"]}
+      }
+    },
+    "fileObservation": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["state"], "properties": {"state": {"const": "absent"}}},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["state", "sha256", "mode", "bytes"],
+          "properties": {
+            "state": {"const": "file"}, "sha256": {"$ref": "#/$defs/sha256"},
+            "mode": {"type": "integer", "minimum": 0, "maximum": 511}, "bytes": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    },
+    "treeObservation": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["state"], "properties": {"state": {"const": "absent"}}},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["state", "sha256", "files"],
+          "properties": {
+            "state": {"const": "tree"}, "sha256": {"$ref": "#/$defs/sha256"},
+            "files": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    },
+    "writeManagedFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "target", "parameters", "rollback"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^a[0-9]{3}$"}, "kind": {"const": "write-managed-file"},
+        "target": {"$ref": "#/$defs/absolutePath"},
+        "parameters": {
+          "type": "object", "additionalProperties": false,
+          "required": ["content_b64", "content_sha256", "mode", "authority_root"],
+          "properties": {
+            "content_b64": {"type": "string", "contentEncoding": "base64"},
+            "content_sha256": {"$ref": "#/$defs/sha256"},
+            "mode": {"enum": [384, 420]},
+            "authority_root": {"$ref": "#/$defs/absolutePath"}
+          }
+        },
+        "rollback": {
+          "type": "object", "additionalProperties": false, "required": ["before"],
+          "properties": {"before": {"$ref": "#/$defs/fileObservation"}}
+        }
+      }
+    },
+    "createProfile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "target", "parameters", "rollback"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^a[0-9]{3}$"}, "kind": {"const": "create-profile"},
+        "target": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+        "parameters": {
+          "type": "object", "additionalProperties": false,
+          "required": ["clone_from", "description", "no_skills", "ownership"],
+          "properties": {
+            "clone_from": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+            "description": {"type": "string", "minLength": 1, "maxLength": 240},
+            "no_skills": {"type": "boolean"},
+            "ownership": {"$ref": "#/$defs/ownership"}
+          }
+        },
+        "rollback": {
+          "type": "object", "additionalProperties": false, "required": ["created"],
+          "properties": {"created": {"type": "boolean"}}
+        }
+      }
+    },
+    "setProfileConfig": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "target", "parameters", "rollback"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^a[0-9]{3}$"}, "kind": {"const": "set-profile-config"},
+        "target": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+        "parameters": {
+          "type": "object", "additionalProperties": false, "required": ["key", "value"],
+          "properties": {
+            "key": {"type": "string", "pattern": "^(model|terminal|memory|hindsight|skills|kanban|mcp_servers)\\.[A-Za-z0-9_.-]+$"},
+            "value": {}
+          }
+        },
+        "rollback": {
+          "type": "object", "additionalProperties": false, "required": ["previous"],
+          "properties": {"previous": {}}
+        }
+      }
+    },
+    "materializeTree": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "target", "parameters", "rollback"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^a[0-9]{3}$"}, "kind": {"const": "materialize-tree"},
+        "target": {"$ref": "#/$defs/absolutePath"},
+        "parameters": {
+          "type": "object", "additionalProperties": false,
+          "required": ["source_root", "source_tree_sha256", "authority_root"],
+          "properties": {
+            "source_root": {"$ref": "#/$defs/absolutePath"},
+            "source_tree_sha256": {"$ref": "#/$defs/sha256"},
+            "authority_root": {"$ref": "#/$defs/absolutePath"}
+          }
+        },
+        "rollback": {
+          "type": "object", "additionalProperties": false, "required": ["before"],
+          "properties": {"before": {"$ref": "#/$defs/treeObservation"}}
+        }
+      }
+    },
+    "createEmptyBoard": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "target", "parameters", "rollback"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^a[0-9]{3}$"}, "kind": {"const": "create-empty-board"},
+        "target": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "parameters": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "description", "default_workdir", "ownership"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1, "maxLength": 120},
+            "description": {"type": "string", "maxLength": 500},
+            "default_workdir": {"$ref": "#/$defs/absolutePath"},
+            "ownership": {"$ref": "#/$defs/ownership"}
+          }
+        },
+        "rollback": {
+          "type": "object", "additionalProperties": false, "required": ["created"],
+          "properties": {"created": {"type": "boolean"}}
+        }
+      }
+    },
+    "action": {
+      "oneOf": [
+        {"$ref": "#/$defs/writeManagedFile"},
+        {"$ref": "#/$defs/createProfile"},
+        {"$ref": "#/$defs/setProfileConfig"},
+        {"$ref": "#/$defs/materializeTree"},
+        {"$ref": "#/$defs/createEmptyBoard"}
+      ]
+    }
+  }
+}

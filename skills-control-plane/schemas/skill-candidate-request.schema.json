@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.local/hermes/skill-candidate-request.schema.json",
+  "title": "Governed non-routable skill candidate request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "candidate", "provenance", "compatibility"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["layer", "name", "version", "source_path", "manifest_path", "bundle_sha256", "manifest_sha256"],
+      "properties": {
+        "layer": {"enum": ["release", "pack"]},
+        "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "version": {"$ref": "#/$defs/semver"},
+        "source_path": {"type": "string", "pattern": "^/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//).+$"},
+        "manifest_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+\\.ya?ml$", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "commit"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1, "maxLength": 500},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "compatibility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tested_against"],
+      "properties": {
+        "tested_against": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*@(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"}
+  }
+}

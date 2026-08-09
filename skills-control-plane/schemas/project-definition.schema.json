@@ -1,0 +1,479 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.local/hermes/project-definition.schema.json",
+  "title": "Generic governed Hermes project definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "authority",
+    "skill_layers",
+    "profiles",
+    "expert_policy",
+    "execution_policy",
+    "promotion"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slug",
+        "display_name",
+        "state"
+      ],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "enum": [
+            "inventory",
+            "proposed",
+            "verified",
+            "routable",
+            "paused",
+            "retired"
+          ]
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "remote",
+        "commit",
+        "project_manifest_path",
+        "manifest_storage"
+      ],
+      "properties": {
+        "remote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "project_manifest_path": {
+          "type": "string",
+          "pattern": "^skills-control-plane/projects/[a-z0-9][a-z0-9-]*/project\\.yaml$"
+        },
+        "manifest_storage": {
+          "enum": [
+            "control-plane",
+            "control-plane-phase2"
+          ]
+        }
+      }
+    },
+    "skill_layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "core_release",
+        "capability_packs",
+        "project_overlays",
+        "bundles"
+      ],
+      "properties": {
+        "core_release": {
+          "$ref": "#/$defs/releaseRef"
+        },
+        "capability_packs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/releaseRef"
+          },
+          "uniqueItems": true
+        },
+        "project_overlays": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectOverlay"
+          }
+        },
+        "bundles": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/profileBinding"
+      }
+    },
+    "expert_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "risk_levels",
+        "architecture",
+        "security",
+        "ui",
+        "database_data",
+        "code_quality",
+        "cross_model_final"
+      ],
+      "properties": {
+        "risk_levels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "level_0",
+            "level_1",
+            "level_2",
+            "level_3"
+          ],
+          "properties": {
+            "level_0": {
+              "type": "string",
+              "minLength": 1
+            },
+            "level_1": {
+              "type": "string",
+              "minLength": 1
+            },
+            "level_2": {
+              "type": "string",
+              "minLength": 1
+            },
+            "level_3": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "architecture": {
+          "$ref": "#/$defs/expertBinding"
+        },
+        "security": {
+          "$ref": "#/$defs/expertBinding"
+        },
+        "ui": {
+          "$ref": "#/$defs/expertBinding"
+        },
+        "database_data": {
+          "$ref": "#/$defs/expertBinding"
+        },
+        "code_quality": {
+          "$ref": "#/$defs/expertBinding"
+        },
+        "cross_model_final": {
+          "$ref": "#/$defs/expertBinding"
+        }
+      }
+    },
+    "execution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "auto_decompose",
+        "max_spawn",
+        "max_in_progress",
+        "default_assignee",
+        "orchestrator_profile",
+        "fallback",
+        "implementation_review_handoff"
+      ],
+      "properties": {
+        "auto_decompose": {
+          "const": false
+        },
+        "max_spawn": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "max_in_progress": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "default_assignee": {
+          "type": "null"
+        },
+        "orchestrator_profile": {
+          "type": "null"
+        },
+        "fallback": {
+          "const": "block"
+        },
+        "implementation_review_handoff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_skill",
+            "required_command",
+            "target_profile",
+            "target_bundle",
+            "state"
+          ],
+          "properties": {
+            "source_skill": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "required_command": {
+              "type": "string",
+              "pattern": "^/[a-z0-9][a-z0-9_-]*$"
+            },
+            "target_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "target_bundle": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$"
+            },
+            "state": {
+              "const": "required-fail-closed"
+            }
+          }
+        }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_routable",
+        "operator_approval_required",
+        "fresh_backup_required"
+      ],
+      "properties": {
+        "candidate_routable": {
+          "const": false
+        },
+        "operator_approval_required": {
+          "const": true
+        },
+        "fresh_backup_required": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "releaseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "bundle_sha256",
+        "manifest_sha256",
+        "state"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "bundle_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "state": {
+          "enum": [
+            "inventory",
+            "approved-for-isolated-test",
+            "promoted",
+            "routable",
+            "pinned"
+          ]
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "projectOverlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "path",
+        "authority",
+        "bundle_sha256",
+        "tested_against"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+-[a-z0-9-]+$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^skills-control-plane/projects/[a-z0-9][a-z0-9-]*/overlays/[a-z0-9][a-z0-9-]*/?$"
+        },
+        "bundle_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "tested_against": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "uniqueItems": true
+        },
+        "authority": {
+          "enum": [
+            "control-plane",
+            "control-plane-phase2"
+          ]
+        }
+      }
+    },
+    "modelBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "fallback"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback": {
+          "const": "block"
+        }
+      }
+    },
+    "profileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "state",
+        "model",
+        "bank",
+        "auto_recall",
+        "auto_retain",
+        "workspace",
+        "bundle"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_]*$"
+        },
+        "state": {
+          "enum": [
+            "proposed",
+            "installed",
+            "verified",
+            "routable",
+            "paused"
+          ]
+        },
+        "model": {
+          "$ref": "#/$defs/modelBinding"
+        },
+        "bank": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auto_retain": {
+          "type": "boolean"
+        },
+        "workspace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_write_boundary": {
+          "enum": [
+            "not-applicable",
+            "proposed",
+            "verified"
+          ]
+        },
+        "auto_recall": {
+          "type": "boolean"
+        }
+      }
+    },
+    "expertBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_when",
+        "profile",
+        "model",
+        "bundle",
+        "failure"
+      ],
+      "properties": {
+        "required_when": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "profile": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_]*$"
+        },
+        "model": {
+          "$ref": "#/$defs/modelBinding"
+        },
+        "bundle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failure": {
+          "const": "block"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,289 @@
+# Replace paths, remote, commit, models, banks, bundles and trigger policy before planning.
+# This example contains no credentials and is deliberately non-applicable as-is.
+schema_version: 1
+project:
+  slug: example-project
+  display_name: Example Project
+repository:
+  path: /absolute/path/to/example-project
+  remote: git@github.com:owner/example-project.git
+  branch: main
+  commit: '1111111111111111111111111111111111111111'
+  contract_path: .hermes-project/project.yaml
+project_manifest:
+  schema_version: 1
+  project:
+    slug: example-project
+    display_name: Example Project
+    state: proposed
+  authority:
+    remote: git@github.com:owner/example-project.git
+    commit: '1111111111111111111111111111111111111111'
+    project_manifest_path: skills-control-plane/projects/example-project/project.yaml
+    manifest_storage: control-plane
+  skill_layers:
+    core_release:
+      name: core-development
+      version: 0.1.0
+      bundle_sha256: sha256:5b639dd39dbddf6360926df3b4e91c9e9c828f686d2989bad6b8493694105f59
+      state: approved-for-isolated-test
+      manifest_sha256: sha256:b6a34b465bc6a552a3fc726fa53157588dfda4a2178cf2ee93b3495b083201b3
+    capability_packs:
+    - name: flutter-mobile
+      version: 0.1.0
+      bundle_sha256: sha256:fcf64f75fc767c9737df2dfe4849552109cc2a16615e815358daaf591eb6356f
+      state: approved-for-isolated-test
+      manifest_sha256: sha256:b12ff53c1b4f9a329fa5786c107101511c2f9d15924c1fd80208235cd5a98459
+    - name: database-data
+      version: 0.1.0
+      bundle_sha256: sha256:eae9d69125f92eff65d6c249cfcc3e9a3ab6384a2dbc1cbdcf3530d46f18a339
+      state: approved-for-isolated-test
+      manifest_sha256: sha256:a5cf371afa85c33b6fe1b6cd6dee8e83fdcca941457220074fe6a969c2f05437
+    project_overlays: []
+    bundles:
+      design:
+      - grill-with-docs
+      specification:
+      - to-spec
+      tickets:
+      - to-tickets
+      implementation:
+      - implement
+      - tdd
+      architecture-review:
+      - codebase-design
+      security-review:
+      - code-review
+      ui-review:
+      - code-review
+      - flutter-mobile-review
+      database-data-review:
+      - code-review
+      - database-data-review
+      code-quality-review:
+      - code-review
+      final-review:
+      - code-review
+      implementation-runtime:
+      - implement
+      - tdd
+      - diagnosing-bugs
+      reviewer-runtime:
+      - code-review
+      - codebase-design
+      - database-data-review
+      - flutter-mobile-review
+  profiles:
+    coordinator:
+      name: examplecoord
+      state: proposed
+      model:
+        provider: openai-codex
+        model: gpt-5.6-sol
+        fallback: block
+      bank: hermes-main
+      auto_retain: false
+      workspace: /absolute/path/to/example-project
+      bundle: design
+      reviewer_write_boundary: not-applicable
+      auto_recall: true
+    implementation:
+      name: exampleimpl
+      state: proposed
+      model:
+        provider: openai-codex
+        model: gpt-5.6-terra
+        fallback: block
+      bank: jellyssh-main
+      auto_retain: false
+      workspace: /absolute/remote/path/to/example-project
+      bundle: implementation-runtime
+      reviewer_write_boundary: not-applicable
+      auto_recall: true
+    reviewer:
+      name: examplereview
+      state: proposed
+      model:
+        provider: openrouter
+        model: deepseek/deepseek-v3.2
+        fallback: block
+      bank: jellyssh-main
+      auto_retain: false
+      workspace: /absolute/remote/path/to/example-project-review
+      bundle: reviewer-runtime
+      reviewer_write_boundary: proposed
+      auto_recall: false
+  expert_policy:
+    risk_levels:
+      level_0: mechanical documentation or formatting; no cross-model gate
+      level_1: standard implementation; post-commit cross-model final review
+      level_2: material architecture, security, UI, data, dependency, concurrency, or multi-module risk; pre/post expert review plus final review
+      level_3: destructive, irreversible, production-data, credential, signing, release, deployment, or disputed work; expert review plus operator hold
+    architecture:
+      required_when:
+      - architecture-change
+      - cross-module-change
+      - new-dependency
+      - navigation-change
+      - major-state-flow-change
+      - drift-schema-or-migration
+      - ssh-session-lifecycle
+      - terminal-rendering
+      - native-android-bridge
+      - public-contract-change
+      profile: examplereview
+      model:
+        provider: openrouter
+        model: deepseek/deepseek-v3.2
+        fallback: block
+      bundle: architecture-review
+      failure: block
+    security:
+      required_when:
+      - credential-or-identity
+      - secure-storage
+      - private-key-or-passphrase
+      - host-key
+      - ssh-authentication
+      - forwarding-or-proxyjump-or-mosh
+      - socket-or-subprocess
+      - external-network-service
+      - log-or-diagnostic
+      - export-or-backup-or-sharing-or-sync-or-screenshot
+      - android-permission
+      - keystore-or-signing-or-apk
+      - clipboard
+      - file-transfer
+      - android-backup-or-storage
+      - terminal-input-output
+      - command-construction
+      - analytics-or-crash-reporting
+      profile: examplereview
+      model:
+        provider: openrouter
+        model: deepseek/deepseek-v3.2
+        fallback: block
+      bundle: security-review
+      failure: block
+    ui:
+      required_when:
+      - screen-or-widget
+      - navigation
+      - connection-flow
+      - terminal-control
+      - keyboard
+      - touch-gesture
+      - responsive-layout
+      - accessibility
+      profile: examplereview
+      model:
+        provider: openrouter
+        model: google/gemini-3.1-pro-preview
+        fallback: block
+      bundle: ui-review
+      failure: block
+    database_data:
+      required_when:
+      - schema-or-migration
+      - relationship-or-constraint-or-index
+      - serialization-or-persistent-model
+      - destructive-or-lossy-data
+      - backfill-or-production-repair
+      - data-import-export-contract
+      - transaction-or-locking-or-concurrency
+      - integrity-or-consistency
+      - query-plan
+      - etl-or-external-data-contract
+      - pii-or-sensitive-data
+      - retention-or-deletion-or-lineage
+      - backup-or-restore-or-replication-or-disaster-recovery
+      profile: examplereview
+      model:
+        provider: openrouter
+        model: deepseek/deepseek-v3.2
+        fallback: block
+      bundle: database-data-review
+      failure: block
+    code_quality:
+      required_when:
+      - every-implementation
+      profile: examplereview
+      model:
+        provider: openrouter
+        model: deepseek/deepseek-v3.2
+        fallback: block
+      bundle: code-quality-review
+      failure: block
+    cross_model_final:
+      required_when:
+      - every-level-1-or-higher-implementation
+      profile: examplereview
+      model:
+        provider: openrouter
+        model: deepseek/deepseek-v3.2
+        fallback: block
+      bundle: final-review
+      failure: block
+  execution_policy:
+    auto_decompose: false
+    max_spawn: 1
+    max_in_progress: 1
+    default_assignee: null
+    orchestrator_profile: null
+    fallback: block
+    implementation_review_handoff:
+      source_skill: implement
+      required_command: /code-review
+      target_profile: examplereview
+      target_bundle: code-quality-review
+      state: required-fail-closed
+  promotion:
+    candidate_routable: false
+    operator_approval_required: true
+    fresh_backup_required: true
+runtime_manifest:
+  schema_version: 1
+  project: example-project
+  state: proposed
+profiles:
+- role: coordinator
+  name: examplecoord
+  clone_from: default
+  description: Example Project coordinator profile
+  no_skills: true
+  settings:
+    model.provider: openai-codex
+    model.default: gpt-5.6-sol
+    model.fallback: block
+    terminal.cwd: /absolute/path/to/example-project
+- role: implementation
+  name: exampleimpl
+  clone_from: default
+  description: Example Project implementation profile
+  no_skills: true
+  settings:
+    model.provider: openai-codex
+    model.default: gpt-5.6-terra
+    model.fallback: block
+    terminal.cwd: /absolute/remote/path/to/example-project
+- role: reviewer
+  name: examplereview
+  clone_from: default
+  description: Example Project reviewer profile
+  no_skills: true
+  settings:
+    model.provider: openrouter
+    model.default: deepseek/deepseek-v3.2
+    model.fallback: block
+    terminal.cwd: /absolute/remote/path/to/example-project-review
+board:
+  slug: example-project
+  name: Example Project
+  description: Setup-only board; execution remains disabled
+  default_workdir: /absolute/path/to/example-project
+effects:
+  write_control_manifest: true
+  write_project_contract: true
+  create_profiles: true
+  materialize_profile_skills: true
+  create_empty_board: true
