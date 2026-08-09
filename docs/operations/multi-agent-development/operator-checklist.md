@@ -9,12 +9,12 @@
 - [ ] Preserve and understand existing uncommitted and untracked files.
 - [ ] Define the feature outcome, constraints, non-goals, and observable acceptance criteria.
 - [ ] Select or create a dedicated project board rather than mixing unrelated work.
-- [ ] Confirm the assigned profile exists: normally `jellybase_hermes`.
+- [ ] Confirm the assigned project-specific profile exists and matches the approved repository, host, skill, and memory-bank route; never silently fall back to `jellybase_hermes`.
 
 ## Before implementation
 
 - [ ] The feature branch exists and is recorded on the card.
-- [ ] The repository's Matt workflow setup is complete, or the exception is explicitly documented.
+- [ ] Every pinned workflow skill is installed at the approved version with recorded provenance and compatibility evidence.
 - [ ] Design questions were resolved through `grill-with-docs` or a suitable alternative.
 - [ ] A spec exists and scope/non-goals are clear.
 - [ ] Ticket breakdown and dependency edges were approved.

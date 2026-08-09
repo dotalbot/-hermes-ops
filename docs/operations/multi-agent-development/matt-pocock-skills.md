@@ -91,13 +91,13 @@ Use `wayfinder` only for genuinely large, unclear work that cannot be settled in
 Run from Jellyberry:
 
 ```bash
-hermes --profile jellybase_hermes chat -s grill-with-docs
+hermes --profile <approved-design-profile> chat -s grill-with-docs
 ```
 
 State the exact remote repository path at the start of the session:
 
 ```text
-Repository: /home/jellydev/src/<repo>
+Repository: /home/jellydev/dev_projects/<repo>
 ```
 
 Use an interactive session for `setup-matt-pocock-skills`, `grill-with-docs`, `to-spec`, and `to-tickets` because they require ongoing design context and may ask operator questions.
@@ -108,33 +108,24 @@ Force-load only the skills required by a bounded card:
 
 ```bash
 hermes kanban --board <project-board> create "Implement <ticket>" \
-  --assignee jellybase_hermes \
+  --assignee <approved-project-profile> \
   --skill implement \
   --skill tdd \
   --skill code-review \
-  --body "Repository: /home/jellydev/src/<repo>
+  --body "Repository: /home/jellydev/dev_projects/<repo>
 Branch: feat/<feature>
 Ticket: <issue URL or local ticket path>"
 ```
 
 `--skill` is repeatable. The card must still describe the exact task; a skill is a workflow aid, not a replacement for a complete task brief.
 
-## Safe update procedure
+## Controlled update procedure
 
-To obtain the current full upstream collection on Jellyberry:
+Phase 0 does not authorize fetching, installing, updating, synchronizing, or promoting skills. Phase 1 must first approve a manifest containing each skill's source, pinned version or commit, integrity/provenance record, local overlay path, target profiles, compatibility evidence, promotion state, and rollback location.
 
-```bash
-npx --yes skills@latest add mattpocock/skills \
-  --skill '*' \
-  --agent hermes-agent \
-  --global \
-  --copy \
-  --yes
-```
+After that gate, use the lifecycle defined by V3: inventory the active copy, fetch upstream into an isolated candidate area, diff it against upstream and local overlays, run security and compatibility review, test it in an isolated profile/session, obtain operator approval, promote it only to the named profiles, and retain the rollback copy. Never run a global install/update command directly against active skills, and never overwrite local expert or project assets silently.
 
-Before overwriting worker-profile copies, create a dated backup and then sync only the named Matt collection from `/home/jellybot/.hermes/skills/` to `/home/jellybot/.hermes/profiles/jellybase_hermes/skills/`. Verify every `SKILL.md` exists and that the source and profile copies match.
-
-Review upstream skills before relying on new behavior. The install scanner should be treated as a signal, not proof: some broad workflow skills mention subagents, Git, or long-running coordination and can produce heuristic findings.
+Treat install-scanner output as a signal, not proof: broad workflow skills can mention subagents, Git, or long-running coordination and produce heuristic findings.
 
 ## Hermes compatibility
 
