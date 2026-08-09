@@ -110,13 +110,15 @@ flowchart LR
     R -->|SSH-backed read-only tools| JR[Jellybase review worktree or clone]
     E --> R
 
-    JB --> G[(git@github.com:dotalbot/jellyssh.git)]
+    JB --> G[("git@github.com:dotalbot/jellyssh.git")]
     JR --> G
     G --> D
 
     I --> HM[(jellyssh-main)]
     R --> HM
 ```
+
+Editable full operating overview: [`skills-manager-operating-overview.drawio`](../../../diagram_creator/artifacts/source/skills-manager-operating-overview.drawio). It contains separate pages for the operating map, project setup, and shared-skill lifecycle.
 
 The reviewer is bound to `jellyssh-main`, but Phase 2 disables both automatic recall and automatic retention so recalled text cannot contaminate an exact-commit verdict and transient review chatter is not stored. The bank binding remains available for a later separately reviewed policy change. Repository documents and current Git state remain authoritative.
 
