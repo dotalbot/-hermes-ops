@@ -5,6 +5,8 @@
 > **JellySSH intake:** `git@github.com:dotalbot/jellyssh.git` at `7f612d96bd35fcaa336956d7922a82513d2e9e0d`
 >
 > **Inventory:** [expert inventory](manifests/jellyssh-phase1-expert-inventory.json) and [skill manifest](manifests/jellyssh-phase1-skill-manifest.json)
+>
+> **Skill governance:** [Skill Control Plane and project initialization](skill-control-plane-and-project-initialization.md)
 
 ## 1. Binding rules
 
@@ -125,7 +127,7 @@ There is no fallback to `jellybase_hermes`, another model, another bank, or an u
 profile: jellybase_jellyssh_reviewer
 profile_state: proposed-until-phase-2
 provider: openrouter
-model: anthropic/claude-sonnet-4.6
+model: deepseek/deepseek-v3.2
 skills: [code-review]
 project_overlays:
   - .opencode/agents/tester.md
@@ -136,7 +138,42 @@ context: fresh exact-commit card
 workspace: separate from implementation
 ```
 
-The reviewer model is a different provider/model family from the implementation model. If the exact model is unavailable, the review blocks; it does not fall back to the implementer's model.
+The reviewer model is a different provider/model family from the implementation model. `deepseek/deepseek-v3.2` was visible in the live OpenRouter catalogue on 2026-08-09 and is the lower-cost proposed reviewer binding. If the exact model is unavailable, the review blocks; it does not fall back to the implementer's model or another unreviewed DeepSeek alias.
+
+### Cross-model activation policy
+
+The final cross-model gate applies to every card that changes executable behavior, persistent data, build/dependency state, runtime configuration, or a governing contract. It does not apply to a mechanical typo, formatting-only change, or regenerated index whose source and semantics are unchanged. An explicit operator/card requirement always raises the level.
+
+```yaml
+level_0_mechanical:
+  cross_model: false
+  examples: [typo, formatting, unchanged generated index]
+level_1_standard_implementation:
+  cross_model: post_commit_final
+  examples: [normal bounded code change]
+level_2_material_risk:
+  cross_model: pre_implementation_expert_and_post_commit_final
+  triggers:
+    - architecture_or_public_contract
+    - security_or_identity
+    - database_or_data
+    - user_visible_interaction
+    - dependency_or_external_process
+    - concurrency_or_async_lifecycle
+    - large_or_multi_module_diff
+level_3_critical:
+  cross_model: pre_and_post_experts_plus_operator_hold
+  triggers:
+    - destructive_or_irreversible_data_change
+    - production_data_repair
+    - credential_crypto_permission_or_signing_change
+    - release_or_deployment_boundary
+    - conflicting_reviewer_verdicts
+```
+
+Implementation uncertainty, scope expansion, incomplete/flaky tests, a prior Blocker/High finding, or disagreement between reviewers raises the work by at least one level. The final review runs once against the complete exact commit and all required evidence rather than against every intermediate edit.
+
+For projects whose implementer is not OpenAI Codex, the required property is model-family diversity, not a hard-coded direction. The project manifest must select an approved pair such as OpenAI → DeepSeek, DeepSeek → OpenAI or Gemini, and Gemini → DeepSeek. Same-family fallback is not cross-model evidence.
 
 ### Expert bindings
 
@@ -145,14 +182,14 @@ architecture:
   trigger: architecture_or_multi_module_change
   profile: jellybase_jellyssh_reviewer
   provider: openrouter
-  model: anthropic/claude-sonnet-4.6
+  model: deepseek/deepseek-v3.2
   shared_skills: [codebase-design]
   project_overlays: [.opencode/agents/flutter-architect.md]
 security:
   trigger: credentials_auth_host_keys_network_forwarding_storage_external_process_or_logging
   profile: jellybase_jellyssh_reviewer
   provider: openrouter
-  model: anthropic/claude-sonnet-4.6
+  model: deepseek/deepseek-v3.2
   shared_skills: [code-review]
   project_overlays:
     - .opencode/agents/ssh-terminal-engineer.md
@@ -167,23 +204,47 @@ ui:
   project_overlays:
     - .opencode/agents/mobile-ux-designer.md
     - .opencode/agents/flutter-architect.md
+database_data:
+  trigger: schema_migration_query_integrity_pipeline_retention_backup_restore_or_sensitive_data
+  profile: jellybase_jellyssh_reviewer
+  provider: openrouter
+  model: deepseek/deepseek-v3.2
+  capability_pack: database-data
+  shared_skills: [code-review]
+  project_overlays:
+    - .opencode/agents/drift-riverpod-engineer.md
+    - .opencode/agents/code-reviewer.md
 code_quality:
   trigger: every_implementation
   profile: jellybase_jellyssh_reviewer
   provider: openrouter
-  model: anthropic/claude-sonnet-4.6
+  model: deepseek/deepseek-v3.2
   shared_skills: [code-review]
   project_overlays: [.opencode/agents/code-reviewer.md]
 cross_model_final_review:
   trigger: every_implementation_after_all_required_reports
   profile: jellybase_jellyssh_reviewer
   provider: openrouter
-  model: anthropic/claude-sonnet-4.6
+  model: deepseek/deepseek-v3.2
   shared_skills: [code-review]
   context: fresh_fan_in_of_exact_commit_and_required_reports
 ```
 
-`google/gemini-3.1-pro-preview` is accepted only as the Phase 2 UI-expert test candidate. Because it is a preview identifier, Phase 2 must recheck availability and block for operator replacement if it has disappeared or changed. It must not silently substitute another Gemini model.
+`google/gemini-3.1-pro-preview` is accepted only as the Phase 2 UI-expert test candidate. Because it is a preview identifier, Phase 2 must recheck availability and block for operator replacement if it has disappeared or changed. It must not silently substitute another Gemini model. Phase 2 must likewise recheck the exact DeepSeek identifier and OpenRouter credential in a fresh reviewer session.
+
+### Database and data expert contract
+
+The `database-data` capability pack is globally governed but opt-in per project. It has three modes:
+
+```text
+database-design  schema, constraints, indexes, transactions, migrations
+data-engineering pipelines, contracts, quality, lineage, backfills
+data-governance  classification, privacy, retention, deletion, auditability
+```
+
+The expert is mandatory for schema/migration changes; destructive or lossy transformations; backfills or production repair; multi-record transactions, locking, concurrency, or consistency; important query/index changes; ETL/ELT and external data contracts; retention/deletion/privacy/PII; and backup/restore/replication. Read-only analytics, fixtures, and isolated prototypes may remain advisory only when the specification records why production contracts and data are unaffected.
+
+The pre-implementation report covers invariants, forward/rollback migration, transaction and index strategy, data classification, backup/restore, and verification. The post-commit report reviews the exact schema/query/pipeline diff, migration tests, query-plan evidence where applicable, before/after integrity counts, rollback evidence, and residual manual or production-data gates. The expert receives no production credentials by default; any real-data access is a separate operator-controlled route.
 
 ## 4. Reviewer tool boundary
 

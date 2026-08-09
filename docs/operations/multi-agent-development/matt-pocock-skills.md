@@ -125,7 +125,9 @@ Ticket: <issue URL or local ticket path>"
 
 Phase 1 produced a proposed manifest containing each managed skill's source, pinned commit, integrity/provenance record, local overlay path, target profiles, compatibility state, promotion state, and rollback location. Phase 1 does not authorize installing, updating, synchronizing, or promoting skills; those actions remain gated on acceptance of the Phase 1 report and the Phase 2 isolated profile tests.
 
-After that gate, use the lifecycle defined by V3: inventory the active copy, fetch upstream into an isolated candidate area, diff it against upstream and local overlays, run security and compatibility review, test it in an isolated profile/session, obtain operator approval, promote it only to the named profiles, and retain the rollback copy. Never run a global install/update command directly against active skills, and never overwrite local expert or project assets silently.
+After that gate, use the lifecycle defined by V3 and the [Skill Control Plane](skill-control-plane-and-project-initialization.md): inventory the active copy, fetch upstream into an isolated candidate area, diff it against upstream and local overlays, run security and compatibility review, test it in an isolated profile/session, obtain operator approval, promote it only to the named profiles, and retain the rollback copy. Never run a global install/update command directly against active skills, and never overwrite local expert or project assets silently.
+
+Core procedures are immutable versioned releases; optional database/data, Flutter, security, and other capability packs are globally governed but enabled per project; project-only procedures use project-prefixed overlay names in the project repository. Native Hermes bundles are convenience aliases and skip missing members, so Kanban preflight must resolve and hash-check every member before dispatch.
 
 Treat install-scanner output as a signal, not proof: broad workflow skills can mention subagents, Git, or long-running coordination and produce heuristic findings.
 

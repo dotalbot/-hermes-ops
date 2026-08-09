@@ -1,16 +1,16 @@
 # Jellyberry Kanban orchestration design — V3: JellySSH pilot and expert-agent governance
 
-> **Status:** Operator-approved design; Phase 0 accepted; Phase 1 completed and awaiting operator acceptance
+> **Status:** Operator-approved design; Phase 0 accepted; Phase 1 revised, independently reviewed, and awaiting operator acceptance
 >
 > **Based on:** V2 plus the operator's LogK exclusion, JellySSH pilot selection, live Jellyhome LogK/OpenCode inspection, and read-only JellySSH repository intake
 >
-> **Checked:** 2026-08-09 05:13 BST
+> **Checked:** 2026-08-09 06:14 BST
 >
 > **Original design approval:** Approved in the Hermes CLI session on 2026-08-09 with Phase 0 as the first authorized action.
 >
 > **Phase transition:** Phase 0 accepted and Phase 1 authorized by the operator on 2026-08-09.
 >
-> **Implementation state:** Phase 0 corrections were accepted by the operator on 2026-08-09. Phase 1 inventory and design are complete; see the [Phase 1 completion report](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md). Phase 2 remains unauthorized pending operator acceptance. No skill was installed or promoted, and this status does not authorize cloning JellySSH, creating JellySSH profiles or boards, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
+> **Implementation state:** Phase 0 corrections were accepted by the operator on 2026-08-09. Phase 1 was revised on operator request to add risk-tiered cross-model review, database/data expertise, lower-cost DeepSeek review, central skill governance, project initialization, long-running reconciliation, and visual status; see the [Phase 1 completion report](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md). The revision passed an independent Gemini governance review. Phase 2 remains unauthorized pending operator acceptance. No skill was installed or promoted, and this status does not authorize cloning JellySSH, creating JellySSH profiles or boards, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
 
 ## What V3 changes
 
@@ -304,11 +304,14 @@ projects:
       ui:
         required_when: user_visible_or_interaction_change
         binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
+      database_data:
+        required_when: schema_migration_query_integrity_pipeline_retention_backup_restore_or_sensitive_data
+        binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
       code_quality:
         required_when: every_implementation
         binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
       cross_model_final_review:
-        required_when: every_implementation
+        required_when: every_level_1_or_higher_implementation
         binding: jellyssh-phase1-expert-model-bindings.md#expert-bindings
     repository_guards:
       jellyssh_guard: required
@@ -320,6 +323,8 @@ projects:
       auto_decompose: false
     skills_governance:
       manifest: manifests/jellyssh-phase1-skill-manifest.json
+      control_plane: skill-control-plane-and-project-initialization.md
+      project_schema: manifests/project-skill-profile.schema.json
       candidate_updates_are_routable: false
 ```
 
@@ -511,6 +516,12 @@ Maintain a manifest containing at least:
 - Last compatibility test.
 - Promotion state and rollback location.
 
+The managed topology is a Git-backed Skill Control Plane with four layers: immutable core releases, opt-in capability packs, project-prefixed overlays stored with the project, and runtime profile/model/tool bindings. Active profile copies are materialized state, not the editing source. A project pins exact releases and overlay hashes through [the project manifest schema](manifests/project-skill-profile.schema.json).
+
+Global changes create a new core/pack release, impacted-project report, isolated tests, canary result, operator decision, controlled rollout, and rollback. Project-only changes create a separately versioned overlay and affect only named project profiles. Missing bundle members, local-name shadowing, hash drift, incompatible overlays, or mutable/floating release references block routing.
+
+Long-running projects use a non-mutating audit with `GREEN`, `BLUE`, `AMBER`, `RED`, and `GREY` states for current, update-available, pinned/rebase-due, unsafe/drifted, and inventory-only state. Generated Markdown/JSON and a later read-only Desktop view render this data; Git manifests remain authoritative.
+
 ### 6.4 Cross-model review
 
 Use a different reviewer model when:
@@ -519,6 +530,15 @@ Use a different reviewer model when:
 - The implementation model has already shaped the design extensively.
 - The task affects credentials, networking, persistence, generated code, or async lifecycle.
 - An auditable independent challenge is required.
+
+Risk activation is explicit:
+
+- Level 0 — mechanical typo/format/index work with no semantic change; no cross-model gate.
+- Level 1 — normal executable, data, dependency, runtime-config, or governing-contract change; post-commit cross-model final review.
+- Level 2 — architecture, security, database/data, UI, dependency/external-process, concurrency, large/multi-module, uncertain, or previously failed work; pre-implementation expert review plus post-commit expert/final review.
+- Level 3 — destructive/irreversible data, production repair, credentials/crypto/permissions/signing, release/deployment, or conflicting verdicts; expert review plus explicit operator hold.
+
+The JellySSH lower-cost proposed final reviewer is OpenRouter `deepseek/deepseek-v3.2`, distinct from the OpenAI Codex implementation family. Model availability and credential usability must be rechecked in a fresh Phase 2 session. No same-family or unreviewed alias fallback counts as cross-model evidence.
 
 For the pilot's final independent code-review gate, model diversity is required when a second approved tool-capable model is available. If it is unavailable, the card blocks for an operator decision rather than silently treating same-model review as cross-model evidence. Earlier specialist advice may use the same model when its role, context, and tools are still independently bounded.
 
@@ -563,14 +583,16 @@ flowchart LR
     X --> A[Architecture]
     X --> Q[Security if triggered]
     X --> U[UI if triggered]
+    X --> DB[Database/data if triggered]
     A --> G2{Operator design gate}
     Q --> G2
     U --> G2
+    DB --> G2
     G2 -->|approved| T[Dependency-aware tickets]
     T --> C[TDD implementation]
     C --> R[Residual risk statement]
     R --> V[Independent tests]
-    V --> DX[Diff-based expert reviews<br/>security, UI, architecture, code]
+    V --> DX[Diff-based expert reviews<br/>security, UI, database/data, architecture, code]
     DX --> CR[Cross-model final review]
     CR -->|findings| F[Bounded fix card]
     F --> V2[Retest]
@@ -608,19 +630,29 @@ UI review is required for:
 
 - Screens, widgets, navigation, connection flows, terminal controls, keyboard behavior, touch gestures, responsive layouts, or accessibility.
 
+Database/data review is required for:
+
+- Schemas, migrations, relationships, constraints, indexes, serialization, or persistent model changes.
+- Destructive/lossy transformations, backfills, production repair, or data import/export contract changes.
+- Transactions, locking, concurrency, integrity, consistency, important query plans, ETL/ELT, or external data contracts.
+- PII/sensitive-data handling, retention, deletion, lineage, backup, restore, replication, or disaster recovery.
+
+The database/data expert operates in database-design, data-engineering, or data-governance mode. It is globally governed through the opt-in `database-data` capability pack and combines with project-specific overlays such as JellySSH's Drift/Riverpod contract.
+
 ### 7.4 Card graph
 
 ```text
 T0 specification and operator approval
   ├─ T1 architecture review
   ├─ T2 security review, only when triggered
-  └─ T3 UI review, only when triggered
+  ├─ T3 UI review, only when triggered
+  └─ T3D database/data review, only when triggered
        ↓ all required expert parents done
 T4 implementation
        ↓
 T5 independent tests
        ↓
-T5A triggered diff-based security/UI/architecture/code-quality reviews
+T5A triggered diff-based security/UI/database-data/architecture/code-quality reviews
        ↓ all required expert reports complete
 T6 cross-model final review
        ├─ pass → T9 acceptance
@@ -642,7 +674,7 @@ Repository: /home/jellydev/dev_projects/jellyssh
 Remote: git@github.com:dotalbot/jellyssh.git
 Branch: feat/<approved-scope>
 Specification: docs/specifications/SPEC-NNN-<slug>.md
-Required experts: architecture | security | UI as triggered
+Required experts: architecture | security | UI | database/data as triggered
 Memory route: jellyssh-main
 
 Required evidence:
@@ -778,33 +810,42 @@ Actions:
 1. Inventory Matt's installed skills, source, version, and target profiles.
 2. Inventory the user's local security, code, UI, architecture, and other expert assets.
 3. Map JellySSH's existing OpenCode agents to reusable skills, project-local overlays, and expert bindings.
-4. Decide model assignments and cross-model review pairs.
+4. Decide model assignments, lower-cost cross-model review pairs, and risk-tier activation criteria.
 5. Define read-only reviewer tools and stop conditions.
 6. Define the controlled skill update manifest and promotion process.
-7. Design the `matt-kanban-development` bridge without rewriting upstream skills.
+7. Define database-design, data-engineering, and data-governance expert triggers and output contracts.
+8. Define a Git-backed Skill Control Plane for core releases, capability packs, project overlays, and runtime bindings.
+9. Define idempotent `/project-init`, `project-doctor`, reconciliation, staleness, canary, rollout, and rollback behavior.
+10. Define generated visual fleet, project, skill, expert, drift, and update views.
+11. Design the `matt-kanban-development` bridge without rewriting upstream skills.
 
 Completion criteria:
 
-- Every pilot phase names installed skills and a real profile.
+- Every pilot phase names an explicit profile identity and either currently installed skills or skills approved only for a Phase 2 isolated test; proposed profiles and skills remain non-routable until Phase 2 verifies them.
 - Required expert triggers are explicit.
+- Database/data expertise is opt-in by project and mandatory on defined data-risk triggers.
 - Reviewer independence is testable.
 - Local skills cannot be silently overwritten by upstream updates.
+- Core and project changes have separate versioned promotion paths.
+- A schema-validated project manifest can describe initialization without making the route executable.
+- Visual status is generated from authority rather than becoming a second source of truth.
 - No profile receives a candidate skill before compatibility review.
 
 ### Phase 2 — prepare JellySSH routing without development
 
 Actions:
 
-1. Verify `/home/jellybot/dev_projects/jellyssh` and `/home/jellydev/dev_projects/jellyssh` as the intended paths.
-2. Create or clone checkouts only after operator approval, using the exact SSH remote and a clean dedicated development path owned by the approved non-privileged user.
-3. Create the `jellyssh` board with explicit default workdir.
-4. Create `jellybase_jellyssh` from the reviewed generic worker baseline.
-5. Bind it to `jellyssh-main` and verify fresh-session recall/retention.
-6. Create `jellybase_jellyssh_reviewer` with automatic retention disabled.
-7. Prepare separate implementation and review workspaces.
-8. Install and verify only the approved skills.
-9. Verify the Jellybase SSH backend, non-privileged user, checkout ownership, private-repository authentication, Flutter/Dart toolchain, Android tooling needed by the selected ticket, and any target-device gate.
-10. Run no-op/read-only profile, bank, skill, branch, guard, model-binding, and tool-boundary smoke tests.
+1. Materialize the accepted minimum core/pack catalogue and run a schema-validated `/project-init` scan/plan dry run; implementation of that initializer is itself reviewed Phase 2 setup work.
+2. Verify `/home/jellybot/dev_projects/jellyssh` and `/home/jellydev/dev_projects/jellyssh` as the intended paths.
+3. Create or clone checkouts only after operator approval, using the exact SSH remote and a clean dedicated development path owned by the approved non-privileged user.
+4. Create the `jellyssh` board with explicit default workdir.
+5. Create `jellybase_jellyssh` from the reviewed generic worker baseline.
+6. Bind it to `jellyssh-main` and verify fresh-session recall/retention.
+7. Create `jellybase_jellyssh_reviewer` with automatic retention disabled.
+8. Prepare separate implementation and review workspaces.
+9. Install and verify only the approved core, capability-pack, and project-overlay skills.
+10. Verify the Jellybase SSH backend, non-privileged user, checkout ownership, private-repository authentication, Flutter/Dart toolchain, Android tooling needed by the selected ticket, and any target-device gate.
+11. Run no-op/read-only profile, bank, skill, branch, guard, model-binding, project-manifest, and tool-boundary smoke tests, including negative missing/shadowed/drifted skill tests.
 
 Repository preparation must first inspect the remote/default branch and target path. It must block on an existing unknown checkout, uncommitted files, unexpected ownership, a different remote, or a production/deployment path. No cleanup, overwrite, branch switch, or file migration is implied by approval to clone.
 
@@ -823,7 +864,7 @@ Actions:
 1. Select one small, reversible, non-security-critical issue.
 2. Run interactive design against repository documents.
 3. Create or refine the versioned JellySSH specification.
-4. Run required architecture/UI/security expert reviews.
+4. Run required architecture/UI/security/database-data expert reviews.
 5. Pause for operator approval.
 6. Create one implementation card with explicit profile, skills, bank, checkout, branch, tests, and stop conditions.
 7. Move only that card to `ready`.
@@ -897,7 +938,12 @@ The revised design is:
 - [x] The reviewer uses a separate workspace, read-only tools, automatic retention disabled, and preferably a different model.
 - [x] Matt skills, local skills, project overlays, experts, profiles, and models remain distinct managed layers.
 - [x] Upstream skill updates use inventory, diff, review, sandbox test, approval, promotion, and rollback.
-- [x] Architecture, security, and UI expert triggers are explicit.
+- [x] Core skill releases, opt-in capability packs, project-only overlays, and runtime bindings are centrally catalogued but independently versioned.
+- [x] Database/data expertise is a governed capability pack with explicit mandatory triggers.
+- [x] Project initialization is dry-run first, schema-validated, idempotent, and non-executable until verified.
+- [x] Skill health and update views are generated from manifests and live audits rather than maintained as a second authority.
+- [x] The lower-cost proposed OpenRouter reviewer is `deepseek/deepseek-v3.2`; exact availability must be rechecked before routing.
+- [x] Architecture, security, UI, and database/data expert triggers are explicit.
 - [x] Repository and live evidence override conflicting memory.
 - [x] PR, merge, release, signing, sideloading, deployment, sudo, and secrets remain operator-controlled.
 
@@ -921,8 +967,12 @@ Review and accept, revise, or roll back the **Phase 1 completion report**. Phase
 - Phase 1 skill manifest: [manifests/jellyssh-phase1-skill-manifest.json](manifests/jellyssh-phase1-skill-manifest.json)
 - Phase 1 expert inventory: [manifests/jellyssh-phase1-expert-inventory.json](manifests/jellyssh-phase1-expert-inventory.json)
 - Phase 1 expert/model bindings: [jellyssh-phase1-expert-model-bindings.md](jellyssh-phase1-expert-model-bindings.md)
+- Skill Control Plane and project initialization: [skill-control-plane-and-project-initialization.md](skill-control-plane-and-project-initialization.md)
+- Project manifest schema: [manifests/project-skill-profile.schema.json](manifests/project-skill-profile.schema.json)
+- JellySSH initialization example: [manifests/jellyssh-project-initialization.example.yaml](manifests/jellyssh-project-initialization.example.yaml)
 - Matt-to-Kanban bridge: [matt-kanban-development-bridge.md](matt-kanban-development-bridge.md)
 - Phase 1 completion evidence: [../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md)
+- Phase 1 revision plan: [../../plans/2026-08-09-phase1-skill-control-plane-revision.md](../../plans/2026-08-09-phase1-skill-control-plane-revision.md)
 - Memory hygiene: [../../runbooks/memory-hygiene-runbook.md](../../runbooks/memory-hygiene-runbook.md)
 - Hermes Projects, profiles, and sessions: [../hermes-desktop-projects-profiles-and-sessions.md](../hermes-desktop-projects-profiles-and-sessions.md)
 - Hermes Kanban documentation: <https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban>

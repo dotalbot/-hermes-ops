@@ -1,0 +1,171 @@
+schema_version: 1
+
+project:
+  slug: jellyssh
+  display_name: JellySSH
+  state: proposed
+
+authority:
+  remote: git@github.com:dotalbot/jellyssh.git
+  commit: 7f612d96bd35fcaa336956d7922a82513d2e9e0d
+  project_manifest_path: .hermes-project/project.yaml
+
+skill_layers:
+  core_release:
+    name: core-development
+    version: 0.1.0
+    bundle_sha256: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    state: inventory
+  capability_packs:
+    - name: flutter-mobile
+      version: 0.1.0
+      bundle_sha256: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      state: inventory
+    - name: database-data
+      version: 0.1.0
+      bundle_sha256: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      state: inventory
+  project_overlays:
+    - name: jellyssh-drift-data-review
+      version: 0.1.0
+      path: .hermes-project/skills/jellyssh-drift-data-review/
+      bundle_sha256: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      tested_against:
+        - core-development@0.1.0
+        - database-data@0.1.0
+    - name: jellyssh-ssh-security-review
+      version: 0.1.0
+      path: .hermes-project/skills/jellyssh-ssh-security-review/
+      bundle_sha256: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      tested_against:
+        - core-development@0.1.0
+    - name: jellyssh-mobile-ux-review
+      version: 0.1.0
+      path: .hermes-project/skills/jellyssh-mobile-ux-review/
+      bundle_sha256: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      tested_against:
+        - core-development@0.1.0
+        - flutter-mobile@0.1.0
+  bundles:
+    design: [grill-with-docs]
+    specification: [to-spec]
+    tickets: [to-tickets]
+    implementation: [implement, tdd]
+    architecture-review: [codebase-design]
+    security-review: [code-review, jellyssh-ssh-security-review]
+    ui-review: [code-review, jellyssh-mobile-ux-review]
+    database-data-review: [code-review, jellyssh-drift-data-review]
+    code-quality-review: [code-review]
+    final-review: [code-review]
+
+profiles:
+  coordinator:
+    name: default
+    state: proposed
+    model:
+      provider: openai-codex
+      model: gpt-5.6-sol
+      fallback: block
+    bank: hermes-main
+    auto_retain: true
+    workspace: /home/jellybot/dev_projects/jellyssh
+    bundle: design
+    reviewer_write_boundary: not-applicable
+  implementation:
+    name: jellybase_jellyssh
+    state: proposed
+    model:
+      provider: openai-codex
+      model: gpt-5.6-terra
+      fallback: block
+    bank: jellyssh-main
+    auto_retain: true
+    workspace: /home/jellydev/dev_projects/jellyssh
+    bundle: implementation
+    reviewer_write_boundary: not-applicable
+  reviewer:
+    name: jellybase_jellyssh_reviewer
+    state: proposed
+    model:
+      provider: openrouter
+      model: deepseek/deepseek-v3.2
+      fallback: block
+    bank: jellyssh-main
+    auto_retain: false
+    workspace: /home/jellydev/dev_projects/jellyssh-review
+    bundle: final-review
+    reviewer_write_boundary: proposed
+
+expert_policy:
+  risk_levels:
+    level_0: mechanical documentation or formatting; no cross-model gate
+    level_1: standard implementation; post-commit cross-model final review
+    level_2: material architecture, security, UI, data, dependency, concurrency, or multi-module risk; pre/post expert review plus final review
+    level_3: destructive, irreversible, production-data, credential, signing, release, deployment, or disputed work; expert review plus operator hold
+  architecture:
+    required_when: [architecture-change, multi-module-change, public-contract-change]
+    profile: jellybase_jellyssh_reviewer
+    model:
+      provider: openrouter
+      model: deepseek/deepseek-v3.2
+      fallback: block
+    bundle: architecture-review
+    failure: block
+  security:
+    required_when: [credential, authentication, host-key, network-forwarding, external-process, sensitive-logging]
+    profile: jellybase_jellyssh_reviewer
+    model:
+      provider: openrouter
+      model: deepseek/deepseek-v3.2
+      fallback: block
+    bundle: security-review
+    failure: block
+  ui:
+    required_when: [user-visible-change, interaction-change, accessibility-change]
+    profile: jellybase_jellyssh_reviewer
+    model:
+      provider: openrouter
+      model: google/gemini-3.1-pro-preview
+      fallback: block
+    bundle: ui-review
+    failure: block
+  database_data:
+    required_when: [schema, migration, query-plan, data-integrity, pipeline, retention, backup, restore, sensitive-data]
+    profile: jellybase_jellyssh_reviewer
+    model:
+      provider: openrouter
+      model: deepseek/deepseek-v3.2
+      fallback: block
+    bundle: database-data-review
+    failure: block
+  code_quality:
+    required_when: [every-implementation]
+    profile: jellybase_jellyssh_reviewer
+    model:
+      provider: openrouter
+      model: deepseek/deepseek-v3.2
+      fallback: block
+    bundle: code-quality-review
+    failure: block
+  cross_model_final:
+    required_when: [every-level-1-or-higher-implementation]
+    profile: jellybase_jellyssh_reviewer
+    model:
+      provider: openrouter
+      model: deepseek/deepseek-v3.2
+      fallback: block
+    bundle: final-review
+    failure: block
+
+execution_policy:
+  auto_decompose: false
+  max_spawn: 1
+  max_in_progress: 1
+  default_assignee: null
+  orchestrator_profile: null
+  fallback: block
+
+promotion:
+  candidate_routable: false
+  operator_approval_required: true
+  fresh_backup_required: true

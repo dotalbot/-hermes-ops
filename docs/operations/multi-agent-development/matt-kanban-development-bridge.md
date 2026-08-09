@@ -48,6 +48,8 @@ policy:
   orchestrator_profile: null
 skills_manifest: manifests/jellyssh-phase1-skill-manifest.json
 expert_bindings: jellyssh-phase1-expert-model-bindings.md
+control_plane: skill-control-plane-and-project-initialization.md
+project_manifest: .hermes-project/project.yaml
 ```
 
 Every path and profile is non-routable until Phase 2 verifies it live.
@@ -58,7 +60,7 @@ Every path and profile is non-routable until Phase 2 verifies it live.
 operator-approved problem
   -> interactive design [default + grill-with-docs]
   -> versioned spec [default + to-spec]
-  -> architecture/security/UI expert parents as triggered
+  -> architecture/security/UI/database-data expert parents as triggered
   -> operator design approval
   -> dependency-aware tickets [default + to-tickets]
   -> one ready implementation card [jellybase_jellyssh + implement + tdd]
@@ -79,12 +81,13 @@ Before creating or readying an executable card, verify as one atomic gate:
 2. The assignee is a real installed Hermes profile.
 3. A fresh profile session reports the expected provider/model, bank, and retention mode.
 4. Every pinned skill is approved in the exact manifest and its active hash matches.
-5. Repository path, owner, remote, clean state, branch, and exact base commit match the project route.
-6. Implementation and review workspaces are separate.
-7. The JellySSH guard equivalent and repository invariants are active.
-8. Required expert parent cards are complete and name the same specification revision.
-9. Automatic decomposition and fallback assignment remain disabled.
-10. No other executable pilot card or worker is active.
+5. The project manifest resolves one exact core release, capability packs, project overlays, bundles, and model pair without missing members or name shadowing.
+6. Repository path, owner, remote, clean state, branch, and exact base commit match the project route.
+7. Implementation and review workspaces are separate.
+8. The JellySSH guard equivalent and repository invariants are active.
+9. The card has a risk level and every required expert parent is complete against the same specification revision.
+10. Automatic decomposition and fallback assignment remain disabled.
+11. No other executable pilot card or worker is active.
 
 Any mismatch blocks the card with an audit comment. The bridge must not repair, clone, reassign, install, promote, or fall back as a side effect of preflight.
 
@@ -119,6 +122,7 @@ outputs:
   - acceptance criteria
   - non-goals
   - test and device-evidence plan
+  - risk level and rationale
   - expert triggers
   - rollback/stop conditions
 ```
@@ -137,7 +141,7 @@ outputs:
   - model/profile/commit identity
 ```
 
-Security and UI experts use the same contract with their approved shared procedure and project overlay. Missing triggered expert reports block implementation.
+Security, UI, and database/data experts use the same contract with their approved capability pack/shared procedure and project overlay. Missing triggered expert reports block implementation. The database/data report additionally carries invariants, migration/rollback, transaction/index strategy, classification/retention, backup/restore, and post-diff integrity evidence.
 
 ### 5.4 Ticketing card
 
@@ -198,7 +202,7 @@ required_body:
   exact_commit: required
   separate_workspace: required
   implementation_model: required
-  reviewer_model: openrouter/anthropic/claude-sonnet-4.6
+  reviewer_model: openrouter/deepseek/deepseek-v3.2
 outputs:
   - PASS or BLOCKED
   - exact commands and results
@@ -217,7 +221,7 @@ A fix is a new bounded implementation card linked to the failed review. It names
 ```yaml
 assignee: jellybase_jellyssh_reviewer
 skills: [code-review]
-model: openrouter/anthropic/claude-sonnet-4.6
+model: openrouter/deepseek/deepseek-v3.2
 parents:
   - independent tests
   - code-quality review
@@ -266,11 +270,16 @@ inventory
 
 Candidate skills are never routable. A global installer or direct overwrite of active skills is prohibited. The `research/DESCRIPTION.md` local overlay must be preserved deliberately even though `research` is not approved for the first pilot.
 
+Core releases, opt-in capability packs, project-only overlays, bundles, and runtime bindings follow [the Skill Control Plane design](skill-control-plane-and-project-initialization.md). A core change creates a new immutable release and an impacted-project report; a project tweak creates a separately versioned project overlay. Neither path edits active profile copies as its source of truth.
+
+Project setup begins with `/project-init` scan/plan and a schema-validated dry run. Apply, verify, and reconcile are separately authorized operations. Initialization must leave the board without executable cards and must fail on missing bundle members, skill shadowing, hash drift, overlay incompatibility, or an unsafe reviewer boundary.
+
 ## 8. Failure and stop conditions
 
 The bridge blocks rather than guessing when:
 
 - a profile, bank, skill, model, project overlay, guard, path, branch, commit, parent report, or required evidence is missing or mismatched;
+- the project manifest, core release, capability pack, bundle, risk level, or database/data expert decision is missing, stale, shadowed, or incompatible;
 - the reviewer can write or shares the implementation workspace;
 - an expert model is unavailable;
 - automatic decomposition/fallback or concurrency differs from policy;
