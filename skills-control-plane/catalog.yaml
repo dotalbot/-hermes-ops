@@ -1,0 +1,25 @@
+schema_version: 1
+catalog_id: hermes-skill-control-plane
+state: phase2-pilot
+hash_algorithm: sha256(sorted(u64be(path-length) + path + u64be(content-length) + content))
+releases:
+- name: core-development
+  version: 0.1.0
+  manifest: releases/core-development/0.1.0/release.yaml
+  bundle_sha256: sha256:5b639dd39dbddf6360926df3b4e91c9e9c828f686d2989bad6b8493694105f59
+  manifest_sha256: sha256:b6a34b465bc6a552a3fc726fa53157588dfda4a2178cf2ee93b3495b083201b3
+packs:
+- name: database-data
+  version: 0.1.0
+  manifest: packs/database-data/0.1.0/pack.yaml
+  bundle_sha256: sha256:eae9d69125f92eff65d6c249cfcc3e9a3ab6384a2dbc1cbdcf3530d46f18a339
+  manifest_sha256: sha256:a5cf371afa85c33b6fe1b6cd6dee8e83fdcca941457220074fe6a969c2f05437
+- name: flutter-mobile
+  version: 0.1.0
+  manifest: packs/flutter-mobile/0.1.0/pack.yaml
+  bundle_sha256: sha256:fcf64f75fc767c9737df2dfe4849552109cc2a16615e815358daaf591eb6356f
+  manifest_sha256: sha256:b12ff53c1b4f9a329fa5786c107101511c2f9d15924c1fd80208235cd5a98459
+projects:
+- slug: jellyssh
+  manifest: projects/jellyssh/project.yaml
+  runtime: projects/jellyssh/runtime.yaml

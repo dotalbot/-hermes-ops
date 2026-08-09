@@ -1,6 +1,6 @@
 # Jellyberry Kanban orchestration V3 — Phase 1 completion report
 
-> **Status:** Phase 1 revised with database/data and Skill Control Plane governance, independently reviewed, and awaiting operator acceptance
+> **Status:** Accepted by the operator on 2026-08-09; Phase 2 setup authorized
 >
 > **Completed:** 2026-08-09
 >
@@ -211,4 +211,4 @@ These are expected setup gates, not permission to act now:
 
 ## Gate
 
-Phase 1 completion does not authorize Phase 2. The next action is operator acceptance, revision, or rollback of this report. No profile, board, checkout, skill promotion, memory-bank creation, adapter, or development dispatch may begin without a new explicit decision.
+The operator accepted this Phase 1 report and authorized Phase 2 setup on 2026-08-09. That authorization covers the minimum control-plane implementation, verified JellySSH setup checkouts, project profiles, named bank route, approved skills, non-executable board, and safety/routing smoke tests. It does not authorize a Phase 3 development card, LogK changes, PR, merge, release, signing, sideloading, deployment, sudo, production data, or secrets.

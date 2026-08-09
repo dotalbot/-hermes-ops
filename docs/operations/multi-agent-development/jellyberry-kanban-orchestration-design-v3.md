@@ -1,16 +1,18 @@
 # Jellyberry Kanban orchestration design — V3: JellySSH pilot and expert-agent governance
 
-> **Status:** Operator-approved design; Phase 0 accepted; Phase 1 revised, independently reviewed, and awaiting operator acceptance
+> **Status:** Operator-approved design; Phases 0 and 1 accepted; Phase 2 setup authorized and in progress
 >
 > **Based on:** V2 plus the operator's LogK exclusion, JellySSH pilot selection, live Jellyhome LogK/OpenCode inspection, and read-only JellySSH repository intake
 >
-> **Checked:** 2026-08-09 06:14 BST
+> **Checked:** 2026-08-09 06:30 BST
 >
 > **Original design approval:** Approved in the Hermes CLI session on 2026-08-09 with Phase 0 as the first authorized action.
 >
 > **Phase transition:** Phase 0 accepted and Phase 1 authorized by the operator on 2026-08-09.
 >
-> **Implementation state:** Phase 0 corrections were accepted by the operator on 2026-08-09. Phase 1 was revised on operator request to add risk-tiered cross-model review, database/data expertise, lower-cost DeepSeek review, central skill governance, project initialization, long-running reconciliation, and visual status; see the [Phase 1 completion report](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md). The revision passed an independent Gemini governance review. Phase 2 remains unauthorized pending operator acceptance. No skill was installed or promoted, and this status does not authorize cloning JellySSH, creating JellySSH profiles or boards, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
+> **Phase transition:** Phase 1 was accepted and Phase 2 setup was authorized by the operator on 2026-08-09.
+>
+> **Implementation state:** Phase 0 corrections and the independently reviewed Phase 1 governance package were accepted by the operator on 2026-08-09. Phase 2 may implement and verify the minimum control plane, JellySSH checkouts, profiles, skills, bank route, non-executable board, and safety/routing smoke tests. Phase 2 does not authorize JellySSH development cards, LogK changes, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
 
 ## What V3 changes
 
@@ -114,7 +116,7 @@ flowchart LR
     R --> HM
 ```
 
-The reviewer may recall from `jellyssh-main`, but automatic retention must initially be disabled to avoid storing transient review chatter. Repository documents and current Git state override recalled memory.
+The reviewer is bound to `jellyssh-main`, but Phase 2 disables both automatic recall and automatic retention so recalled text cannot contaminate an exact-commit verdict and transient review chatter is not stored. The bank binding remains available for a later separately reviewed policy change. Repository documents and current Git state remain authoritative.
 
 ### 2.1 Compact route
 
@@ -348,7 +350,7 @@ Portfolio intelligence          portfolio                       portfolio-intel-
 
 The generic `jellybase_hermes` profile remains bound to `jellybase-worker-main` with automatic project retention disabled. Project-specific JellySSH context must not pollute that role bank.
 
-Implementation retention is limited to stable reusable project knowledge. Task state, commit identifiers, raw logs, terminal transcripts, device output, temporary findings, private host details, credentials, key material, and review chatter stay out of Hindsight. Reviewer and expert automatic retention remains disabled.
+Phase 2 disables automatic retention for both JellySSH profiles. A later phase may propose implementation retention limited to stable reusable project knowledge, but that requires a separately reviewed policy change. Task state, commit identifiers, raw logs, terminal transcripts, device output, temporary findings, private host details, credentials, key material, and review chatter stay out of Hindsight.
 
 JellySSH and the later LogK workstream have no native cross-board dependency edge. The accepted JellySSH Phase 3 evidence package and an explicit operator transition decision are the prerequisite record for Phase 4; the dispatcher must not infer that transition from a `done` card alone.
 
@@ -392,11 +394,12 @@ Independent reviewer:
 - Fresh profile and session context.
 - Separate review worktree or clone.
 - Exact branch and commit supplied on the card.
-- `jellyssh-main` recall with automatic retention disabled.
+- `jellyssh-main` binding with automatic recall and retention disabled in Phase 2.
 - Read-only review contract for code-review cards.
 - No edit, commit, push, PR, merge, signing, sideload, sudo, or deployment.
 - Prefer a model different from the implementation model.
 - Reports `PASS`, `BLOCKED`, or numbered findings with severity.
+- Its only platform toolset is the six-tool `mcp-jellyssh_review` adapter. The trusted controller uses one validated config snapshot, a dedicated ED25519 host-key pin plus Jellybase machine identity, hash-pinned private MCP snapshots, exact target/base Git refs, validation of every diff-emitted path, and before/after semantic metadata/check validation. It runs fixed checks in a digest-pinned Docker sandbox with no network, private PID/IPC namespaces, a read-only root, no host home/runtime sockets, and disposable bounded scratch. DeepSeek handles the exact final-review route and Gemini the explicit conditional mobile-UX route, both with fallback disabled and response-model identity checked; neither model receives tools.
 
 ### 5.5 Future `logk_opencode` adapter
 
@@ -465,6 +468,8 @@ For JellySSH, prefer the existing repository authority:
 - `.opencode/agents/` and the guard plugin as reviewed reference implementations.
 
 Create a Hermes project skill only when a reusable procedure cannot be expressed clearly through those repository documents.
+
+Phase 2 exception: the accepted JellySSH intake commit is immutable and direct Jellybase GitHub authentication is blocked, so the three pilot overlays are held under `skills-control-plane/projects/jellyssh/overlays/` with `authority: control-plane`. They are project-specific, may materialize only into the two named JellySSH profiles, and must not be promoted globally. Mirroring them into `.hermes-project/skills/` is deferred until repository governance, authentication, a reviewed commit, and operator authorization exist. The manifests must not claim the absent mirror as current authority.
 
 #### Layer 4 — expert bindings
 
@@ -949,7 +954,7 @@ The revised design is:
 
 ### Current authorized action
 
-Review and accept, revise, or roll back the **Phase 1 completion report**. Phase 2 is not authorized. Do not create the JellySSH board, clone JellySSH, create specialist profiles, promote skills, or dispatch development until a new explicit operator decision.
+Execute **Phase 2 setup only**: materialize and test the minimum Skill Control Plane, prepare verified separate JellySSH implementation/review checkouts, create and verify the project profiles/bank/skills/models/tool boundaries, and create the `jellyssh` board without executable development cards. Stop before Phase 3 ticket selection, design, implementation, or dispatch and before any PR, merge, release, signing, sideloading, deployment, sudo, production-data, or LogK action.
 
 ---
 

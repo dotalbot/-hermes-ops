@@ -1,0 +1,538 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/hermes/skills-control-plane/runtime-state.schema.json",
+  "title": "Skill Control Plane runtime evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "state",
+    "paths",
+    "profiles",
+    "review_boundary",
+    "repository_auth",
+    "toolchain",
+    "board",
+    "rollback",
+    "skill_materialization",
+    "governance_decisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "project": {
+      "const": "jellyssh"
+    },
+    "state": {
+      "enum": [
+        "preflight-blocked",
+        "setup-verified-routing-blocked"
+      ]
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinator_checkout",
+        "coordinator_review_checkout",
+        "implementation_checkout",
+        "reviewer_checkout",
+        "implementation_bridge",
+        "reviewer_bridge"
+      ],
+      "properties": {
+        "coordinator_checkout": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "coordinator_review_checkout": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "implementation_checkout": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "reviewer_checkout": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "implementation_bridge": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "reviewer_bridge": {
+          "$ref": "#/$defs/absolutePath"
+        }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation",
+        "reviewer"
+      ],
+      "properties": {
+        "implementation": {
+          "$ref": "#/$defs/profile"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/profile"
+        }
+      }
+    },
+    "review_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "state",
+        "routing_state",
+        "server",
+        "controller",
+        "review_root",
+        "transport",
+        "ssh_target",
+        "sandbox",
+        "sandbox_runtime",
+        "sandbox_image_digest",
+        "project_state_commit",
+        "project_state_sha256",
+        "controller_evidence",
+        "controller_evidence_sha256",
+        "controller_verdict",
+        "exposed_tools",
+        "forbidden_toolsets",
+        "sampling_enabled",
+        "trust_tier",
+        "native_kanban_tool_injection_allowed",
+        "remote_hostname",
+        "remote_machine_id_sha256",
+        "ssh_host_key_fingerprint",
+        "pinned_known_hosts_path",
+        "implementation_sha256",
+        "conditional_ui_model",
+        "conditional_ui_routing_state",
+        "conditional_ui_evidence",
+        "conditional_ui_evidence_sha256",
+        "ssh_host_address",
+        "ssh_identity_file",
+        "project_manifest_sha256"
+      ],
+      "properties": {
+        "type": {
+          "const": "mcp-controller-evidence-no-model-tools"
+        },
+        "state": {
+          "enum": [
+            "absent",
+            "source-read-boundary-verified"
+          ]
+        },
+        "routing_state": {
+          "enum": [
+            "pending-remediation-verification",
+            "verified"
+          ]
+        },
+        "server": {
+          "type": "string",
+          "pattern": "^scripts/[A-Za-z0-9._-]+\\.py$"
+        },
+        "controller": {
+          "const": "scripts/reviewctl.py"
+        },
+        "review_root": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "exposed_tools": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]+$"
+          }
+        },
+        "forbidden_toolsets": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "sampling_enabled": {
+          "const": false
+        },
+        "trust_tier": {
+          "const": "untrusted-readonly-hints-required"
+        },
+        "native_kanban_tool_injection_allowed": {
+          "const": false
+        },
+        "transport": {
+          "const": "ssh"
+        },
+        "ssh_target": {
+          "const": "jellydev@jellybase-lan"
+        },
+        "sandbox": {
+          "const": "docker-network-none-readonly-root-no-home-no-runtime-sockets-disposable-exact-commit"
+        },
+        "sandbox_runtime": {
+          "const": "/var/tmp/jellyssh-review-runtime"
+        },
+        "controller_evidence": {
+          "const": "skills-control-plane/projects/jellyssh/evidence/reviewer-controller-smoke.json"
+        },
+        "controller_evidence_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        },
+        "controller_verdict": {
+          "const": "BLOCK"
+        },
+        "sandbox_image_digest": {
+          "const": "sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4"
+        },
+        "project_state_commit": {
+          "const": "7f612d96bd35fcaa336956d7922a82513d2e9e0d"
+        },
+        "project_state_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        },
+        "remote_hostname": {
+          "const": "jellybase"
+        },
+        "remote_machine_id_sha256": {
+          "const": "sha256:471aab1e94b70c01a2f1e7aa34958f8fb21927a1faa1f665baa39aee2a1267d6"
+        },
+        "ssh_host_key_fingerprint": {
+          "const": "SHA256:MsKB6W/Pdd/0AU70/OvI8DnG9tFMyQvcEeYjaTLazR0"
+        },
+        "pinned_known_hosts_path": {
+          "const": "/home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts"
+        },
+        "implementation_sha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewctl.py",
+            "review_boundary.py",
+            "jellyssh_review_mcp.py",
+            "projectctl.py"
+          ],
+          "properties": {
+            "reviewctl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "review_boundary.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "jellyssh_review_mcp.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "projectctl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            }
+          }
+        },
+        "conditional_ui_model": {
+          "const": "openrouter/google/gemini-3.1-pro-preview"
+        },
+        "conditional_ui_routing_state": {
+          "const": "verified"
+        },
+        "conditional_ui_evidence": {
+          "const": "skills-control-plane/projects/jellyssh/evidence/ui-controller-smoke.json"
+        },
+        "conditional_ui_evidence_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        },
+        "ssh_host_address": {
+          "const": "192.168.1.2"
+        },
+        "ssh_identity_file": {
+          "const": "/home/jellybot/.ssh/id_ed25519"
+        },
+        "project_manifest_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        }
+      }
+    },
+    "repository_auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "remote",
+        "jellybase_key_path",
+        "public_key_fingerprint",
+        "registration_state"
+      ],
+      "properties": {
+        "remote": {
+          "const": "git@github.com:dotalbot/jellyssh.git"
+        },
+        "jellybase_key_path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "public_key_fingerprint": {
+          "type": "string",
+          "pattern": "^SHA256:[A-Za-z0-9+/]+$"
+        },
+        "registration_state": {
+          "enum": [
+            "blocked-token-lacks-administration-permission",
+            "verified"
+          ]
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "installed",
+        "verified_archives",
+        "android_compile_state",
+        "quality_gate_state",
+        "quality_gate_findings",
+        "dispatch_state",
+        "quality_gate_evidence",
+        "quality_gate_evidence_sha256"
+      ],
+      "properties": {
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "installed": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "verified_archives": {
+          "type": "object",
+          "minProperties": 4,
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(sha256:[0-9a-f]{64}|sha1:[0-9a-f]{40})$"
+          }
+        },
+        "android_compile_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quality_gate_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quality_gate_findings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dispatch_state": {
+          "enum": [
+            "blocked",
+            "verified"
+          ]
+        },
+        "quality_gate_evidence": {
+          "const": "skills-control-plane/projects/jellyssh/evidence/flutter-quality-gate.json"
+        },
+        "quality_gate_evidence_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        }
+      }
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slug",
+        "state",
+        "task_count",
+        "default_workdir",
+        "workspace_kind",
+        "auto_decompose",
+        "default_assignee",
+        "orchestrator_profile",
+        "max_spawn",
+        "max_in_progress"
+      ],
+      "properties": {
+        "slug": {
+          "const": "jellyssh"
+        },
+        "state": {
+          "enum": [
+            "absent",
+            "installed-empty",
+            "verified-empty"
+          ]
+        },
+        "task_count": {
+          "const": 0
+        },
+        "default_workdir": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "workspace_kind": {
+          "const": "dir"
+        },
+        "auto_decompose": {
+          "const": false
+        },
+        "default_assignee": {
+          "type": "null"
+        },
+        "orchestrator_profile": {
+          "type": "null"
+        },
+        "max_spawn": {
+          "const": 1
+        },
+        "max_in_progress": {
+          "const": 1
+        }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preexisting_target_profiles",
+        "source_baseline_archive",
+        "current_target_profiles_archive",
+        "rollback_action",
+        "source_baseline_archive_sha256",
+        "current_target_profiles_archive_sha256"
+      ],
+      "properties": {
+        "preexisting_target_profiles": {
+          "const": "absent"
+        },
+        "source_baseline_archive": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "current_target_profiles_archive": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "rollback_action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_baseline_archive_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        },
+        "current_target_profiles_archive_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
+        }
+      }
+    },
+    "skill_materialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overlays_authority",
+        "jellyssh_checkout_overlay_state",
+        "installed_copy_state"
+      ],
+      "properties": {
+        "overlays_authority": {
+          "const": "skills-control-plane/projects/jellyssh/overlays"
+        },
+        "jellyssh_checkout_overlay_state": {
+          "const": "deferred-until-project-repository-governance-authorizes-mirror"
+        },
+        "installed_copy_state": {
+          "enum": [
+            "profile-local-hash-verified",
+            "drifted"
+          ]
+        }
+      }
+    },
+    "governance_decisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "phase1_conflict",
+          "resolution",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]+$"
+          },
+          "phase1_conflict": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "enum": [
+              "pending-independent-phase2-review",
+              "independently-reviewed"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))/(?!.*//).+"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "state",
+        "skills"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]+$"
+        },
+        "state": {
+          "enum": [
+            "absent",
+            "installed",
+            "verified",
+            "routable"
+          ]
+        },
+        "skills": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]+$"
+          }
+        }
+      }
+    },
+    "nonZeroSha256": {
+      "type": "string",
+      "pattern": "^sha256:(?!0{64}$)[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Skill Control Plane and project initialization design
 
-> **Status:** Phase 1 design only; no control-plane runtime, initializer, dashboard, profile, skill, bundle, board, bank, or scheduled audit has been created
+> **Status:** Phase 1 design accepted; minimum Phase 2 control-plane/project-initialization implementation authorized and in progress. The Desktop plugin, scheduled audit, and automatic promotion remain unauthorized.
 >
 > **Project manifest schema:** [project-skill-profile.schema.json](manifests/project-skill-profile.schema.json)
 >
