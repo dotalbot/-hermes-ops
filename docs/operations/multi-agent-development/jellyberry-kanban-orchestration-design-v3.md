@@ -1,14 +1,14 @@
 # Jellyberry Kanban orchestration design — V3: JellySSH pilot and expert-agent governance
 
-> **Status:** Operator-approved design; Phase 0 authorized
+> **Status:** Operator-approved design; Phase 0 completed and awaiting operator acceptance
 >
 > **Based on:** V2 plus the operator's LogK exclusion, JellySSH pilot selection, live Jellyhome LogK/OpenCode inspection, and read-only JellySSH repository intake
 >
-> **Checked:** 2026-08-09 02:20 BST
+> **Checked:** 2026-08-09 04:24 BST
 >
 > **Operator approval:** Approved in the Hermes CLI session on 2026-08-09. Execute Phase 0 only, then stop for the next operator gate.
 >
-> **Implementation state:** Phase 0 authorized but not yet executed when this approval was recorded. This approval does not authorize cloning JellySSH, creating JellySSH profiles or boards, installing or promoting skills, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately. All V2 live-state observations must be refreshed before they are used as change instructions.
+> **Implementation state:** Phase 0 corrections were executed and verified; see the [Phase 0 completion report](../../reports/jellyberry-kanban-orchestration-phase0-2026-08-09.md). Phase 1 remains unauthorized pending operator acceptance. This approval does not authorize cloning JellySSH, creating JellySSH profiles or boards, installing or promoting skills, dispatching development, changing LogK, privilege use, PR creation, merge, release, signing, sideloading, or deployment. V1 and V2 remain preserved separately.
 
 ## What V3 changes
 
@@ -915,6 +915,7 @@ Execute **Phase 0 only**. Verify and report the exact control-plane corrections.
 - Kanban templates: [kanban-card-templates.md](kanban-card-templates.md)
 - Operator checklist: [operator-checklist.md](operator-checklist.md)
 - Applied Hindsight routing: [../../reports/hindsight-bank-routing-2026-08-08.md](../../reports/hindsight-bank-routing-2026-08-08.md)
+- Phase 0 completion evidence: [../../reports/jellyberry-kanban-orchestration-phase0-2026-08-09.md](../../reports/jellyberry-kanban-orchestration-phase0-2026-08-09.md)
 - Memory hygiene: [../../runbooks/memory-hygiene-runbook.md](../../runbooks/memory-hygiene-runbook.md)
 - Hermes Projects, profiles, and sessions: [../hermes-desktop-projects-profiles-and-sessions.md](../hermes-desktop-projects-profiles-and-sessions.md)
 - Hermes Kanban documentation: <https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban>
