@@ -209,6 +209,8 @@ Inspect, without mutation:
 - UI, security, external process, network, deployment, signing, and device boundaries;
 - existing `AGENTS.md`, `CLAUDE.md`, `.opencode`, `.agents`, skills, CI, specs, and decisions;
 - intended local/remote workspaces and toolchain;
+- the actual execution host, OS user, `HOME`, and effective repository-local Git author/committer identity;
+- non-interactive Git-provider access from that execution identity: remote read, exact approved-ref fetch, and dry-run push when implementation workers are expected to push;
 - current profiles, model/provider availability, banks, retention, and skill hashes.
 
 ### Plan
@@ -220,6 +222,7 @@ Generate:
 - project overlay inventory and gaps;
 - coordinator/implementation/reviewer profile proposals;
 - model pairs, tools, banks, retention, and workspaces;
+- an operator-approved commit-attribution decision plus dedicated repository credential routing, represented only by non-secret identity and key-path metadata;
 - risk-tier and expert-trigger matrix, including database/data;
 - proposed task bundles with all members resolved;
 - board metadata with no executable card;
@@ -229,7 +232,7 @@ Ask only for decisions the scan cannot safely infer. No secret value enters the 
 
 ### Apply and verify
 
-A later authorized apply must back up affected profile/control-plane state, create only approved artifacts, and keep the board non-executable. Verification fails closed on missing bundle members, name shadowing, active-hash drift, wrong model/bank/retention, inaccessible or shared workspaces, write-capable reviewer boundaries, or unknown repository state.
+A later authorized apply must back up affected profile/control-plane state, create only approved artifacts, and keep the board non-executable. Before any implementation card can become routable, verification must run from the actual remote worker account and checkout and require `git var GIT_AUTHOR_IDENT`, `git var GIT_COMMITTER_IDENT`, non-interactive `git ls-remote`, exact approved-ref fetch, and a non-mutating push dry run when the worker is expected to push. Verification fails closed on an absent or unapproved commit identity, failed repository read/fetch/required-write access, missing bundle members, name shadowing, active-hash drift, wrong model/bank/retention, inaccessible or shared workspaces, write-capable reviewer boundaries, or unknown repository state. The coordinator-to-worker SSH credential, worker-to-Git-provider credential, and Git commit attribution are separate gates; passing one does not imply the others.
 
 Project initialization does not authorize implementation, PRs, merges, release, signing, sideloading, deployment, sudo, production data, or secrets.
 
