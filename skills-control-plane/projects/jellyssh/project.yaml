@@ -127,8 +127,8 @@ profiles:
     name: jellybase_jellyssh_reviewer
     state: proposed
     model:
-      provider: openrouter
-      model: deepseek/deepseek-v3.2
+      provider: openai-codex
+      model: gpt-5.6-terra
       fallback: block
     bank: jellyssh-main
     auto_retain: false
@@ -156,8 +156,8 @@ expert_policy:
     - public-contract-change
     profile: jellybase_jellyssh_reviewer
     model:
-      provider: openrouter
-      model: deepseek/deepseek-v3.2
+      provider: openai-codex
+      model: gpt-5.6-terra
       fallback: block
     bundle: architecture-review
     failure: block
@@ -183,8 +183,8 @@ expert_policy:
     - analytics-or-crash-reporting
     profile: jellybase_jellyssh_reviewer
     model:
-      provider: openrouter
-      model: deepseek/deepseek-v3.2
+      provider: openai-codex
+      model: gpt-5.6-terra
       fallback: block
     bundle: security-review
     failure: block
@@ -222,8 +222,8 @@ expert_policy:
     - backup-or-restore-or-replication-or-disaster-recovery
     profile: jellybase_jellyssh_reviewer
     model:
-      provider: openrouter
-      model: deepseek/deepseek-v3.2
+      provider: openai-codex
+      model: gpt-5.6-terra
       fallback: block
     bundle: database-data-review
     failure: block
@@ -232,8 +232,8 @@ expert_policy:
     - every-implementation
     profile: jellybase_jellyssh_reviewer
     model:
-      provider: openrouter
-      model: deepseek/deepseek-v3.2
+      provider: openai-codex
+      model: gpt-5.6-terra
       fallback: block
     bundle: code-quality-review
     failure: block
@@ -242,8 +242,8 @@ expert_policy:
     - every-level-1-or-higher-implementation
     profile: jellybase_jellyssh_reviewer
     model:
-      provider: openrouter
-      model: deepseek/deepseek-v3.2
+      provider: openai-codex
+      model: gpt-5.6-terra
       fallback: block
     bundle: final-review
     failure: block

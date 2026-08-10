@@ -338,8 +338,14 @@ def validate_runtime(
         expected_exposed = EXPECTED_REVIEW_TOOLS
         if exposed != expected_exposed:
             errors.append(f"{runtime_path}: reviewer must expose exactly the six approved read-only MCP tools")
-        if not {"terminal", "file", "code_execution", "kanban", "memory"}.issubset(forbidden):
-            errors.append(f"{runtime_path}: reviewer forbidden toolsets are incomplete")
+        if (
+            not {"terminal", "file", "code_execution", "memory"}.issubset(forbidden)
+            or "kanban" in forbidden
+            or boundary.get("native_kanban_tool_injection_allowed") is not True
+            or boundary.get("mcp_toolset") != "jellyssh_review"
+            or boundary.get("bootstrap_terminal_backend") != "local"
+        ):
+            errors.append(f"{runtime_path}: reviewer toolset/bootstrap guardrails are incomplete")
         if (
             boundary.get("review_root") != project.get("profiles", {}).get("reviewer", {}).get("workspace")
             or boundary.get("transport") != "ssh"
@@ -515,9 +521,9 @@ def validate_runtime(
                 cli_tools = config.get("platform_toolsets", {}).get("cli")
                 disabled = set(config.get("agent", {}).get("disabled_toolsets") or [])
                 server = config.get("mcp_servers", {}).get("jellyssh_review", {})
-                if cli_tools != ["mcp-jellyssh_review"]:
-                    errors.append("reviewer CLI toolset is not restricted to mcp-jellyssh_review")
-                if not {"terminal", "file", "code_execution", "kanban", "memory"}.issubset(disabled):
+                if cli_tools != ["jellyssh_review"]:
+                    errors.append("reviewer CLI toolset is not restricted to jellyssh_review")
+                if not {"terminal", "file", "code_execution", "memory"}.issubset(disabled) or "kanban" in disabled:
                     errors.append("reviewer disabled toolsets are incomplete")
                 if server.get("sampling", {}).get("enabled") is not False:
                     errors.append("reviewer MCP sampling must be disabled")
@@ -526,18 +532,11 @@ def validate_runtime(
                 terminal = config.get("terminal", {})
                 server_env = server.get("env", {})
                 if (
-                    terminal.get("backend") != "ssh"
+                    terminal.get("backend") != "local"
                     or terminal.get("cwd") != runtime_paths.get("reviewer_bridge")
-                    or terminal.get("ssh_host") != "jellybase-lan"
-                    or terminal.get("ssh_user") != "jellydev"
-                    or terminal.get("ssh_port") != 22
-                    or terminal.get("ssh_key") != "/home/jellybot/.ssh/id_ed25519"
-                    or terminal.get("ssh_file_sync") is not False
-                    or terminal.get("persistent_shell") is not False
-                    or terminal.get("timeout") != 330
                     or declared.get("workspace") != runtime_paths.get("reviewer_checkout")
                 ):
-                    errors.append("reviewer SSH workspace binding drift")
+                    errors.append("reviewer inert bootstrap workspace binding drift")
                 if (
                     server_env.get("JELLYSSH_REVIEW_ROOT") != runtime_paths.get("reviewer_checkout")
                     or server_env.get("JELLYSSH_REVIEW_SSH_TARGET") != "jellydev@jellybase-lan"

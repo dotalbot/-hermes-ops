@@ -209,7 +209,10 @@ Inspect, without mutation:
 - UI, security, external process, network, deployment, signing, and device boundaries;
 - existing `AGENTS.md`, `CLAUDE.md`, `.opencode`, `.agents`, skills, CI, specs, and decisions;
 - intended local/remote workspaces and toolchain;
-- current profiles, model/provider availability, banks, retention, and skill hashes.
+- the actual execution host, OS user, `HOME`, and effective repository-local Git author/committer identity;
+- non-interactive Git-provider access from that execution identity: remote read, exact approved-ref fetch, and dry-run push when implementation workers are expected to push;
+- current profiles and intended Kanban assignees as observed on the coordinator, plus model/provider authentication, banks, retention, and skill hashes;
+- reviewer topology: separate checkout/bridge ownership and resolution, exact target/base availability, nested application root, prepared offline tool/package-cache paths, and host capacity for sequential analyzer/test checks.
 
 ### Plan
 
@@ -220,6 +223,9 @@ Generate:
 - project overlay inventory and gaps;
 - coordinator/implementation/reviewer profile proposals;
 - model pairs, tools, banks, retention, and workspaces;
+- exact MCP server names as reported by live tool discovery, a local/inert bootstrap backend for MCP-only remote reviewers, and preserved task-scoped Kanban lifecycle tools;
+- an exact detached reviewer target/base plan plus a harmless real MCP metadata smoke that proves the selected model can serialize tool calls;
+- an operator-approved commit-attribution decision plus dedicated repository credential routing, represented only by non-secret identity and key-path metadata;
 - risk-tier and expert-trigger matrix, including database/data;
 - proposed task bundles with all members resolved;
 - board metadata with no executable card;
@@ -229,7 +235,11 @@ Ask only for decisions the scan cannot safely infer. No secret value enters the 
 
 ### Apply and verify
 
-A later authorized apply must back up affected profile/control-plane state, create only approved artifacts, and keep the board non-executable. Verification fails closed on missing bundle members, name shadowing, active-hash drift, wrong model/bank/retention, inaccessible or shared workspaces, write-capable reviewer boundaries, or unknown repository state.
+A later authorized apply must back up affected profile/control-plane state, create only approved artifacts, and keep the board non-executable. Before any implementation card can become routable, verification must run from the actual remote worker account and checkout and require `git var GIT_AUTHOR_IDENT`, `git var GIT_COMMITTER_IDENT`, non-interactive `git ls-remote`, exact approved-ref fetch, and a non-mutating push dry run when the worker is expected to push.
+
+Before any independent-review card can become routable, coordinator-side verification must additionally require: the named reviewer profile/assignee; exact MCP toolset discovery with no unknown-toolset warning; provider authentication plus a real harmless metadata tool call using the selected model; no SSH terminal bootstrap for an MCP-only remote adapter; task-scoped Kanban completion/block tools still present; a clean separate reviewer checkout detached at the exact target with the exact base available; and metadata reporting `head == expected_commit`. Every local, remote, and standalone-materializer Git path must set `GIT_NO_REPLACE_OBJECTS=1`, with a behavioral `refs/replace` fixture proving original-object materialization. For nested Flutter projects, exercise the generated sandbox command from the real app root, prove prepared project and Flutter-tool package roots resolve through read-only inputs inside the networkless container, run repository-controlled code only in an aggregate-size-limited workspace with separately bounded `/tmp`, memory, and swap, run analyzer and tests sequentially, and verify interrupted runs leave no orphan test processes.
+
+Verification fails closed on an absent or unapproved commit identity, failed repository read/fetch/required-write access, missing bundle members, name shadowing, active-hash drift, wrong model/bank/retention, inaccessible or shared workspaces, an MCP alias mismatch, a model/tool-call serialization failure, missing Kanban lifecycle tools, a mutable or mismatched reviewer HEAD, replacement-ref-sensitive materialization, a writable host scratch bind, unbounded workspace or memory/swap consumption, write-capable reviewer boundaries, unverified offline runtime paths, or unknown repository state. The coordinator-to-worker SSH credential, worker-to-Git-provider credential, Git commit attribution, reviewer model/tool route, and exact reviewer checkout are separate gates; passing one does not imply the others.
 
 Project initialization does not authorize implementation, PRs, merges, release, signing, sideloading, deployment, sudo, production data, or secrets.
 
