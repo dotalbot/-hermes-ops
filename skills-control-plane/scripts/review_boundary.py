@@ -49,7 +49,8 @@ print("sha256:"+h.hexdigest())'''
 _MATERIALIZE_COMMIT_CODE = r'''import os,subprocess,sys
 from pathlib import Path,PurePosixPath
 repo,commit,dest=sys.argv[1],sys.argv[2],Path(sys.argv[3]); dest.mkdir(mode=0o700)
-raw=subprocess.check_output(["git","-c","core.fsmonitor=false","-c","core.hooksPath=/dev/null","-C",repo,"ls-tree","-r","-z","--full-tree",commit])
+git_env=dict(os.environ); git_env["GIT_NO_REPLACE_OBJECTS"]="1"
+raw=subprocess.check_output(["git","-c","core.fsmonitor=false","-c","core.hooksPath=/dev/null","-C",repo,"ls-tree","-r","-z","--full-tree",commit],env=git_env)
 records=[record for record in raw.split(b"\0") if record]
 if len(records)>5000: raise SystemExit("too many tracked files")
 total=0
@@ -60,7 +61,7 @@ for record in records:
  parts=rel.parts; lower=[part.lower() for part in parts]; base=lower[-1] if lower else ""
  denied=(not parts or rel.is_absolute() or any(part in {"",".",".."} for part in parts) or mode not in {b"100644",b"100755"} or kind!=b"blob" or base==".env" or base.startswith(".env.") or base in {".npmrc",".pypirc",".netrc","credentials.json","key.properties","local.properties","secrets.yaml","secrets.yml"} or any(base.endswith(s) for s in (".jks",".key",".keystore",".p12",".pem",".pfx")))
  if denied: raise SystemExit("unsafe tracked sandbox path")
- data=subprocess.check_output(["git","-c","core.fsmonitor=false","-c","core.hooksPath=/dev/null","-C",repo,"cat-file","blob",oid.decode("ascii")]); total+=len(data)
+ data=subprocess.check_output(["git","-c","core.fsmonitor=false","-c","core.hooksPath=/dev/null","-C",repo,"cat-file","blob",oid.decode("ascii")],env=git_env); total+=len(data)
  if len(data)>8*1024*1024 or total>256*1024*1024: raise SystemExit("sandbox source size limit exceeded")
  target=dest.joinpath(*parts); target.parent.mkdir(parents=True,exist_ok=True)
  fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o700 if mode==b"100755" else 0o600)
@@ -140,6 +141,7 @@ class ReviewRepository:
             "GIT_TERMINAL_PROMPT": "0",
             "GIT_PAGER": "cat",
             "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_NO_REPLACE_OBJECTS": "1",
         }
         argv = command
         if self.ssh_target:
@@ -157,6 +159,7 @@ class ReviewRepository:
                 "GIT_TERMINAL_PROMPT=0",
                 "GIT_PAGER=cat",
                 "GIT_OPTIONAL_LOCKS=0",
+                "GIT_NO_REPLACE_OBJECTS=1",
                 "XDG_RUNTIME_DIR=/run/user/1002",
                 "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus",
                 *command,
@@ -464,11 +467,25 @@ class ReviewRepository:
         check_command = {
             "flutter-analyze": [*flutter_tool, "analyze", "--no-pub"],
             "flutter-test": [*flutter_tool, "test", "--no-pub"],
-            "dart-format-check": ["dart", "format", "--output=none", "--set-exit-if-changed", "."],
+            "dart-format-check": [
+                "/opt/flutter/bin/cache/dart-sdk/bin/dart",
+                "format",
+                "--output=none",
+                "--set-exit-if-changed",
+                ".",
+            ],
         }[name]
         root = shlex.quote(str(self.root))
         commit = shlex.quote(self.expected_commit)
         inner = shlex.join(check_command)
+        sandbox_command = (
+            "set -eu; "
+            "cp -a /review-input/repo /workspace/repo; "
+            "cp -a /review-input/home /workspace/home; "
+            "cp -a /review-input/tools /workspace/tools; "
+            "cd /workspace/repo/app; "
+            f"exec {inner}"
+        )
         script = f"""set -euo pipefail
 umask 077
 scratch=$(mktemp -d /var/tmp/jellyssh-review-check.XXXXXX)
@@ -483,29 +500,29 @@ test "$actual_project_state" = {shlex.quote(_PROJECT_STATE_SHA256)}
 mkdir -p "$scratch/home"
 mkdir -p "$scratch/tools"
 cp /usr/bin/which.debianutils "$scratch/tools/which"
-cp -a --reflink=auto /var/tmp/jellyssh-review-runtime/flutter/bin/cache "$scratch/flutter-cache"
 timeout --signal=TERM --kill-after=10 300 docker run --rm --pull=never --name "$container" \
   --network none --ipc none --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-  --pids-limit 256 --memory 2g --cpus 2 --ulimit fsize=268435456:268435456 --ulimit nproc=256:256 \
+  --pids-limit 256 --memory 4g --memory-swap 4g --cpus 2 --ulimit fsize=268435456:268435456 --ulimit nproc=256:256 \
   --user 1002:1002 --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+  --tmpfs /workspace:rw,exec,nosuid,nodev,size=1073741824,mode=1777 \
   --mount type=bind,src=/usr,dst=/usr,readonly \
   --mount type=bind,src=/bin,dst=/bin,readonly \
   --mount type=bind,src=/lib,dst=/lib,readonly \
   --mount type=bind,src=/lib64,dst=/lib64,readonly \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/flutter,dst=/opt/flutter,readonly \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/flutter,dst=/home/jellydev/dev/sdk/flutter-3.44.9,readonly \
-  --mount type=bind,src="$scratch/flutter-cache",dst=/opt/flutter/bin/cache \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/jdk-17,dst=/opt/jdk,readonly \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/dart-pub,dst=/pub-cache,readonly \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/dart-pub,dst=/home/jellydev/.cache/dart-pub,readonly \
-  --mount type=bind,src="$scratch",dst=/workspace \
-  --workdir /workspace/repo/app \
+  --mount type=bind,src="$scratch",dst=/review-input,readonly \
+  --workdir /workspace \
   --env HOME=/workspace/home --env PUB_CACHE=/pub-cache --env JAVA_HOME=/opt/jdk \
-  --env FLUTTER_ROOT=/opt/flutter --env FLUTTER_SUPPRESS_ANALYTICS=true --env CI=true \
+  --env FLUTTER_ROOT=/opt/flutter --env FLUTTER_ALREADY_LOCKED=true \
+  --env FLUTTER_SUPPRESS_ANALYTICS=true --env CI=true \
   --env PATH=/opt/flutter/bin:/opt/jdk/bin:/workspace/tools:/usr/bin:/bin \
   --entrypoint /bin/sh \
   sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4 \
-  -c '{inner}'
+  -c {shlex.quote(sandbox_command)}
 """
         command = ["/bin/bash", "-c", script]
         return self._bounded(self._run(command, timeout=330), _MAX_GIT_BYTES) or "PASS"
@@ -519,15 +536,17 @@ scratch=$(mktemp -d /var/tmp/jellyssh-sandbox-self-check.XXXXXX)
 container="jellyssh-sandbox-${scratch##*.}"
 cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; rm -rf -- "$scratch"; }
 trap cleanup EXIT HUP INT TERM
+mkdir "$scratch/input"
+touch "$scratch/input/marker"
 timeout --signal=TERM --kill-after=5 30 docker run --rm --pull=never --name "$container" \
   --network none --ipc none --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-  --pids-limit 32 --memory 128m --cpus 1 --ulimit nproc=32:32 --user 1002:1002 \
+  --pids-limit 32 --memory 128m --memory-swap 128m --cpus 1 --ulimit nproc=32:32 --user 1002:1002 \
   --tmpfs /tmp:rw,nosuid,nodev,size=16m \
-  --mount type=bind,src="$scratch",dst=/workspace \
+  --tmpfs /workspace:rw,exec,nosuid,nodev,size=8388608,mode=1777 \
+  --mount type=bind,src="$scratch/input",dst=/review-input,readonly \
   --workdir /workspace --entrypoint /bin/sh \
   sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4 \
-  -c 'test ! -e /home/jellydev/.ssh; test ! -S /run/docker.sock; test "$(cat /proc/1/comm)" = sh; if touch /etc/forbidden 2>/dev/null; then exit 91; fi; if wget -q -T 1 -O /tmp/out http://1.1.1.1 2>/dev/null; then exit 92; fi; touch /workspace/pass'
-test -f "$scratch/pass"
+  -c 'test ! -e /home/jellydev/.ssh; test ! -S /run/docker.sock; test "$(cat /proc/1/comm)" = sh; test -f /review-input/marker; if touch /etc/forbidden 2>/dev/null; then exit 91; fi; if wget -q -T 1 -O /tmp/out http://1.1.1.1 2>/dev/null; then exit 92; fi; if touch /review-input/forbidden 2>/dev/null; then exit 93; fi; touch /workspace/pass; if dd if=/dev/zero of=/workspace/overflow bs=1048576 count=9 2>/dev/null; then exit 94; fi'
 printf 'SANDBOX_SELF_CHECK=PASS\n'
 """
         return self._bounded(self._run(["/bin/bash", "-c", script], timeout=60), 4096)

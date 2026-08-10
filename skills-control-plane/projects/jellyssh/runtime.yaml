@@ -67,7 +67,7 @@ review_boundary:
   pinned_known_hosts_path: /home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts
   implementation_sha256:
     reviewctl.py: sha256:c8fdad1ed905aba56f91d5b9d78d2bc34085067f443788998751d25ce87c573c
-    review_boundary.py: sha256:90f08b2af0aaca590cae352b387bafbe746acaccd1f9cff038891228fc70169e
+    review_boundary.py: sha256:e49f54e08bd079b1b89669e387cdf75ec78ca5ad5c8acd391706611710c8ef87
     jellyssh_review_mcp.py: sha256:a560a09bad07114bc2d084c5aabe8b628893f12b7f5976530d742c8ee7c36ed2
     projectctl.py: sha256:b86834a43bb6ac164f280ff6e5d05044d334c766c1c9012b1686589fd14f9290
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
