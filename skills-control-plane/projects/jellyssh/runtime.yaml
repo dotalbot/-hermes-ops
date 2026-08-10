@@ -45,11 +45,12 @@ review_boundary:
   - terminal
   - file
   - code_execution
-  - kanban
   - memory
   sampling_enabled: false
   trust_tier: untrusted-readonly-hints-required
-  native_kanban_tool_injection_allowed: false
+  native_kanban_tool_injection_allowed: true
+  mcp_toolset: jellyssh_review
+  bootstrap_terminal_backend: local
   transport: ssh
   ssh_target: jellydev@jellybase-lan
   sandbox: docker-network-none-readonly-root-no-home-no-runtime-sockets-disposable-exact-commit
@@ -66,16 +67,16 @@ review_boundary:
   pinned_known_hosts_path: /home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts
   implementation_sha256:
     reviewctl.py: sha256:c8fdad1ed905aba56f91d5b9d78d2bc34085067f443788998751d25ce87c573c
-    review_boundary.py: sha256:a12f6d12a22dbb55d035fee5a07eb0752d6594c8eeafc75dd541e772ef120357
+    review_boundary.py: sha256:90f08b2af0aaca590cae352b387bafbe746acaccd1f9cff038891228fc70169e
     jellyssh_review_mcp.py: sha256:a560a09bad07114bc2d084c5aabe8b628893f12b7f5976530d742c8ee7c36ed2
-    projectctl.py: sha256:8bc8fcb6749c8f8eb5564f979a1e5055e08e26475d7c9ff4dc49f48e785e0d66
+    projectctl.py: sha256:b86834a43bb6ac164f280ff6e5d05044d334c766c1c9012b1686589fd14f9290
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
   conditional_ui_routing_state: verified
   conditional_ui_evidence: skills-control-plane/projects/jellyssh/evidence/ui-controller-smoke.json
   conditional_ui_evidence_sha256: sha256:b3dd35ce1a4484ae5abee865af2a8774eab3a95daf50833b9c9684eb3b4ad09b
   ssh_host_address: 192.168.1.2
   ssh_identity_file: /home/jellybot/.ssh/id_ed25519
-  project_manifest_sha256: sha256:587d4ea107f2a885ffcd9d544cb0d2a6d7b14643ae20a756a6d2f83bfc753ca3
+  project_manifest_sha256: sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899
 repository_auth:
   remote: git@github.com:dotalbot/jellyssh.git
   jellybase_key_path: /home/jellydev/.ssh/jellyssh_github_ed25519

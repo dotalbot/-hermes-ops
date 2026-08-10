@@ -104,6 +104,8 @@
         "sampling_enabled",
         "trust_tier",
         "native_kanban_tool_injection_allowed",
+        "mcp_toolset",
+        "bootstrap_terminal_backend",
         "remote_hostname",
         "remote_machine_id_sha256",
         "ssh_host_key_fingerprint",
@@ -167,7 +169,13 @@
           "const": "untrusted-readonly-hints-required"
         },
         "native_kanban_tool_injection_allowed": {
-          "const": false
+          "const": true
+        },
+        "mcp_toolset": {
+          "const": "jellyssh_review"
+        },
+        "bootstrap_terminal_backend": {
+          "const": "local"
         },
         "transport": {
           "const": "ssh"

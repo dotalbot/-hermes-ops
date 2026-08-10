@@ -456,9 +456,14 @@ class ReviewRepository:
     def _run_sandboxed_flutter_check(self, name: str) -> str:
         if not self.ssh_target:
             raise ReviewBoundaryError("Flutter checks require the isolated Jellybase SSH review workspace")
+        flutter_tool = [
+            "/opt/flutter/bin/cache/dart-sdk/bin/dart",
+            "/opt/flutter/bin/cache/flutter_tools.snapshot",
+            "--no-version-check",
+        ]
         check_command = {
-            "flutter-analyze": ["flutter", "analyze"],
-            "flutter-test": ["flutter", "test"],
+            "flutter-analyze": [*flutter_tool, "analyze", "--no-pub"],
+            "flutter-test": [*flutter_tool, "test", "--no-pub"],
             "dart-format-check": ["dart", "format", "--output=none", "--set-exit-if-changed", "."],
         }[name]
         root = shlex.quote(str(self.root))
@@ -470,10 +475,10 @@ scratch=$(mktemp -d /var/tmp/jellyssh-review-check.XXXXXX)
 container="jellyssh-review-${{scratch##*.}}"
 cleanup() {{ docker rm -f "$container" >/dev/null 2>&1 || true; rm -rf -- "$scratch"; }}
 trap cleanup EXIT HUP INT TERM
-python3 -c {shlex.quote(_MATERIALIZE_COMMIT_CODE)} {root} {commit} "$scratch/app"
-test ! -e "$scratch/app/.dart_tool"
-cp -a --no-dereference /var/tmp/jellyssh-review-runtime/project-state "$scratch/app/.dart_tool"
-actual_project_state=$(python3 -c {shlex.quote(_TREE_HASH_CODE)} "$scratch/app/.dart_tool")
+python3 -c {shlex.quote(_MATERIALIZE_COMMIT_CODE)} {root} {commit} "$scratch/repo"
+test ! -e "$scratch/repo/app/.dart_tool"
+cp -a --no-dereference /var/tmp/jellyssh-review-runtime/project-state "$scratch/repo/app/.dart_tool"
+actual_project_state=$(python3 -c {shlex.quote(_TREE_HASH_CODE)} "$scratch/repo/app/.dart_tool")
 test "$actual_project_state" = {shlex.quote(_PROJECT_STATE_SHA256)}
 mkdir -p "$scratch/home"
 mkdir -p "$scratch/tools"
@@ -481,18 +486,20 @@ cp /usr/bin/which.debianutils "$scratch/tools/which"
 cp -a --reflink=auto /var/tmp/jellyssh-review-runtime/flutter/bin/cache "$scratch/flutter-cache"
 timeout --signal=TERM --kill-after=10 300 docker run --rm --pull=never --name "$container" \
   --network none --ipc none --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-  --pids-limit 256 --memory 2g --cpus 2 --ulimit fsize=1048576:1048576 --ulimit nproc=256:256 \
+  --pids-limit 256 --memory 2g --cpus 2 --ulimit fsize=268435456:268435456 --ulimit nproc=256:256 \
   --user 1002:1002 --tmpfs /tmp:rw,nosuid,nodev,size=512m \
   --mount type=bind,src=/usr,dst=/usr,readonly \
   --mount type=bind,src=/bin,dst=/bin,readonly \
   --mount type=bind,src=/lib,dst=/lib,readonly \
   --mount type=bind,src=/lib64,dst=/lib64,readonly \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/flutter,dst=/opt/flutter,readonly \
+  --mount type=bind,src=/var/tmp/jellyssh-review-runtime/flutter,dst=/home/jellydev/dev/sdk/flutter-3.44.9,readonly \
   --mount type=bind,src="$scratch/flutter-cache",dst=/opt/flutter/bin/cache \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/jdk-17,dst=/opt/jdk,readonly \
   --mount type=bind,src=/var/tmp/jellyssh-review-runtime/dart-pub,dst=/pub-cache,readonly \
+  --mount type=bind,src=/var/tmp/jellyssh-review-runtime/dart-pub,dst=/home/jellydev/.cache/dart-pub,readonly \
   --mount type=bind,src="$scratch",dst=/workspace \
-  --workdir /workspace/app \
+  --workdir /workspace/repo/app \
   --env HOME=/workspace/home --env PUB_CACHE=/pub-cache --env JAVA_HOME=/opt/jdk \
   --env FLUTTER_ROOT=/opt/flutter --env FLUTTER_SUPPRESS_ANALYTICS=true --env CI=true \
   --env PATH=/opt/flutter/bin:/opt/jdk/bin:/workspace/tools:/usr/bin:/bin \
