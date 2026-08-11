@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -14,10 +16,225 @@ import yaml
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CONTROL_ROOT / "scripts"))
 
+import review_boundary
 from review_boundary import ReviewRepository, _MATERIALIZE_COMMIT_CODE
 
 
 class ReviewSandboxCommandTests(unittest.TestCase):
+    def _run_flutter_reporter(
+        self,
+        events: Sequence[dict[str, object] | list[dict[str, object]] | str],
+        exit_code: int,
+        diagnostic_text: str = "",
+    ) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+        with tempfile.TemporaryDirectory() as temp:
+            stream = Path(temp) / "flutter-test.machine.jsonl"
+            diagnostics = Path(temp) / "flutter-test.stderr"
+            stream.write_text(
+                "\n".join(
+                    event if isinstance(event, str) else json.dumps(event, sort_keys=True)
+                    for event in events
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            diagnostics.write_text(diagnostic_text, encoding="utf-8")
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    review_boundary._FLUTTER_TEST_SUMMARY_CODE,
+                    str(stream),
+                    str(exit_code),
+                    str(diagnostics),
+                ],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10,
+            )
+        return process, json.loads(process.stdout)
+
+    @staticmethod
+    def _successful_flutter_events() -> list[dict[str, object]]:
+        events: list[dict[str, object]] = [
+            {
+                "protocolVersion": "0.1.1",
+                "runnerVersion": "1.0.0",
+                "type": "start",
+                "time": 0,
+            },
+            {
+                "test": {"id": 1, "name": "loading suite.dart"},
+                "type": "testStart",
+                "time": 1,
+            },
+            {
+                "testID": 1,
+                "result": "success",
+                "skipped": False,
+                "hidden": True,
+                "type": "testDone",
+                "time": 2,
+            },
+        ]
+        for test_id in range(2, 5):
+            events.extend(
+                [
+                    {
+                        "test": {"id": test_id, "name": f"visible test {test_id}"},
+                        "type": "testStart",
+                        "time": test_id,
+                    },
+                    {
+                        "testID": test_id,
+                        "messageType": "print",
+                        "message": "x" * 200,
+                        "type": "print",
+                        "time": test_id,
+                    },
+                    {
+                        "testID": test_id,
+                        "result": "success",
+                        "skipped": False,
+                        "hidden": False,
+                        "type": "testDone",
+                        "time": test_id + 1,
+                    },
+                ]
+            )
+        events.extend(
+            {"testID": 2, "messageType": "print", "message": "y" * 200, "type": "print", "time": 8}
+            for _ in range(5000)
+        )
+        events.extend(
+            [
+                {
+                    "test": {"id": 5, "name": "skipped test"},
+                    "type": "testStart",
+                    "time": 9,
+                },
+                {
+                    "testID": 5,
+                    "result": "success",
+                    "skipped": True,
+                    "hidden": False,
+                    "type": "testDone",
+                    "time": 10,
+                },
+                {"success": True, "type": "done", "time": 11},
+            ]
+        )
+        return events
+
+    def test_long_flutter_machine_stream_becomes_compact_terminal_summary(self) -> None:
+        events: list[dict[str, object] | list[dict[str, object]] | str] = []
+        events.extend(self._successful_flutter_events())
+        events.insert(10, "")
+        events.insert(11, [{"event": "test.startedProcess", "params": {"vmServiceUri": None}}])
+        process, summary = self._run_flutter_reporter(events, 0)
+
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertLessEqual(len(process.stdout.encode("utf-8")), 4096)
+        self.assertEqual(
+            summary,
+            {
+                "check": "flutter-test",
+                "diagnostics": [],
+                "exit_code": 0,
+                "failed": 0,
+                "passed": 3,
+                "protocol_version": "0.1.1",
+                "reporter": "json",
+                "schema_version": 1,
+                "skipped": 1,
+                "success": True,
+                "terminal": "done",
+                "total": 4,
+            },
+        )
+
+    def test_flutter_summary_stays_byte_bounded_with_unicode_diagnostics(self) -> None:
+        process, summary = self._run_flutter_reporter(
+            self._successful_flutter_events(),
+            0,
+            ("\U0010ffff" * 10000) + "\n",
+        )
+
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertTrue(summary["success"])
+        diagnostics = summary["diagnostics"]
+        self.assertIsInstance(diagnostics, list)
+        assert isinstance(diagnostics, list)
+        self.assertEqual(len(diagnostics), 1)
+        self.assertLessEqual(len(process.stdout.encode("utf-8")), 4096)
+
+    def test_flutter_machine_stream_fails_closed_without_consistent_terminal_success(self) -> None:
+        base = self._successful_flutter_events()
+        failed_test = [dict(event) if isinstance(event, dict) else event for event in base]
+        failed_test[-2] = {
+            "testID": 5,
+            "result": "failure",
+            "skipped": False,
+            "hidden": False,
+            "type": "testDone",
+            "time": 10,
+        }
+        failed_test[-1] = {"success": False, "type": "done", "time": 11}
+        hidden_failure = [dict(event) if isinstance(event, dict) else event for event in base]
+        hidden_failure[2] = {
+            "testID": 1,
+            "result": "failure",
+            "skipped": False,
+            "hidden": True,
+            "type": "testDone",
+            "time": 2,
+        }
+        hidden_failure[-1] = {"success": False, "type": "done", "time": 11}
+        failure_marked_skipped = [dict(event) if isinstance(event, dict) else event for event in base]
+        failure_marked_skipped[-2] = {
+            "testID": 5,
+            "result": "failure",
+            "skipped": True,
+            "hidden": False,
+            "type": "testDone",
+            "time": 10,
+        }
+        failure_marked_skipped[-1] = {"success": False, "type": "done", "time": 11}
+        cases = {
+            "malformed": [*base[:-1], "not-json", base[-1]],
+            "malformed-progress": [
+                *base[:-1],
+                [{"event": "unexpected", "params": {"vmServiceUri": None}}],
+                base[-1],
+            ],
+            "missing-done": base[:-1],
+            "duplicate-done": [*base, base[-1]],
+            "contradictory-done": [*base[:-1], {"success": False, "type": "done", "time": 11}],
+            "nonzero-exit": base,
+            "failed-test": failed_test,
+            "hidden-failure": hidden_failure,
+            "failure-marked-skipped": failure_marked_skipped,
+            "incomplete-test": [*base[:-2], base[-1]],
+            "unknown-event": [*base[:-1], {"type": "futureEvent", "time": 11}, base[-1]],
+        }
+        for name, events in cases.items():
+            with self.subTest(name=name):
+                process, summary = self._run_flutter_reporter(
+                    events,
+                    1
+                    if name in {"nonzero-exit", "failed-test", "hidden-failure", "failure-marked-skipped"}
+                    else 0,
+                )
+                self.assertNotEqual(process.returncode, 0)
+                self.assertLessEqual(len(process.stdout.encode("utf-8")), 4096)
+                self.assertEqual(summary["schema_version"], 1)
+                self.assertEqual(summary["check"], "flutter-test")
+                self.assertFalse(summary["success"])
+                self.assertLessEqual(len(summary["diagnostics"]), 8)
+                self.assertTrue(all(len(item) <= 320 for item in summary["diagnostics"]))
+
     def test_sandbox_self_check_exercises_readonly_input_and_aggregate_limit(self) -> None:
         repository = object.__new__(ReviewRepository)
         repository.ssh_target = "jellydev@jellybase"
@@ -64,7 +281,7 @@ class ReviewSandboxCommandTests(unittest.TestCase):
                 "flutter-test",
                 "/opt/flutter/bin/cache/dart-sdk/bin/dart "
                 "/opt/flutter/bin/cache/flutter_tools.snapshot "
-                "--no-version-check test --no-pub",
+                "--no-version-check test --machine --no-pub",
             ),
             (
                 "dart-format-check",
@@ -100,6 +317,9 @@ class ReviewSandboxCommandTests(unittest.TestCase):
                 )
                 self.assertIn('src="$scratch",dst=/review-input,readonly', script)
                 self.assertIn("--ulimit fsize=268435456:268435456", script)
+                if check == "flutter-test":
+                    self.assertIn("flutter-test.machine.jsonl", script)
+                    self.assertIn("protocol_version", script)
                 self.assertNotIn("--ulimit fsize=1048576:1048576", script)
                 self.assertNotIn("--workdir /workspace/app", script)
                 self.assertNotIn('src="$scratch",dst=/workspace', script)

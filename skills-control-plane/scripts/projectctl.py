@@ -45,6 +45,17 @@ EXPECTED_CONTROLLER_CHECKS = frozenset({
     "controller:flutter-analyze:BLOCK",
     "controller:flutter-test:BLOCK",
 })
+EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS = frozenset({
+    "disposable-exact-commit",
+    "network-none",
+    "no-new-privileges",
+    "pid-memory-swap-cpu-bounded",
+    "read-only-input",
+    "read-only-root",
+    "sequential-controller-checks",
+    "timeout-bounded",
+    "tmpfs-storage-bounded",
+})
 PINNED_SSH_OPTIONS = [
     "-F", "/dev/null",
     "-o", "BatchMode=yes",
@@ -646,6 +657,125 @@ def validate_descriptor(control_root: Path, descriptor_path: Path) -> tuple[dict
     return doc, errors
 
 
+def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> list[str]:
+    error = "compact Flutter test evidence contract drift"
+    if not isinstance(evidence, dict) or set(evidence) != {
+        "schema_version", "project", "evidence_type", "generated_at",
+        "target_commit", "prior_raw_output_characters", "output_bound_bytes",
+        "output_bytes", "summary", "sandbox_controls",
+        "controller_sources_sha256", "board_invariance", "checkout_invariance",
+    }:
+        return [error]
+    target = evidence.get("target_commit")
+    summary = evidence.get("summary")
+    source_hashes = evidence.get("controller_sources_sha256")
+    diagnostics = summary.get("diagnostics") if isinstance(summary, dict) else None
+    counts = (
+        [summary.get(key) for key in ("passed", "failed", "skipped", "total")]
+        if isinstance(summary, dict)
+        else []
+    )
+    if (
+        evidence.get("schema_version") != 1
+        or evidence.get("project") != "jellyssh"
+        or evidence.get("evidence_type") != "restricted-flutter-test-compact-summary"
+        or not isinstance(evidence.get("generated_at"), str)
+        or not evidence["generated_at"]
+        or not isinstance(target, str)
+        or len(target) != 40
+        or any(char not in "0123456789abcdef" for char in target)
+        or evidence.get("prior_raw_output_characters") != 263513
+        or evidence.get("output_bound_bytes") != 4096
+        or not isinstance(summary, dict)
+        or set(summary) != {
+            "schema_version", "check", "reporter", "protocol_version",
+            "exit_code", "success", "terminal", "passed", "failed",
+            "skipped", "total", "diagnostics",
+        }
+        or summary.get("schema_version") != 1
+        or summary.get("check") != "flutter-test"
+        or summary.get("reporter") != "json"
+        or not isinstance(summary.get("protocol_version"), str)
+        or not summary["protocol_version"].startswith("0.1.")
+        or type(summary.get("exit_code")) is not int
+        or summary["exit_code"] != 0
+        or summary.get("success") is not True
+        or summary.get("terminal") != "done"
+        or len(counts) != 4
+        or any(type(value) is not int or value < 0 for value in counts)
+        or summary.get("failed") != 0
+        or summary.get("total", 0) < 1
+        or summary.get("total") != sum(
+            int(value) for value in counts[:3] if type(value) is int
+        )
+        or not isinstance(diagnostics, list)
+        or len(diagnostics) > 8
+        or any(not isinstance(item, str) or not item or len(item) > 320 for item in diagnostics)
+        or set(evidence.get("sandbox_controls") or []) != EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS
+        or len(evidence.get("sandbox_controls") or []) != len(EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS)
+        or not isinstance(source_hashes, dict)
+        or set(source_hashes) != {"review_boundary.py", "reviewctl.py"}
+        or source_hashes.get("review_boundary.py") != file_sha256(control_root / "scripts/review_boundary.py")
+        or source_hashes.get("reviewctl.py") != file_sha256(control_root / "scripts/reviewctl.py")
+    ):
+        return [error]
+    canonical_output = json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n"
+    if evidence.get("output_bytes") != len(canonical_output.encode("utf-8")):
+        return [error]
+
+    boards = evidence.get("board_invariance")
+    if not isinstance(boards, dict) or set(boards) != {"continuous-hermes-improvement", "jellyssh"}:
+        return [error]
+    for item in boards.values():
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"before", "after", "equal"}
+            or item.get("equal") is not True
+            or item.get("before") != item.get("after")
+        ):
+            return [error]
+        snapshot = item.get("before")
+        if (
+            not isinstance(snapshot, dict)
+            or set(snapshot) != {"count", "task_id_set_sha256"}
+            or type(snapshot.get("count")) is not int
+            or snapshot["count"] < 0
+            or not isinstance(snapshot.get("task_id_set_sha256"), str)
+            or len(snapshot["task_id_set_sha256"]) != 71
+            or not snapshot["task_id_set_sha256"].startswith("sha256:")
+        ):
+            return [error]
+
+    checkouts = evidence.get("checkout_invariance")
+    expected_paths = {
+        "implementation": "/home/jellydev/dev_projects/jellyssh",
+        "reviewer": "/home/jellydev/dev_projects/jellyssh-review",
+    }
+    if not isinstance(checkouts, dict) or set(checkouts) != set(expected_paths):
+        return [error]
+    for name, item in checkouts.items():
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"path", "before", "after", "equal"}
+            or item.get("path") != expected_paths[name]
+            or item.get("equal") is not True
+            or item.get("before") != item.get("after")
+        ):
+            return [error]
+        snapshot = item.get("before")
+        if (
+            not isinstance(snapshot, dict)
+            or set(snapshot) != {"head", "branch", "status_sha256"}
+            or snapshot.get("head") != target
+            or snapshot.get("status_sha256") != "sha256:" + hashlib.sha256(b"").hexdigest()
+            or snapshot.get("branch") != (
+                "fix/bug-008-zero-byte-sftp-transfers" if name == "implementation" else ""
+            )
+        ):
+            return [error]
+    return []
+
+
 def validate_runtime(
     runtime_path: Path,
     project: dict[str, Any],
@@ -767,6 +897,18 @@ def validate_runtime(
                 errors.append("controller review evidence contract drift")
         except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"controller review evidence invalid: {type(exc).__name__}")
+        try:
+            compact_rel = Path(str(boundary.get("flutter_test_compact_evidence", "")))
+            if compact_rel.is_absolute() or ".." in compact_rel.parts:
+                raise ControlPlaneError("compact Flutter test evidence path is unsafe")
+            compact_path = (control_root.parent / compact_rel).resolve()
+            compact_path.relative_to(control_root.parent.resolve())
+            if file_sha256(compact_path) != boundary.get("flutter_test_compact_evidence_sha256"):
+                errors.append("compact Flutter test evidence hash drift")
+            compact_evidence = json.loads(compact_path.read_text(encoding="utf-8"))
+            errors.extend(_validate_compact_flutter_evidence(compact_evidence, control_root))
+        except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"compact Flutter test evidence invalid: {type(exc).__name__}")
         try:
             ui_rel = Path(str(boundary.get("conditional_ui_evidence", "")))
             if ui_rel.is_absolute() or ".." in ui_rel.parts:

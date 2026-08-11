@@ -71,6 +71,253 @@ for record in records:
   os.fsync(fd)
  finally: os.close(fd)
 '''
+_FLUTTER_TEST_SUMMARY_CODE = r'''import json,sys
+from pathlib import Path
+
+MAX_DIAGNOSTICS=8
+MAX_DIAGNOSTIC_CHARS=320
+MAX_EVENTS=100000
+MAX_LINE_BYTES=1048576
+
+path=Path(sys.argv[1])
+diagnostics=[]
+passed=failed=skipped=0
+protocol_version=None
+terminal="missing"
+done_success=None
+start_seen=False
+done_seen=False
+structural_error=False
+error_events=0
+started={}
+completed=set()
+event_count=0
+
+try:
+ exit_code=int(sys.argv[2])
+except (IndexError,ValueError):
+ exit_code=-1
+ structural_error=True
+
+def append_diagnostic(message):
+ if len(diagnostics)>=MAX_DIAGNOSTICS:
+  return
+ clean=" ".join(str(message).split()).encode("ascii","backslashreplace").decode("ascii")
+ diagnostics.append(clean[:MAX_DIAGNOSTIC_CHARS] or "unspecified reporter error")
+
+def add_diagnostic(message):
+ global structural_error
+ structural_error=True
+ append_diagnostic(message)
+
+try:
+ with path.open("r",encoding="utf-8",errors="strict") as stream:
+  for line_number,line in enumerate(stream,1):
+   if line_number>MAX_EVENTS:
+    add_diagnostic("machine event limit exceeded")
+    break
+   if len(line.encode("utf-8"))>MAX_LINE_BYTES:
+    add_diagnostic(f"line {line_number}: machine event exceeds byte limit")
+    break
+   if not line.strip():
+    continue
+   event_count+=1
+   if done_seen:
+    add_diagnostic(f"line {line_number}: event after terminal done")
+    break
+   try:
+    event=json.loads(line)
+   except (TypeError,ValueError,json.JSONDecodeError):
+    add_diagnostic(f"line {line_number}: invalid machine JSON")
+    break
+   if isinstance(event,list):
+    progress=event[0] if len(event)==1 and isinstance(event[0],dict) else None
+    params=progress.get("params") if isinstance(progress,dict) else None
+    service_uri=params.get("vmServiceUri") if isinstance(params,dict) else None
+    if (
+     not isinstance(progress,dict)
+     or set(progress)!={"event","params"}
+     or progress.get("event")!="test.startedProcess"
+     or not isinstance(params,dict)
+     or set(params)!={"vmServiceUri"}
+     or (service_uri is not None and (not isinstance(service_uri,str) or len(service_uri)>2048))
+    ):
+     add_diagnostic(f"line {line_number}: invalid Flutter machine progress event")
+     break
+    continue
+   if not isinstance(event,dict) or not isinstance(event.get("type"),str):
+    add_diagnostic(f"line {line_number}: invalid machine event shape")
+    break
+   event_type=event["type"]
+   if event_type=="start":
+    protocol=event.get("protocolVersion")
+    if start_seen or event_count!=1:
+     add_diagnostic(f"line {line_number}: duplicate or noninitial start event")
+     break
+    if not isinstance(protocol,str) or len(protocol)>32 or not protocol.startswith("0.1."):
+     add_diagnostic(f"line {line_number}: unsupported protocol version")
+     break
+    start_seen=True
+    protocol_version=protocol
+    continue
+   if not start_seen:
+    add_diagnostic(f"line {line_number}: event before start")
+    break
+   if event_type=="testStart":
+    test=event.get("test")
+    test_id=test.get("id") if isinstance(test,dict) else None
+    name=test.get("name") if isinstance(test,dict) else None
+    if type(test_id) is not int or test_id in started or not isinstance(name,str):
+     add_diagnostic(f"line {line_number}: invalid or duplicate testStart")
+     break
+    started[test_id]=" ".join(name.split())[:200]
+   elif event_type=="testDone":
+    test_id=event.get("testID")
+    result=event.get("result")
+    hidden=event.get("hidden")
+    was_skipped=event.get("skipped",False)
+    if (
+     type(test_id) is not int
+     or test_id not in started
+     or test_id in completed
+     or not isinstance(result,str)
+     or type(hidden) is not bool
+     or type(was_skipped) is not bool
+    ):
+     add_diagnostic(f"line {line_number}: invalid or duplicate testDone")
+     break
+    completed.add(test_id)
+    if result in {"failure","error"}:
+     failed+=1
+     add_diagnostic(f"testID {test_id} {result}: {started[test_id]}")
+    elif hidden:
+     continue
+    elif was_skipped or result=="skipped":
+     skipped+=1
+    elif result=="success":
+     passed+=1
+    else:
+     add_diagnostic(f"line {line_number}: unknown test result")
+     break
+   elif event_type=="error":
+    test_id=event.get("testID")
+    message=event.get("error")
+    stack_trace=event.get("stackTrace")
+    if (
+     type(test_id) is not int
+     or test_id not in started
+     or not isinstance(message,str)
+     or (stack_trace is not None and not isinstance(stack_trace,str))
+    ):
+     add_diagnostic(f"line {line_number}: malformed error event")
+     break
+    error_events+=1
+    add_diagnostic(f"testID {test_id} error: {message}")
+   elif event_type=="done":
+    success=event.get("success")
+    if type(success) is not bool:
+     add_diagnostic(f"line {line_number}: invalid terminal success value")
+     break
+    done_seen=True
+    terminal="done"
+    done_success=success
+   elif event_type=="suite":
+    suite=event.get("suite")
+    if (
+     not isinstance(suite,dict)
+     or type(suite.get("id")) is not int
+     or not isinstance(suite.get("platform"),str)
+     or not isinstance(suite.get("path"),str)
+    ):
+     add_diagnostic(f"line {line_number}: malformed suite event")
+     break
+   elif event_type=="allSuites":
+    if type(event.get("count")) is not int or event["count"]<0:
+     add_diagnostic(f"line {line_number}: malformed allSuites event")
+     break
+   elif event_type=="group":
+    group=event.get("group")
+    if (
+     not isinstance(group,dict)
+     or type(group.get("id")) is not int
+     or type(group.get("testCount")) is not int
+     or group["testCount"]<0
+    ):
+     add_diagnostic(f"line {line_number}: malformed group event")
+     break
+   elif event_type=="print":
+    if (
+     type(event.get("testID")) is not int
+     or event["testID"] not in started
+     or not isinstance(event.get("messageType"),str)
+     or not isinstance(event.get("message"),str)
+    ):
+     add_diagnostic(f"line {line_number}: malformed print event")
+     break
+   else:
+    add_diagnostic(f"line {line_number}: unknown machine event type")
+    break
+except (OSError,UnicodeError) as exc:
+ add_diagnostic(f"machine stream unavailable: {type(exc).__name__}")
+
+total=passed+failed+skipped
+if not start_seen:
+ add_diagnostic("start event missing")
+if not done_seen:
+ add_diagnostic("terminal done event missing")
+if exit_code!=0:
+ add_diagnostic(f"flutter test exited {exit_code}")
+if done_success is not True:
+ add_diagnostic("terminal done did not report success")
+if failed:
+ add_diagnostic(f"failed test count is {failed}")
+if error_events:
+ add_diagnostic(f"error event count is {error_events}")
+if set(started)!=completed:
+ add_diagnostic(f"incomplete test count is {len(set(started)-completed)}")
+if total<1:
+ add_diagnostic("no visible tests completed")
+
+try:
+ with Path(sys.argv[3]).open("r",encoding="utf-8",errors="strict") as errors:
+  for line_number,line in enumerate(errors,1):
+   if line_number>MAX_DIAGNOSTICS:
+    append_diagnostic("stderr diagnostics truncated")
+    break
+   if len(line.encode("utf-8"))>MAX_LINE_BYTES:
+    append_diagnostic(f"stderr line {line_number} exceeds byte limit")
+    continue
+   if line.strip():
+    append_diagnostic(f"stderr: {line}")
+except (IndexError,OSError,UnicodeError) as exc:
+ add_diagnostic(f"stderr diagnostics unavailable: {type(exc).__name__}")
+
+success=(
+ not structural_error
+ and start_seen
+ and done_seen
+ and done_success is True
+ and exit_code==0
+ and failed==0
+ and error_events==0
+ and total>0
+)
+summary={
+ "schema_version":1,
+ "check":"flutter-test",
+ "reporter":"json",
+ "protocol_version":protocol_version,
+ "exit_code":exit_code,
+ "success":success,
+ "terminal":terminal,
+ "passed":passed,
+ "failed":failed,
+ "skipped":skipped,
+ "total":total,
+ "diagnostics":diagnostics,
+}
+print(json.dumps(summary,sort_keys=True,separators=(",",":")))
+raise SystemExit(0 if success else 1)'''
 _ALLOWED_CHECKS = {
     "sandbox-self-check",
     "diff-check",
@@ -466,7 +713,7 @@ class ReviewRepository:
         ]
         check_command = {
             "flutter-analyze": [*flutter_tool, "analyze", "--no-pub"],
-            "flutter-test": [*flutter_tool, "test", "--no-pub"],
+            "flutter-test": [*flutter_tool, "test", "--machine", "--no-pub"],
             "dart-format-check": [
                 "/opt/flutter/bin/cache/dart-sdk/bin/dart",
                 "format",
@@ -478,14 +725,26 @@ class ReviewRepository:
         root = shlex.quote(str(self.root))
         commit = shlex.quote(self.expected_commit)
         inner = shlex.join(check_command)
-        sandbox_command = (
+        sandbox_prefix = (
             "set -eu; "
             "cp -a /review-input/repo /workspace/repo; "
             "cp -a /review-input/home /workspace/home; "
             "cp -a /review-input/tools /workspace/tools; "
             "cd /workspace/repo/app; "
-            f"exec {inner}"
         )
+        if name == "flutter-test":
+            machine_output = "/workspace/flutter-test.machine.jsonl"
+            diagnostic_output = "/workspace/flutter-test.stderr"
+            sandbox_command = (
+                sandbox_prefix
+                + "set +e; "
+                + f"{inner} >{shlex.quote(machine_output)} 2>{shlex.quote(diagnostic_output)}; "
+                + "flutter_exit=$?; set -e; "
+                + f"exec /usr/bin/python3 -c {shlex.quote(_FLUTTER_TEST_SUMMARY_CODE)} "
+                + f"{shlex.quote(machine_output)} \"$flutter_exit\" {shlex.quote(diagnostic_output)}"
+            )
+        else:
+            sandbox_command = sandbox_prefix + f"exec {inner}"
         script = f"""set -euo pipefail
 umask 077
 scratch=$(mktemp -d /var/tmp/jellyssh-review-check.XXXXXX)
@@ -525,7 +784,9 @@ timeout --signal=TERM --kill-after=10 300 docker run --rm --pull=never --name "$
   -c {shlex.quote(sandbox_command)}
 """
         command = ["/bin/bash", "-c", script]
-        return self._bounded(self._run(command, timeout=330), _MAX_GIT_BYTES) or "PASS"
+        output = self._run(command, timeout=330)
+        limit = 4096 if name == "flutter-test" else _MAX_GIT_BYTES
+        return self._bounded(output, limit) or "PASS"
 
     def _run_sandbox_self_check(self) -> str:
         if not self.ssh_target:

@@ -215,6 +215,14 @@ The contract schema rejects unknown fields and binds exact local/SSH checkout pa
 
 For an `implementation-release` gate, create an unassigned preflight parent and an unassigned dependent implementation child. Do not use `--initial-status blocked`. Before parent completion, the child must remain `todo`; run preflight and accept only PASS evidence. Completing the parent may promote the child to `ready`, but an embedded dispatcher pass must list it as skipped/unassigned and must not spawn it. The operator releases the exact child only by assigning `jellybase_jellyssh` after reviewing the PASS evidence. Dispatcher and claim paths still recheck unfinished parents independently.
 
+### Restricted Flutter test evidence
+
+`run_readonly_check("flutter-test")` uses Flutter's `--machine` JSON reporter. The unbounded event stream and stderr stay inside the disposable sandbox; only a versioned JSON summary of at most 4096 bytes crosses Docker, SSH, and MCP. The summary includes the check/reporter/protocol, real Flutter exit code, terminal `done` marker, success, pass/fail/skip/total counts, and at most eight diagnostics of 320 characters each.
+
+The reporter requires one initial protocol event, valid allowlisted Flutter progress events, unique test completions, at least one visible test, exactly one final `done` event, exit `0`, terminal success, and zero failures/errors. Malformed JSON/events, events after `done`, missing or contradictory terminal state, unknown results, duplicate completions, nonzero exit, failed tests, or inconsistent totals fail closed. The controller independently parses the compact object and rejects raw `PASS` text or any semantic/size drift. Existing exact-commit materialization, network-none, read-only root/input, bounded tmpfs/storage/PID/memory/swap/CPU, no-new-privileges, timeout, and sequential-check controls are unchanged.
+
+Retained proof for the frozen BUG-008 review target is `projects/jellyssh/evidence/flutter-test-compact-summary.json`; `runtime.yaml` pins its digest and the governed controller source hashes.
+
 ## Verification
 
 ```bash

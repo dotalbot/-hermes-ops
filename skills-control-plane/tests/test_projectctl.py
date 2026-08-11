@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -233,6 +234,23 @@ class ControlPlaneTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(any("runtime schema state" in item for item in result["errors"]))
 
+    def test_compact_flutter_evidence_semantic_drift_is_rejected(self) -> None:
+        evidence_path = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        evidence["summary"]["success"] = False
+        evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        runtime_path = self.root / "projects/jellyssh/runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        runtime["review_boundary"]["flutter_test_compact_evidence_sha256"] = (
+            "sha256:" + hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+        )
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("compact Flutter test evidence contract drift", result["errors"])
+
 
 class ReviewControlTests(unittest.TestCase):
     def test_final_review_requires_sandbox_and_quality_checks(self) -> None:
@@ -331,6 +349,39 @@ class ReviewControlTests(unittest.TestCase):
             reviewctl._validate_check_output("head-clean", True, " M changed.txt")
         with self.assertRaises(reviewctl.ReviewControlError):
             reviewctl._validate_check_output("submodule-status", True, "-deadbeef app/vendor")
+
+    def test_flutter_test_check_requires_exact_compact_terminal_contract(self) -> None:
+        valid = {
+            "schema_version": 1,
+            "check": "flutter-test",
+            "reporter": "json",
+            "protocol_version": "0.1.1",
+            "exit_code": 0,
+            "success": True,
+            "terminal": "done",
+            "passed": 11,
+            "failed": 0,
+            "skipped": 2,
+            "total": 13,
+            "diagnostics": [],
+        }
+        reviewctl._validate_check_output("flutter-test", True, json.dumps(valid))
+
+        invalid = {
+            "raw-pass": "PASS",
+            "missing-done": json.dumps({**valid, "terminal": "missing"}),
+            "nonzero": json.dumps({**valid, "exit_code": 1}),
+            "failed": json.dumps({**valid, "failed": 1, "success": False}),
+            "contradictory-counts": json.dumps({**valid, "total": 99}),
+            "invalid-diagnostic": json.dumps({**valid, "diagnostics": [1]}),
+            "oversized-diagnostic": json.dumps({**valid, "diagnostics": ["x" * 321]}),
+            "too-many-diagnostics": json.dumps({**valid, "diagnostics": ["warning"] * 9}),
+        }
+        for name, output in invalid.items():
+            with self.subTest(name=name), self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl._validate_check_output("flutter-test", True, output)
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl._validate_check_output("flutter-test", False, json.dumps(valid))
 
 
 class ReviewBoundaryTests(unittest.TestCase):

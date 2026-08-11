@@ -99,6 +99,8 @@
         "controller_evidence",
         "controller_evidence_sha256",
         "controller_verdict",
+        "flutter_test_compact_evidence",
+        "flutter_test_compact_evidence_sha256",
         "exposed_tools",
         "forbidden_toolsets",
         "sampling_enabled",
@@ -197,6 +199,12 @@
         },
         "controller_verdict": {
           "const": "BLOCK"
+        },
+        "flutter_test_compact_evidence": {
+          "const": "skills-control-plane/projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        },
+        "flutter_test_compact_evidence_sha256": {
+          "$ref": "#/$defs/nonZeroSha256"
         },
         "sandbox_image_digest": {
           "const": "sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4"

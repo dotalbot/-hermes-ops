@@ -5,7 +5,7 @@
     {
       "core": "core-development@0.1.0",
       "display_name": "JellySSH",
-      "manifest_sha256": "sha256:587d4ea107f2a885ffcd9d544cb0d2a6d7b14643ae20a756a6d2f83bfc753ca3",
+      "manifest_sha256": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
       "overlays": [
         "jellyssh-controller-evidence-review",
         "jellyssh-drift-data-review",
@@ -17,7 +17,7 @@
         "flutter-mobile@0.1.0"
       ],
       "routing_state": "setup-verified-routing-blocked",
-      "runtime_sha256": "sha256:2eccacc3de5b3593d21da12afe3fc378e66b2b9e0f0f88165aa0f56306f97962",
+      "runtime_sha256": "sha256:106490b2bc70bc1decf94c3384f8460a63cb5bb96502e65180250ec28cbff43a",
       "slug": "jellyssh",
       "state": "RED"
     }
