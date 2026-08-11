@@ -78,13 +78,13 @@ Non-goals:
 
 ## Completion evidence
 
-- Focused RED/GREEN reporter and controller tests pass, including malformed JSON, missing/duplicate/contradictory terminal records, nonzero exit, failed/hidden/incomplete tests, unknown event types, malformed progress records, and Unicode diagnostic byte bounds.
-- `100` relevant control-plane tests and all `8` repository tests pass; the one excluded live-catalog test is the pre-existing fail-closed JellySSH mutable-intake/board-state assertion.
+- Focused RED/GREEN reporter and controller tests pass, including malformed JSON, incomplete protocol versions, missing/duplicate/contradictory terminal records, nonzero exit, failed/hidden/incomplete tests, unknown event types, malformed progress records, and Unicode diagnostic byte bounds.
+- `101` relevant control-plane tests (the prior `100` plus the incomplete-protocol regression) and all `8` repository tests pass; the one excluded live-catalog test is the pre-existing fail-closed JellySSH mutable-intake/board-state assertion.
 - `python3 -m py_compile skills-control-plane/scripts/*.py`, `git diff --check`, and `managerctl.py verify` pass.
 - The actual MCP `run_readonly_check("flutter-test")` against frozen target `da96d24bf57daf47ee5f8a238e8c5f940f3cae3d` returns an `854`-byte summary with `716` passed, zero failed/skipped, `terminal=done`, and `success=true`.
-- Independent review found hidden/masked/incomplete failure acceptance, unknown-event acceptance, and Unicode byte expansion; all findings were remediated and regression-tested.
+- Independent review found hidden/masked/incomplete failure acceptance, unknown-event acceptance, Unicode byte expansion, and incomplete protocol acceptance; all findings were remediated and regression-tested.
 - Final board task-ID sets and both remote JellySSH checkout head/status snapshots match the retained before/after evidence.
 
 ## Rollback
 
-Revert the single compact-evidence commit on the feature branch. This restores the previous raw Flutter output behavior and prior runtime hashes/evidence binding; it does not modify either live board, any JellySSH checkout, profile, deployment, or product source.
+Revert the latest compact-protocol remediation commit to restore its prior producer grammar and governed hashes/evidence binding. This reintroduces acceptance of incomplete protocol versions, but does not modify either live board, any JellySSH checkout, profile, deployment, or product source.

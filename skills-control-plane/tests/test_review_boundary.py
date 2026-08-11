@@ -155,6 +155,24 @@ class ReviewSandboxCommandTests(unittest.TestCase):
             },
         )
 
+    def test_flutter_machine_stream_requires_complete_protocol_version(self) -> None:
+        valid_process, valid_summary = self._run_flutter_reporter(
+            self._successful_flutter_events(),
+            0,
+        )
+        incomplete_protocol = self._successful_flutter_events()
+        incomplete_protocol[0] = {
+            **incomplete_protocol[0],
+            "protocolVersion": "0.1.",
+        }
+        invalid_process, invalid_summary = self._run_flutter_reporter(incomplete_protocol, 0)
+
+        self.assertEqual(valid_process.returncode, 0, valid_process.stderr)
+        self.assertTrue(valid_summary["success"])
+        self.assertEqual(valid_summary["protocol_version"], "0.1.1")
+        self.assertNotEqual(invalid_process.returncode, 0)
+        self.assertFalse(invalid_summary["success"])
+
     def test_flutter_summary_stays_byte_bounded_with_unicode_diagnostics(self) -> None:
         process, summary = self._run_flutter_reporter(
             self._successful_flutter_events(),

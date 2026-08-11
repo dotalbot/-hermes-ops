@@ -59,7 +59,7 @@ review_boundary:
   controller_evidence_sha256: sha256:c09e9ec2e7bd12b6887ad00645e6581bf871e1cffad473fe29d24a5a7462ed55
   controller_verdict: BLOCK
   flutter_test_compact_evidence: skills-control-plane/projects/jellyssh/evidence/flutter-test-compact-summary.json
-  flutter_test_compact_evidence_sha256: sha256:58075a3a1a2434480a0044d95eeb941a9667167b6a0bbe534c84a9d329e3b6b7
+  flutter_test_compact_evidence_sha256: sha256:c2118f1a86e772448dfd53cc8789c67a2a0f84bc5e596275dfc5a6db1bae0134
   sandbox_image_digest: sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
   project_state_commit: 7f612d96bd35fcaa336956d7922a82513d2e9e0d
   project_state_sha256: sha256:85ea70abf69c056069a1b3dfb74ec5d52ef789db14f8c703e5e7c6d8bab135f9
@@ -69,7 +69,7 @@ review_boundary:
   pinned_known_hosts_path: /home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts
   implementation_sha256:
     reviewctl.py: sha256:b12c27fa92fc9a52237323b4bf9aa40b4e9c2a1e204234833d02a1521273bfef
-    review_boundary.py: sha256:affd90b64cdcb69de4e67b57a3da33714beaadf7ff95f3d136f64e08582e8387
+    review_boundary.py: sha256:611df8c1fccd1edde7aa7b16308a9003950425b45af062c09cb800fbabc2752e
     jellyssh_review_mcp.py: sha256:a560a09bad07114bc2d084c5aabe8b628893f12b7f5976530d742c8ee7c36ed2
     projectctl.py: sha256:e3b8d836b16a956b5bd99fcdc79b9ad3a4e26375456b9b8dbb75831b86a5e269
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview

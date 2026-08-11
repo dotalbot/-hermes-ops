@@ -17,7 +17,7 @@
         "flutter-mobile@0.1.0"
       ],
       "routing_state": "setup-verified-routing-blocked",
-      "runtime_sha256": "sha256:106490b2bc70bc1decf94c3384f8460a63cb5bb96502e65180250ec28cbff43a",
+      "runtime_sha256": "sha256:84e22aeef1ef5b113e377c81b4f73d720345a9905d6ee5626a89042a7c33d825",
       "slug": "jellyssh",
       "state": "RED"
     }

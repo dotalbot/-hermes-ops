@@ -71,7 +71,7 @@ for record in records:
   os.fsync(fd)
  finally: os.close(fd)
 '''
-_FLUTTER_TEST_SUMMARY_CODE = r'''import json,sys
+_FLUTTER_TEST_SUMMARY_CODE = r'''import json,re,sys
 from pathlib import Path
 
 MAX_DIAGNOSTICS=8
@@ -154,7 +154,7 @@ try:
     if start_seen or event_count!=1:
      add_diagnostic(f"line {line_number}: duplicate or noninitial start event")
      break
-    if not isinstance(protocol,str) or len(protocol)>32 or not protocol.startswith("0.1."):
+    if not isinstance(protocol,str) or len(protocol)>32 or not re.fullmatch(r"0\.1\.\d+",protocol):
      add_diagnostic(f"line {line_number}: unsupported protocol version")
      break
     start_seen=True
