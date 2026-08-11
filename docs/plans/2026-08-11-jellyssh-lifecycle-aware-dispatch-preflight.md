@@ -41,12 +41,15 @@ The command must:
 For each JellySSH implementation:
 
 1. Create an unassigned preflight parent card.
-2. Create the implementation card assigned to `jellybase_jellyssh`, dependent on that parent, and initially sticky-blocked.
-3. Run `projectctl preflight` against a contract naming both cards.
-4. Attach/comment the exact evidence path and digest, then complete the preflight parent only on PASS.
-5. The implementation card remains blocked after the parent completes.
-6. The operator explicitly unblocks/promotes the implementation card.
-7. The dispatcher and claim path independently reject the child if its parent is not done unless an operator deliberately uses the audited `--force` override.
+2. Create the implementation card assigned to `jellybase_jellyssh`, dependent on that parent, with `--initial-status blocked`.
+3. Immediately run an explicit operator `block` command and verify the resulting `blocked` event. Initial blocked status alone is not sticky.
+4. Run `projectctl preflight` against a contract naming both cards.
+5. Attach/comment the exact evidence path and digest, then complete the preflight parent only on PASS.
+6. The implementation card remains blocked after the parent completes.
+7. The operator explicitly unblocks/promotes the implementation card.
+8. The dispatcher and claim path independently reject the child if its parent is not done unless an operator deliberately uses the audited `--force` override.
+
+`dispatch --dry-run` performs readiness reconciliation and can mutate task status before simulating spawn. Treat it as a stateful negative test: establish and verify the explicit sticky block first, then confirm the dry-run reports no promotion and no spawn.
 
 Review and acceptance cards remain separate children. Exact target/base fields are introduced only after implementation produces a pushed immutable commit.
 
@@ -81,7 +84,9 @@ Add focused tests that prove:
 7. wrong assignee/workspace/board blocks;
 8. evidence output cannot escape the controlled directory and is atomic;
 9. no evidence is written with verdict PASS when any check fails;
-10. CLI exit codes and JSON output are deterministic.
+10. `--initial-status blocked` is not treated as a sticky hold until an explicit `blocked` event exists;
+11. dispatcher dry-run after the explicit block produces no promotion or spawn;
+12. CLI exit codes and JSON output are deterministic.
 
 Run the focused control-plane suite, full control-plane suite, Python compilation, and `git diff --check`.
 
