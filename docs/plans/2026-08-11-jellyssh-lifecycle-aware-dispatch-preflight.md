@@ -1,6 +1,6 @@
 # JellySSH lifecycle-aware dispatch preflight
 
-**Status:** Implemented prerequisite; BUG-008 alignment and operator release remain pending
+**Status:** Remediation in progress — nonspawnable hold-lane amendment approved for BUG-008
 **Date:** 2026-08-11
 **Repository:** `dotalbot/-hermes-ops`
 **Base:** `0523e6d414a515d3009d12e5e6abc32d96aa3451`
@@ -32,7 +32,7 @@ The command must:
 4. run exact-ref operations with `GIT_NO_REPLACE_OBJECTS=1`.
 5. Validate local and remote bridge resolution, approved profiles, model/provider/fallback policy, skill hashes, pinned host identity, reviewer sandbox/toolchain, and conservative concurrency.
 6. Read the named board without mutation and validate the declared task IDs, parent links, assignees, workspaces, and permitted statuses.
-7. Reject an implementation-release contract unless its preflight parent exists and the implementation task is both dependent on that parent and sticky-blocked for operator release.
+7. Reject an implementation-release contract unless its preflight parent exists and the implementation task is dependent on that parent, unassigned, and nonspawnable before operator release.
 8. Write evidence atomically beneath the control plane's generated/evidence directory. Evidence includes the contract digest, observed exact state, check results, source digests, timestamp, and PASS/BLOCK verdict.
 9. Return non-zero on every schema, authority, observation, or write failure.
 
@@ -41,15 +41,14 @@ The command must:
 For each JellySSH implementation:
 
 1. Create an unassigned preflight parent card.
-2. Create the implementation card assigned to `jellybase_jellyssh`, dependent on that parent, with `--initial-status blocked`.
-3. Immediately run an explicit operator `block` command and verify the resulting `blocked` event. Initial blocked status alone is not sticky.
-4. Run `projectctl preflight` against a contract naming both cards.
-5. Attach/comment the exact evidence path and digest, then complete the preflight parent only on PASS.
-6. The implementation card remains blocked after the parent completes.
-7. The operator explicitly unblocks/promotes the implementation card.
-8. The dispatcher and claim path independently reject the child if its parent is not done unless an operator deliberately uses the audited `--force` override.
+2. Create the implementation child unassigned and dependent on that parent, with the exact JellySSH implementation workspace and specification body. Do not use `--initial-status blocked`.
+3. Run `projectctl preflight` against a contract naming both cards; require the implementation child to be unassigned and `todo` while the parent is unfinished.
+4. Attach/comment the exact evidence path and digest, then complete the preflight parent only on PASS.
+5. Dependency recomputation may promote the implementation child to `ready`, but the embedded gateway must report it as skipped/unassigned and must not spawn it.
+6. The operator explicitly releases implementation by assigning that exact child to `jellybase_jellyssh` after reading the PASS evidence.
+7. The dispatcher and claim path independently reject the child if its parent is not done unless an operator deliberately uses the audited `--force` override.
 
-`dispatch --dry-run` performs readiness reconciliation and can mutate task status before simulating spawn. Treat it as a stateful negative test: establish and verify the explicit sticky block first, then confirm the dry-run reports no promotion and no spawn.
+`dispatch --dry-run` performs readiness reconciliation and can mutate task status before simulating spawn. Treat it as a stateful gate test: before parent completion require no promotion/spawn; after PASS require the child may be Ready but is still listed as unassigned/nonspawnable. Only the later audited assignment may make it spawnable.
 
 Review and acceptance cards remain separate children. Exact target/base fields are introduced only after implementation produces a pushed immutable commit.
 
@@ -67,8 +66,9 @@ The first real contract must bind:
 - Coordinator and implementation checkouts: approved specification commit on the feature branch, clean
 - Coordinator-review and reviewer checkouts: merged base on `main`, clean
 - Board: `jellyssh`
-- Implementation assignee: `jellybase_jellyssh`
-- Implementation status before release: sticky `blocked`
+- Implementation assignee before release: unassigned (`null`)
+- Implementation status before preflight parent completion: `todo`
+- Implementation status after PASS may be `ready`, but it remains nonspawnable until the operator assigns `jellybase_jellyssh`
 - Concurrency: one spawn and one in-progress item
 
 ## Tests
@@ -80,13 +80,14 @@ Add focused tests that prove:
 3. unknown contract fields fail closed;
 4. checkout SHA, branch, remote, dirty-tree, and replacement-ref drift block;
 5. missing/wrong parent links block;
-6. a Ready or Running implementation card before operator release blocks;
-7. wrong assignee/workspace/board blocks;
+6. an implementation child assigned to a spawnable profile before operator release blocks;
+7. wrong workspace/board or any pre-release assignee blocks;
 8. evidence output cannot escape the controlled directory and is atomic;
 9. no evidence is written with verdict PASS when any check fails;
-10. `--initial-status blocked` is not treated as a sticky hold until an explicit `blocked` event exists;
-11. dispatcher dry-run after the explicit block produces no promotion or spawn;
-12. CLI exit codes and JSON output are deterministic.
+10. before parent completion the unassigned child remains `todo` and dispatcher dry-run produces no spawn;
+11. after parent PASS the child may become `ready` but remains skipped/unassigned and unspawned;
+12. only the later audited assignment to `jellybase_jellyssh` makes the child dispatchable, while claim still rejects an unfinished parent;
+13. CLI exit codes and JSON output are deterministic.
 
 Run the focused control-plane suite, full control-plane suite, Python compilation, and `git diff --check`.
 
@@ -108,6 +109,6 @@ Before merge, delete the feature branch and generated local evidence. After merg
 - Independent review finds no blocking issue in the exact process commit.
 - [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:3815aa07c0801b4af75fab5ca0d4b428de68b0abd7838458caf402adbab658a0`), verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
 - The aligned BUG-008 contract passes and produces digest-addressed evidence.
-- The dependent implementation card cannot dispatch before parent completion and remains blocked after parent completion until the operator releases it.
+- The dependent implementation card cannot dispatch before parent completion, remains unassigned/nonspawnable after parent completion, and becomes spawnable only after the operator's audited assignment.
 
 The remaining acceptance items belong to the later BUG-008 application-dispatch stage. This prerequisite implementation did not create, release, dispatch, or mutate JellySSH cards or checkouts.
