@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/hermes/skills-control-plane/work-item-lifecycle.schema.json",
+  "title": "JellySSH work-item lifecycle preflight contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "work_item",
+    "phase",
+    "repository",
+    "checkouts",
+    "board",
+    "concurrency"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project": {"const": "jellyssh"},
+    "work_item": {"type": "string", "pattern": "^[A-Z]+-[0-9]+$"},
+    "phase": {"const": "implementation-release"},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["remote", "base_commit", "specification_commit", "branch"],
+      "properties": {
+        "remote": {"const": "git@github.com:dotalbot/jellyssh.git"},
+        "base_commit": {"$ref": "#/$defs/commit"},
+        "specification_commit": {"$ref": "#/$defs/commit"},
+        "branch": {"type": "string", "pattern": "^(feat|fix|docs|test|refactor|ci|chore)/[A-Za-z0-9._/-]+$"}
+      }
+    },
+    "checkouts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/checkout"}
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "preflight_task_id", "implementation_task_id", "preflight", "implementation"],
+      "properties": {
+        "slug": {"const": "jellyssh"},
+        "preflight_task_id": {"$ref": "#/$defs/taskId"},
+        "implementation_task_id": {"$ref": "#/$defs/taskId"},
+        "preflight": {"$ref": "#/$defs/taskExpectation"},
+        "implementation": {"$ref": "#/$defs/taskExpectation"}
+      }
+    },
+    "concurrency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_spawn", "max_in_progress"],
+      "properties": {
+        "max_spawn": {"const": 1},
+        "max_in_progress": {"const": 1}
+      }
+    }
+  },
+  "$defs": {
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "taskId": {"type": "string", "pattern": "^t_[0-9a-f]{8}$"},
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!/)(?!(?:[^/]+/)*\\.{1,2}(?:/|$))(?:[^/]+/)*[^/]+$"
+    },
+    "checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "runtime_path", "path", "transport", "commit", "branch", "detached", "clean"],
+      "properties": {
+        "role": {"enum": ["coordinator", "coordinator-review", "implementation", "reviewer"]},
+        "runtime_path": {
+          "enum": ["coordinator_checkout", "coordinator_review_checkout", "implementation_checkout", "reviewer_checkout"]
+        },
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "transport": {"enum": ["local", "ssh"]},
+        "commit": {"$ref": "#/$defs/commit"},
+        "branch": {"type": "string", "pattern": "^(main|(feat|fix|docs|test|refactor|ci|chore)/[A-Za-z0-9._/-]+)$"},
+        "detached": {"const": false},
+        "clean": {"const": true}
+      }
+    },
+    "taskExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assignee", "workspace_kind", "workspace_path", "permitted_statuses"],
+      "properties": {
+        "assignee": {"type": ["string", "null"]},
+        "workspace_kind": {"const": "dir"},
+        "workspace_path": {"$ref": "#/$defs/absolutePath"},
+        "permitted_statuses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["todo", "ready", "running", "blocked"]}
+        }
+      }
+    }
+  }
+}

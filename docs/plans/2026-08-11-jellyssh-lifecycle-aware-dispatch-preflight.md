@@ -1,6 +1,6 @@
 # JellySSH lifecycle-aware dispatch preflight
 
-**Status:** Proposed prerequisite design for BUG-008
+**Status:** Implemented prerequisite; BUG-008 alignment and operator release remain pending
 **Date:** 2026-08-11
 **Repository:** `dotalbot/-hermes-ops`
 **Base:** `0523e6d414a515d3009d12e5e6abc32d96aa3451`
@@ -106,6 +106,8 @@ Before merge, delete the feature branch and generated local evidence. After merg
 ## Acceptance
 
 - Independent review finds no blocking issue in the exact process commit.
-- A negative BUG-008 contract fails before checkout/card alignment.
+- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:3815aa07c0801b4af75fab5ca0d4b428de68b0abd7838458caf402adbab658a0`), verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
 - The aligned BUG-008 contract passes and produces digest-addressed evidence.
 - The dependent implementation card cannot dispatch before parent completion and remains blocked after parent completion until the operator releases it.
+
+The remaining acceptance items belong to the later BUG-008 application-dispatch stage. This prerequisite implementation did not create, release, dispatch, or mutate JellySSH cards or checkouts.

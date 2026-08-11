@@ -10,6 +10,7 @@ This directory is the Git-backed authority for governed Hermes project setup and
 - `candidates/` — immutable, non-routable candidate bytes awaiting evidence-bound promotion.
 - `projects/<slug>/project.yaml` — exact desired skill/profile/model/workspace/expert policy.
 - `projects/<slug>/runtime.yaml` — observed runtime evidence and explicit blockers.
+- `projects/<slug>/contracts/` or another reviewed path — short-lived, schema-validated work-item contracts; never a replacement for the approved product specification.
 - `projects/<slug>/overlays/` — project-only skills; never silently promoted globally.
 - `schemas/` — project, setup-request, plan, journal, lifecycle and runtime schemas.
 - `templates/` — non-secret setup inputs that must be completed before planning.
@@ -196,6 +197,23 @@ python3 skills-control-plane/scripts/projectctl.py audit
 python3 skills-control-plane/scripts/projectctl.py status --output skills-control-plane/generated/jellyssh-status.md
 python3 skills-control-plane/scripts/projectctl.py status --format json --output skills-control-plane/generated/jellyssh-status.json
 ```
+
+Bootstrap `scan`, `verify`, and `audit` deliberately retain the immutable Phase-2 checkout and empty-board checks. Once a work cycle changes those live facts, validate one release gate through the additive lifecycle interface instead:
+
+```bash
+cp skills-control-plane/templates/jellyssh-work-item-lifecycle.example.json \
+  /absolute/reviewed/path/BUG-008-implementation-release.json
+
+python3 skills-control-plane/scripts/projectctl.py \
+  --project skills-control-plane/projects/jellyssh/project.yaml \
+  --json preflight \
+  --contract /absolute/reviewed/path/BUG-008-implementation-release.json \
+  --output skills-control-plane/generated/evidence/<evidence-name>.json
+```
+
+The contract schema rejects unknown fields and binds exact local/SSH checkout paths, transport, origin, commit, branch, detached state, cleanliness, replacement refs, board/card identities, parent links, assignee, workspace, status, sticky operator hold, and conservative concurrency. Exact Git probes run with replacement objects disabled. Evidence is canonical JSON written atomically as a direct `.json` child of `generated/evidence`; the CLI reports both contract and evidence SHA-256 digests and exits non-zero on every block or write failure.
+
+For an `implementation-release` gate, create the preflight parent and dependent implementation card, create the implementation row with `--initial-status blocked`, then immediately run an explicit `block` command and verify that `blocked` is the latest block/unblock lifecycle event. Initial blocked state alone is not a sticky hold. Run dispatcher dry-run only after that verification: dry-run performs readiness reconciliation and can promote other eligible rows even though it does not spawn workers.
 
 ## Verification
 

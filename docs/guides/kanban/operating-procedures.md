@@ -186,6 +186,8 @@ Useful create options verified by `hermes kanban create --help`:
 - `--initial-status blocked|running`
 - `--json`
 
+`--initial-status blocked` sets the row's initial state, but it does not create the explicit `blocked` lifecycle event used as a sticky operator hold. For release-gated work, immediately run `hermes kanban ... block <id> "<reason>"` and verify the event with `show` before any dispatcher pass.
+
 ## Assign or reassign tasks
 
 Assign an existing task to a discovered profile:
@@ -302,6 +304,8 @@ Run one pass with JSON output:
 ```bash
 hermes kanban --board continuous-hermes-improvement dispatch --dry-run --json
 ```
+
+Dispatcher dry-run is not globally read-only: it performs readiness reconciliation before suppressing worker spawn, so eligible `todo`/dependency-complete rows may be promoted. Treat it as a stateful negative test. Establish and verify any explicit sticky `blocked` event first, then confirm dry-run reports neither promotion nor spawn for the held card.
 
 The standalone daemon command exists but `hermes kanban --help` marks it deprecated because the dispatcher now runs in the gateway:
 
@@ -480,7 +484,7 @@ hermes kanban --board continuous-hermes-improvement list --archived
 
 ### Create manually gated work
 
-Use this when you want the card visible but do not want the dispatcher to claim it yet. Create it blocked with an explicit reason:
+Use this when you want the card visible but do not want the dispatcher to claim it yet. Create the row blocked, then create and verify an explicit sticky hold:
 
 ```bash
 hermes kanban --board continuous-hermes-improvement create \
@@ -489,7 +493,15 @@ hermes kanban --board continuous-hermes-improvement create \
   --workspace dir:/home/jellybot/dev_projects/hermes-ops \
   --initial-status blocked \
   --body "Draft docs/specs/approval-model.md; wait for operator to unblock."
+
+hermes kanban --board continuous-hermes-improvement block \
+  t_abc12345 \
+  "Operator release required"
+
+hermes kanban --board continuous-hermes-improvement show t_abc12345
 ```
+
+Do not treat the initial status as sufficient evidence. The `show` output must contain a later `blocked` event, and no later `unblocked` event, before a release preflight can pass.
 
 When you are ready, unblock it. If it has no open parent dependencies, it becomes `ready`:
 

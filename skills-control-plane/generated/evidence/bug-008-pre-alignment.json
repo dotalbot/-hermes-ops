@@ -1,0 +1,118 @@
+{
+  "checks": [
+    {
+      "errors": [],
+      "name": "contract",
+      "ok": true
+    },
+    {
+      "errors": [
+        "reviewer MCP root drift"
+      ],
+      "name": "control-plane",
+      "ok": false
+    },
+    {
+      "errors": [],
+      "name": "checkout:coordinator",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:coordinator-review",
+      "ok": true
+    },
+    {
+      "errors": [
+        "implementation checkout commit drift",
+        "implementation checkout branch drift"
+      ],
+      "name": "checkout:implementation",
+      "ok": false
+    },
+    {
+      "errors": [],
+      "name": "checkout:reviewer",
+      "ok": true
+    },
+    {
+      "errors": [
+        "preflight task is missing from the declared board",
+        "implementation task is missing from the declared board"
+      ],
+      "name": "board",
+      "ok": false
+    }
+  ],
+  "contract_sha256": "sha256:db146086a01a904458b3d777008d615b15acf3bb577bc68a3c38b42940fc8bc1",
+  "observations": {
+    "board": {
+      "default_workdir": "/var/tmp/hermes-jellyssh",
+      "slug": "jellyssh",
+      "tasks": {}
+    },
+    "checkouts": [
+      {
+        "branch": "fix/bug-008-zero-byte-sftp-transfers",
+        "clean": true,
+        "commit": "f6ba58ddeb204437e5a1ec392bb47d892839ef16",
+        "detached": false,
+        "path": "/home/jellybot/dev_projects/jellyssh",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "coordinator",
+        "runtime_path": "coordinator_checkout",
+        "transport": "local"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+        "detached": false,
+        "path": "/home/jellybot/dev_projects/jellyssh-review",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "coordinator-review",
+        "runtime_path": "coordinator_review_checkout",
+        "transport": "local"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+        "detached": false,
+        "path": "/home/jellydev/dev_projects/jellyssh",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "implementation",
+        "runtime_path": "implementation_checkout",
+        "transport": "ssh"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+        "detached": false,
+        "path": "/home/jellydev/dev_projects/jellyssh-review",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "reviewer",
+        "runtime_path": "reviewer_checkout",
+        "transport": "ssh"
+      }
+    ]
+  },
+  "observed_at": "2026-08-11T09:33:41Z",
+  "phase": "implementation-release",
+  "project": "jellyssh",
+  "schema_version": 1,
+  "source_digests": {
+    "catalog": "sha256:a9adde9a1339133bc478a50375b1dd1ab833ae5ecac5a1bc3b0f149286346f39",
+    "lifecycle_schema": "sha256:adb9480b5746681260b1456a9908ad5c7fe5be54c9f9b889d7a15528800608b8",
+    "project_manifest": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
+    "projectctl": "sha256:166680069e48d683b9aba73751bb79c6de6eae8d353762a1d80baabd69a755fc",
+    "runtime_manifest": "sha256:36a3908d9f5cacad3440ca16b0e48808a3bd45ed3825d59ef3142c18995d63e9"
+  },
+  "verdict": "BLOCK",
+  "work_item": "BUG-008"
+}
