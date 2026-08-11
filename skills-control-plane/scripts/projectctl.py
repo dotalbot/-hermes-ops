@@ -475,7 +475,12 @@ def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> No
         raise
     finally:
         if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                if published:
+                    _invalidate_failed_lifecycle_evidence(target, evidence_root)
+                raise
 
 
 def _invalidate_failed_lifecycle_evidence(target: Path, evidence_root: Path) -> None:

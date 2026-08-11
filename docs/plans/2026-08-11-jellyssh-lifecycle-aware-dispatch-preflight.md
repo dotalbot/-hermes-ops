@@ -1,6 +1,6 @@
 # JellySSH lifecycle-aware dispatch preflight
 
-**Status:** Remediation implemented — exact-commit independent review pending
+**Status:** Remediation round 2 implemented — exact-commit independent review pending
 **Date:** 2026-08-11
 **Repository:** `dotalbot/-hermes-ops`
 **Base:** `0523e6d414a515d3009d12e5e6abc32d96aa3451`
@@ -107,8 +107,8 @@ Before merge, delete the feature branch and generated local evidence. After merg
 ## Acceptance
 
 - Independent review finds no blocking issue in the exact process commit.
-- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:ad960fedd2689a8255ce18f7efc3d69bedeb63ae34f2e15d654e1b915b1bc451`), contract `sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a`, verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
-- [x] A disposable direct-library Kanban gate uses an asserted temporary database and proves unfinished-parent claim rejection, parent-completion promotion, unassigned dispatcher skipping, and dispatchability only after audited `jellybase_jellyssh` assignment; live CHI and JellySSH task IDs are compared separately before/after verification.
+- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:d6c6e1086aa9fc7f052bf527c1f91fa885c682566f1abe1d67adb198815f158d`), contract `sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a`, verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
+- [x] A disposable direct-library Kanban gate uses an asserted temporary database and proves unfinished-parent claim rejection, parent-completion promotion, unassigned dispatcher skipping, and dispatchability only after audited `jellybase_jellyssh` assignment; retained read-only live-board proof is `skills-control-plane/generated/evidence/disposable-kanban-gate-live-board-proof.json` (`sha256:4096c23086cd9783c1ad409c2c199bfb00adfd3f470e8eefd9712c7f1e1111f3`), with equal before/after CHI and JellySSH task-ID counts and set digests.
 - The aligned BUG-008 contract passes and produces digest-addressed evidence.
 - The dependent implementation card cannot dispatch before parent completion, remains unassigned/nonspawnable after parent completion, and becomes spawnable only after the operator's audited assignment.
 

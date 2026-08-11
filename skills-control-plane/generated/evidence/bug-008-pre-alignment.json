@@ -102,7 +102,7 @@
       }
     ]
   },
-  "observed_at": "2026-08-11T11:10:47Z",
+  "observed_at": "2026-08-11T11:59:32Z",
   "phase": "implementation-release",
   "project": "jellyssh",
   "schema_version": 1,
@@ -110,8 +110,8 @@
     "catalog": "sha256:a9adde9a1339133bc478a50375b1dd1ab833ae5ecac5a1bc3b0f149286346f39",
     "lifecycle_schema": "sha256:345a10164d26be303c3f9ac67daca50805e9c0ad7919cf0a4ade0ebf33c83541",
     "project_manifest": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
-    "projectctl": "sha256:fc42056fbef761c2c7c999b227b343db9da2f62b7e060cec8c5f23938ae0fbee",
-    "runtime_manifest": "sha256:12b45ec826b68ee32f302628f692e1084847ba2ac31043faf82a733d6908bfff"
+    "projectctl": "sha256:87fffe3d9837ff99cb801115f9572a797ec0b74a6635454810e775cd989bec49",
+    "runtime_manifest": "sha256:998f627ee7d96cc7e179ad51239c2fbbcf53ae1d8ef1bde6a7c6f6ce47947beb"
   },
   "verdict": "BLOCK",
   "work_item": "BUG-008"

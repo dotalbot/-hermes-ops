@@ -1,0 +1,51 @@
+{
+  "commands": {
+    "disposable_gate": "env -u HERMES_DELEGATED_CHILD_CONTEXT python3 skills-control-plane/tests/test_projectctl_preflight.py LifecyclePreflightTests.test_disposable_kanban_gate_keeps_child_nonspawnable_until_assignment",
+    "live_board_snapshot": "SQLite URI mode=ro; PRAGMA query_only=ON; SELECT id FROM tasks ORDER BY id"
+  },
+  "disposable_gate": {
+    "exit_code": 0,
+    "result": "PASS",
+    "tests_ran": 1
+  },
+  "errors": [],
+  "kind": "disposable-kanban-gate-live-board-id-set-proof",
+  "live_boards": [
+    {
+      "after": {
+        "slug": "continuous-hermes-improvement",
+        "task_count": 106,
+        "task_id_set_sha256": "sha256:bdfb927f7b0e1642b090077540ffcaac1856bd327179ab3841998fca42fba01d"
+      },
+      "before": {
+        "slug": "continuous-hermes-improvement",
+        "task_count": 106,
+        "task_id_set_sha256": "sha256:bdfb927f7b0e1642b090077540ffcaac1856bd327179ab3841998fca42fba01d"
+      },
+      "before_after_equal": true,
+      "slug": "continuous-hermes-improvement"
+    },
+    {
+      "after": {
+        "slug": "jellyssh",
+        "task_count": 5,
+        "task_id_set_sha256": "sha256:eafb590387aa0509e88503314422b9b45ca1b0faabeb1f61c0044129a6b217a0"
+      },
+      "before": {
+        "slug": "jellyssh",
+        "task_count": 5,
+        "task_id_set_sha256": "sha256:eafb590387aa0509e88503314422b9b45ca1b0faabeb1f61c0044129a6b217a0"
+      },
+      "before_after_equal": true,
+      "slug": "jellyssh"
+    }
+  ],
+  "observed_at": "2026-08-11T11:56:29Z",
+  "remediation_base_target": "d09011faba3dc378a331b0214799e9e4d71b64cb",
+  "schema_version": 1,
+  "source_sha256": {
+    "focused_tests": "sha256:35402854712098c9c59c5f5eb77f894eb84cf7659b42bebf2a0bb2c5e64a321c",
+    "projectctl": "sha256:87fffe3d9837ff99cb801115f9572a797ec0b74a6635454810e775cd989bec49"
+  },
+  "verdict": "PASS"
+}

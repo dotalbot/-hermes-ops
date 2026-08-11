@@ -391,6 +391,7 @@ class LifecyclePreflightTests(unittest.TestCase):
             f"gate_root = Path({str(gate_root)!r}).resolve()",
             f"expected_db = Path({str(database_path)!r}).resolve()",
             "resolved_db = kb.kanban_db_path().resolve()",
+            "assert 'HERMES_DELEGATED_CHILD_CONTEXT' not in os.environ",
             "assert resolved_db == expected_db",
             "assert resolved_db.is_relative_to(gate_root)",
             "assert profile_exists('jellybase_jellyssh')",
@@ -426,6 +427,7 @@ class LifecyclePreflightTests(unittest.TestCase):
             "    conn.close()",
         ])
         env = os.environ.copy()
+        env.pop("HERMES_DELEGATED_CHILD_CONTEXT", None)
         env["HERMES_KANBAN_DB"] = str(database_path)
         env["PYTHONPATH"] = os.pathsep.join(
             [str(hermes_agent_root), env.get("PYTHONPATH", "")]
@@ -479,6 +481,28 @@ class LifecyclePreflightTests(unittest.TestCase):
                         self.root, self.output, '{"verdict":"PASS"}\n'
                     )
             self.assertEqual(list(evidence_root.iterdir()), [])
+
+        def fail_final_temp_unlink(path: Path, missing_ok: bool = False) -> None:
+            if path != self.output and path.parent == evidence_root:
+                raise OSError("stale temp cleanup fixture")
+            real_unlink(path, missing_ok=missing_ok)
+
+        with self.subTest(fault="post-install-stale-temp-cleanup"):
+            with mock.patch.object(
+                Path,
+                "unlink",
+                autospec=True,
+                side_effect=fail_final_temp_unlink,
+            ):
+                with self.assertRaisesRegex(OSError, "stale temp cleanup fixture"):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            if self.output.exists():
+                self.assertEqual(
+                    json.loads(self.output.read_text(encoding="utf-8"))["verdict"],
+                    "BLOCK",
+                )
 
         def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
             if Path(path) == evidence_root:
