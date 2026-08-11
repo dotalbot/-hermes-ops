@@ -65,11 +65,11 @@
       ]
     },
     "implementation": {
-      "assignee": "jellybase_jellyssh",
+      "assignee": null,
       "workspace_kind": "dir",
       "workspace_path": "/var/tmp/hermes-jellyssh",
       "permitted_statuses": [
-        "blocked"
+        "todo"
       ]
     }
   },

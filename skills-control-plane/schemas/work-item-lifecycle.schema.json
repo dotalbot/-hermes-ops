@@ -44,8 +44,8 @@
         "slug": {"const": "jellyssh"},
         "preflight_task_id": {"$ref": "#/$defs/taskId"},
         "implementation_task_id": {"$ref": "#/$defs/taskId"},
-        "preflight": {"$ref": "#/$defs/taskExpectation"},
-        "implementation": {"$ref": "#/$defs/taskExpectation"}
+        "preflight": {"$ref": "#/$defs/preflightExpectation"},
+        "implementation": {"$ref": "#/$defs/implementationHoldExpectation"}
       }
     },
     "concurrency": {
@@ -82,20 +82,26 @@
         "clean": {"const": true}
       }
     },
-    "taskExpectation": {
+    "preflightExpectation": {
       "type": "object",
       "additionalProperties": false,
       "required": ["assignee", "workspace_kind", "workspace_path", "permitted_statuses"],
       "properties": {
-        "assignee": {"type": ["string", "null"]},
+        "assignee": {"type": "null"},
         "workspace_kind": {"const": "dir"},
         "workspace_path": {"$ref": "#/$defs/absolutePath"},
-        "permitted_statuses": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {"enum": ["todo", "ready", "running", "blocked"]}
-        }
+        "permitted_statuses": {"const": ["ready", "running"]}
+      }
+    },
+    "implementationHoldExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assignee", "workspace_kind", "workspace_path", "permitted_statuses"],
+      "properties": {
+        "assignee": {"type": "null"},
+        "workspace_kind": {"const": "dir"},
+        "workspace_path": {"$ref": "#/$defs/absolutePath"},
+        "permitted_statuses": {"const": ["todo"]}
       }
     }
   }

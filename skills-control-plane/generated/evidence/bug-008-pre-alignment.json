@@ -44,7 +44,7 @@
       "ok": false
     }
   ],
-  "contract_sha256": "sha256:db146086a01a904458b3d777008d615b15acf3bb577bc68a3c38b42940fc8bc1",
+  "contract_sha256": "sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a",
   "observations": {
     "board": {
       "default_workdir": "/var/tmp/hermes-jellyssh",
@@ -102,16 +102,16 @@
       }
     ]
   },
-  "observed_at": "2026-08-11T09:33:41Z",
+  "observed_at": "2026-08-11T11:10:47Z",
   "phase": "implementation-release",
   "project": "jellyssh",
   "schema_version": 1,
   "source_digests": {
     "catalog": "sha256:a9adde9a1339133bc478a50375b1dd1ab833ae5ecac5a1bc3b0f149286346f39",
-    "lifecycle_schema": "sha256:adb9480b5746681260b1456a9908ad5c7fe5be54c9f9b889d7a15528800608b8",
+    "lifecycle_schema": "sha256:345a10164d26be303c3f9ac67daca50805e9c0ad7919cf0a4ade0ebf33c83541",
     "project_manifest": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
-    "projectctl": "sha256:166680069e48d683b9aba73751bb79c6de6eae8d353762a1d80baabd69a755fc",
-    "runtime_manifest": "sha256:36a3908d9f5cacad3440ca16b0e48808a3bd45ed3825d59ef3142c18995d63e9"
+    "projectctl": "sha256:fc42056fbef761c2c7c999b227b343db9da2f62b7e060cec8c5f23938ae0fbee",
+    "runtime_manifest": "sha256:12b45ec826b68ee32f302628f692e1084847ba2ac31043faf82a733d6908bfff"
   },
   "verdict": "BLOCK",
   "work_item": "BUG-008"

@@ -4,9 +4,11 @@ import copy
 from contextlib import redirect_stdout
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -37,6 +39,7 @@ class LifecyclePreflightTests(unittest.TestCase):
         self.project = self.root / "projects" / "jellyssh" / "project.yaml"
         self.contract_path = self.root / "projects" / "jellyssh" / "bug-008.json"
         self.output = self.root / "generated" / "evidence" / "bug-008.json"
+        self.controller_repo_root = Path(self.temp.name) / "controller-repo-authority"
         self.contract = {
             "schema_version": 1,
             "project": "jellyssh",
@@ -97,14 +100,14 @@ class LifecyclePreflightTests(unittest.TestCase):
                 "preflight": {
                     "assignee": None,
                     "workspace_kind": "dir",
-                    "workspace_path": "/home/jellybot/dev_projects/hermes-ops",
+                    "workspace_path": str(self.controller_repo_root),
                     "permitted_statuses": ["ready", "running"],
                 },
                 "implementation": {
-                    "assignee": "jellybase_jellyssh",
+                    "assignee": None,
                     "workspace_kind": "dir",
                     "workspace_path": "/var/tmp/hermes-jellyssh",
-                    "permitted_statuses": ["blocked"],
+                    "permitted_statuses": ["todo"],
                 },
             },
             "concurrency": {"max_spawn": 1, "max_in_progress": 1},
@@ -134,21 +137,18 @@ class LifecyclePreflightTests(unittest.TestCase):
                     "assignee": None,
                     "status": "running",
                     "workspace_kind": "dir",
-                    "workspace_path": "/home/jellybot/dev_projects/hermes-ops",
+                    "workspace_path": str(self.controller_repo_root),
                     "parents": [],
                     "events": [{"id": 1, "kind": "created"}],
                 },
                 "t_22222222": {
                     "id": "t_22222222",
-                    "assignee": "jellybase_jellyssh",
-                    "status": "blocked",
+                    "assignee": None,
+                    "status": "todo",
                     "workspace_kind": "dir",
                     "workspace_path": "/var/tmp/hermes-jellyssh",
                     "parents": ["t_11111111"],
-                    "events": [
-                        {"id": 2, "kind": "created", "initial_status": "blocked"},
-                        {"id": 3, "kind": "blocked"},
-                    ],
+                    "events": [{"id": 2, "kind": "created", "initial_status": "todo"}],
                 },
             },
         }
@@ -178,6 +178,7 @@ class LifecyclePreflightTests(unittest.TestCase):
                 self.output,
                 self.root,
                 observed_at="2026-08-11T09:00:00Z",
+                controller_repo_root=self.controller_repo_root,
                 checkout_observer=lambda item: copy.deepcopy(self.checkout_observations[item["role"]]),
                 board_observer=lambda slug, task_ids: copy.deepcopy(self.board_observation),
             )
@@ -193,6 +194,32 @@ class LifecyclePreflightTests(unittest.TestCase):
         self.assertEqual(evidence["observed_at"], "2026-08-11T09:00:00Z")
         self.assertRegex(evidence["contract_sha256"], r"^sha256:[0-9a-f]{64}$")
         self.assertRegex(result["evidence_sha256"], r"^sha256:[0-9a-f]{64}$")
+
+    def test_contract_validation_is_portable_with_injected_controller_authority(self) -> None:
+        alternate_repo = Path(self.temp.name) / "alternate-review-checkout"
+        alternate_control = alternate_repo / "skills-control-plane"
+        shutil.copytree(
+            CONTROL_ROOT,
+            alternate_control,
+            ignore=shutil.ignore_patterns("__pycache__", "generated"),
+        )
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(alternate_control / "tests" / "test_projectctl_preflight.py"),
+                "LifecyclePreflightTests.test_valid_lifecycle_contract_writes_pass_evidence",
+                "LifecyclePreflightTests.test_implementation_child_must_be_unassigned_and_todo_before_parent_completion",
+                "LifecyclePreflightTests.test_board_observation_rejects_every_symlinked_authority_component",
+            ],
+            cwd=alternate_repo,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
+        self.assertIn("Ran 3 tests", completed.stderr)
 
     def test_unknown_contract_field_fails_closed_without_pass_evidence(self) -> None:
         self.contract["unexpected"] = True
@@ -277,23 +304,43 @@ class LifecyclePreflightTests(unittest.TestCase):
                 "transport": "local",
             })
 
-    def test_board_observation_rejects_symlinked_boards_directory(self) -> None:
-        home = Path(self.temp.name) / "home"
-        kanban = home / ".hermes" / "kanban"
-        kanban.mkdir(parents=True)
-        outside = Path(self.temp.name) / "outside-boards"
-        board = outside / "jellyssh"
-        board.mkdir(parents=True)
-        (board / "board.json").write_text(
-            json.dumps({"slug": "jellyssh", "default_workdir": "/var/tmp/hermes-jellyssh"}),
-            encoding="utf-8",
-        )
-        sqlite3.connect(board / "kanban.db").close()
-        (kanban / "boards").symlink_to(outside, target_is_directory=True)
+    def test_board_observation_rejects_every_symlinked_authority_component(self) -> None:
+        components = ("hermes", "kanban", "boards", "board", "metadata", "database")
+        for component in components:
+            with self.subTest(component=component), tempfile.TemporaryDirectory() as case_temp:
+                case_root = Path(case_temp)
+                home = case_root / "home"
+                board = home / ".hermes" / "kanban" / "boards" / "jellyssh"
+                board.mkdir(parents=True)
+                metadata = board / "board.json"
+                database = board / "kanban.db"
+                metadata.write_text(
+                    json.dumps({"slug": "jellyssh", "default_workdir": "/var/tmp/hermes-jellyssh"}),
+                    encoding="utf-8",
+                )
+                sqlite3.connect(database).close()
+                targets = {
+                    "hermes": home / ".hermes",
+                    "kanban": home / ".hermes" / "kanban",
+                    "boards": home / ".hermes" / "kanban" / "boards",
+                    "board": board,
+                    "metadata": metadata,
+                    "database": database,
+                }
+                target = targets[component]
+                outside = case_root / f"outside-{component}"
+                if target.is_dir():
+                    shutil.copytree(target, outside)
+                    shutil.rmtree(target)
+                    target.symlink_to(outside, target_is_directory=True)
+                else:
+                    shutil.copy2(target, outside)
+                    target.unlink()
+                    target.symlink_to(outside)
 
-        with mock.patch.object(Path, "home", return_value=home):
-            with self.assertRaisesRegex(projectctl.ControlPlaneError, "board authority parent cannot be a symlink"):
-                projectctl.observe_board("jellyssh", [])
+                with mock.patch.object(Path, "home", return_value=home):
+                    with self.assertRaisesRegex(projectctl.ControlPlaneError, "symlink"):
+                        projectctl.observe_board("jellyssh", [])
 
     def test_board_parent_status_assignee_workspace_and_slug_drift_block(self) -> None:
         mutations = [
@@ -313,31 +360,91 @@ class LifecyclePreflightTests(unittest.TestCase):
                 self.assertEqual(json.loads(self.output.read_text(encoding="utf-8"))["verdict"], "BLOCK")
         self.board_observation = original
 
-    def test_initial_blocked_status_without_explicit_block_event_is_not_sticky(self) -> None:
-        self.board_observation["tasks"]["t_22222222"]["events"] = [
-            {"id": 2, "kind": "created", "initial_status": "blocked"}
-        ]
+    def test_implementation_child_must_be_unassigned_and_todo_before_parent_completion(self) -> None:
+        mutations = {
+            "assigned": {"assignee": "jellybase_jellyssh"},
+            "ready": {"status": "ready"},
+            "blocked": {"status": "blocked"},
+        }
+        original = copy.deepcopy(self.board_observation)
+        for label, mutation in mutations.items():
+            with self.subTest(label=label):
+                self.board_observation = copy.deepcopy(original)
+                self.board_observation["tasks"]["t_22222222"].update(mutation)
+                result = self.run_preflight()
+                self.assertFalse(result["ok"])
+                self.assertIn("implementation task", "\n".join(result["errors"]))
+        self.board_observation = original
 
-        result = self.run_preflight()
+    def test_disposable_kanban_gate_keeps_child_nonspawnable_until_assignment(self) -> None:
+        hermes_agent_root = Path(
+            os.environ.get("HERMES_AGENT_SOURCE", str(Path.home() / ".hermes" / "hermes-agent"))
+        ).resolve()
+        self.assertTrue((hermes_agent_root / "hermes_cli" / "kanban_db.py").is_file())
+        gate_root = Path(self.temp.name) / "disposable-kanban-gate"
+        database_path = gate_root / "kanban.db"
+        code = "\n".join([
+            "import json, os",
+            "from pathlib import Path",
+            "from hermes_cli import kanban_db as kb",
+            "from hermes_cli.profiles import profile_exists",
+            f"gate_root = Path({str(gate_root)!r}).resolve()",
+            f"expected_db = Path({str(database_path)!r}).resolve()",
+            "resolved_db = kb.kanban_db_path().resolve()",
+            "assert resolved_db == expected_db",
+            "assert resolved_db.is_relative_to(gate_root)",
+            "assert profile_exists('jellybase_jellyssh')",
+            "kb.init_db(db_path=resolved_db)",
+            "conn = kb.connect(db_path=resolved_db)",
+            "try:",
+            "    parent = kb.create_task(conn, title='preflight', assignee=None, workspace_kind='dir', workspace_path=str(gate_root / 'controller'))",
+            "    child = kb.create_task(conn, title='implementation', assignee=None, workspace_kind='dir', workspace_path=str(gate_root / 'implementation'), parents=[parent])",
+            "    assert kb.get_task(conn, child).status == 'todo'",
+            "    before = kb.dispatch_once(conn, dry_run=True, max_spawn=1, max_in_progress=1, reconcile_orphans=False)",
+            "    assert child not in [item[0] for item in before.spawned]",
+            "    assert kb.get_task(conn, child).status == 'todo'",
+            "    conn.execute(\"UPDATE tasks SET status = 'ready' WHERE id = ?\", (child,))",
+            "    conn.commit()",
+            "    assert kb.claim_task(conn, child, claimer='gate-test') is None",
+            "    assert kb.get_task(conn, child).status == 'todo'",
+            "    rejected = conn.execute(\"SELECT payload FROM task_events WHERE task_id = ? AND kind = 'claim_rejected' ORDER BY id DESC LIMIT 1\", (child,)).fetchone()",
+            "    assert json.loads(rejected[0])['reason'] == 'parents_not_done'",
+            "    assert kb.complete_task(conn, parent, summary='PASS evidence accepted')",
+            "    assert kb.get_task(conn, child).status == 'ready'",
+            "    after_pass = kb.dispatch_once(conn, dry_run=True, max_spawn=1, max_in_progress=1, reconcile_orphans=False)",
+            "    assert after_pass.promoted == 0",
+            "    assert kb.get_task(conn, child).status == 'ready'",
+            "    assert child in after_pass.skipped_unassigned",
+            "    assert child not in [item[0] for item in after_pass.spawned]",
+            "    assert kb.assign_task(conn, child, 'jellybase_jellyssh')",
+            "    assigned = conn.execute(\"SELECT payload FROM task_events WHERE task_id = ? AND kind = 'assigned' ORDER BY id DESC LIMIT 1\", (child,)).fetchone()",
+            "    assert json.loads(assigned[0])['assignee'] == 'jellybase_jellyssh'",
+            "    after_assignment = kb.dispatch_once(conn, dry_run=True, max_spawn=1, max_in_progress=1, reconcile_orphans=False)",
+            "    assert child in [item[0] for item in after_assignment.spawned]",
+            "    print(json.dumps({'database': str(resolved_db), 'parent': parent, 'child': child, 'status': kb.get_task(conn, child).status}))",
+            "finally:",
+            "    conn.close()",
+        ])
+        env = os.environ.copy()
+        env["HERMES_KANBAN_DB"] = str(database_path)
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(hermes_agent_root), env.get("PYTHONPATH", "")]
+        ).rstrip(os.pathsep)
 
-        self.assertFalse(result["ok"])
-        self.assertIn("explicit sticky blocked event", "\n".join(result["errors"]))
+        completed = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=self.root,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
 
-    def test_explicit_block_does_not_replace_required_initial_blocked_state(self) -> None:
-        self.board_observation["tasks"]["t_22222222"]["events"][0]["initial_status"] = "running"
-
-        result = self.run_preflight()
-
-        self.assertFalse(result["ok"])
-        self.assertIn("was not created blocked", "\n".join(result["errors"]))
-
-    def test_unblock_after_block_invalidates_sticky_hold(self) -> None:
-        self.board_observation["tasks"]["t_22222222"]["events"].append({"id": 4, "kind": "unblocked"})
-
-        result = self.run_preflight()
-
-        self.assertFalse(result["ok"])
-        self.assertIn("explicit sticky blocked event", "\n".join(result["errors"]))
+        self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
+        result = json.loads(completed.stdout)
+        self.assertEqual(Path(result["database"]), database_path.resolve())
+        self.assertEqual(result["status"], "ready")
 
     def test_output_cannot_escape_evidence_directory(self) -> None:
         outside = Path(self.temp.name) / "outside.json"
@@ -349,6 +456,7 @@ class LifecyclePreflightTests(unittest.TestCase):
                 outside,
                 self.root,
                 observed_at="2026-08-11T09:00:00Z",
+                controller_repo_root=self.controller_repo_root,
                 checkout_observer=lambda item: copy.deepcopy(self.checkout_observations[item["role"]]),
                 board_observer=lambda slug, task_ids: copy.deepcopy(self.board_observation),
             )
@@ -357,12 +465,80 @@ class LifecyclePreflightTests(unittest.TestCase):
         self.assertIsNone(result["evidence_path"])
         self.assertFalse(outside.exists())
 
-    def test_atomic_evidence_write_cleans_temp_file_on_replace_failure(self) -> None:
+    def test_atomic_evidence_write_failures_never_leave_pass_evidence(self) -> None:
         evidence_root = self.root / "generated" / "evidence"
-        with mock.patch.object(Path, "replace", side_effect=OSError("fixture")):
-            with self.assertRaises(OSError):
-                projectctl.write_lifecycle_evidence(self.root, self.output, "{}\n")
-        self.assertEqual(list(evidence_root.iterdir()), [])
+        real_open = os.open
+        real_fsync = os.fsync
+        real_close = os.close
+        real_unlink = Path.unlink
+
+        with self.subTest(fault="replace"):
+            with mock.patch.object(Path, "replace", side_effect=OSError("replace fixture")):
+                with self.assertRaises(OSError):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            self.assertEqual(list(evidence_root.iterdir()), [])
+
+        def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
+            if Path(path) == evidence_root:
+                raise OSError("directory open fixture")
+            return real_open(path, flags, *args)
+
+        with self.subTest(fault="directory-open"):
+            with mock.patch.object(projectctl.os, "open", side_effect=fail_directory_open):
+                with self.assertRaises(OSError):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            self.assertFalse(self.output.exists())
+
+        def fail_directory_fsync(fd: int) -> None:
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError("directory fsync fixture")
+            real_fsync(fd)
+
+        with self.subTest(fault="directory-fsync"):
+            with mock.patch.object(projectctl.os, "fsync", side_effect=fail_directory_fsync):
+                with self.assertRaises(OSError):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            self.assertFalse(self.output.exists())
+
+        def close_then_fail(fd: int) -> None:
+            is_directory = stat.S_ISDIR(os.fstat(fd).st_mode)
+            real_close(fd)
+            if is_directory:
+                raise OSError("directory close fixture")
+
+        with self.subTest(fault="directory-close"):
+            with mock.patch.object(projectctl.os, "close", side_effect=close_then_fail):
+                with self.assertRaises(OSError):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            self.assertFalse(self.output.exists())
+
+        def fail_target_unlink(path: Path, missing_ok: bool = False) -> None:
+            if path == self.output:
+                raise OSError("target unlink fixture")
+            real_unlink(path, missing_ok=missing_ok)
+
+        with self.subTest(fault="cleanup-unlink"):
+            with (
+                mock.patch.object(projectctl.os, "fsync", side_effect=fail_directory_fsync),
+                mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_target_unlink),
+            ):
+                with self.assertRaises(OSError):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            self.assertTrue(self.output.exists())
+            self.assertEqual(
+                json.loads(self.output.read_text(encoding="utf-8"))["verdict"],
+                "BLOCK",
+            )
 
     def test_evidence_parent_symlink_cannot_escape_control_root(self) -> None:
         outside = Path(self.temp.name) / "outside-generated"

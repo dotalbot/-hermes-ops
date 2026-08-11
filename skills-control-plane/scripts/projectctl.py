@@ -26,7 +26,7 @@ from review_boundary import ReviewBoundaryError, ReviewRepository
 
 
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = CONTROL_ROOT.parent
+PRODUCTION_CONTROLLER_REPO_ROOT = Path("/home/jellybot/dev_projects/hermes-ops")
 DEFAULT_PROJECT = CONTROL_ROOT / "projects" / "jellyssh" / "project.yaml"
 SCHEMA = CONTROL_ROOT / "schemas" / "project-skill-profile.schema.json"
 CATALOG = CONTROL_ROOT / "catalog.yaml"
@@ -190,6 +190,8 @@ def validate_lifecycle_contract(
     project: dict[str, Any],
     runtime: dict[str, Any],
     schema_path: Path,
+    *,
+    controller_repo_root: Path = PRODUCTION_CONTROLLER_REPO_ROOT,
 ) -> list[str]:
     errors = _schema_errors(contract, schema_path, "lifecycle contract")
     if errors:
@@ -234,18 +236,17 @@ def validate_lifecycle_contract(
     if board["preflight"] != {
         "assignee": None,
         "workspace_kind": "dir",
-        "workspace_path": str(REPO_ROOT),
+        "workspace_path": str(controller_repo_root),
         "permitted_statuses": ["ready", "running"],
     }:
         errors.append("preflight task authority must be unassigned in the control-plane workspace")
-    implementation_profile = project.get("profiles", {}).get("implementation", {})
     if board["implementation"] != {
-        "assignee": implementation_profile.get("name"),
+        "assignee": None,
         "workspace_kind": runtime_board.get("workspace_kind"),
         "workspace_path": runtime_board.get("default_workdir"),
-        "permitted_statuses": ["blocked"],
+        "permitted_statuses": ["todo"],
     }:
-        errors.append("implementation task authority must be the sticky-blocked implementation profile workspace")
+        errors.append("implementation task authority must be unassigned todo in the implementation workspace")
     if contract["concurrency"] != {
         "max_spawn": runtime_board.get("max_spawn"),
         "max_in_progress": runtime_board.get("max_in_progress"),
@@ -316,15 +317,25 @@ def observe_checkout(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def observe_board(slug: str, task_ids: list[str]) -> dict[str, Any]:
-    kanban_root = Path.home() / ".hermes" / "kanban"
+    hermes_root = Path.home() / ".hermes"
+    kanban_root = hermes_root / "kanban"
     boards_root = kanban_root / "boards"
-    if kanban_root.is_symlink() or boards_root.is_symlink():
-        raise ControlPlaneError("board authority parent cannot be a symlink")
     board_root = boards_root / slug
     metadata_path = board_root / "board.json"
     database_path = board_root / "kanban.db"
-    if board_root.is_symlink() or metadata_path.is_symlink() or database_path.is_symlink():
-        raise ControlPlaneError("board authority cannot contain symlinks")
+    for authority_path in (
+        hermes_root,
+        kanban_root,
+        boards_root,
+        board_root,
+        metadata_path,
+        database_path,
+    ):
+        try:
+            if stat.S_ISLNK(authority_path.lstat().st_mode):
+                raise ControlPlaneError(f"board authority path cannot be a symlink: {authority_path}")
+        except FileNotFoundError:
+            pass
     metadata = load_json_object(metadata_path)
     tasks: dict[str, Any] = {}
     connection = sqlite3.connect(f"file:{database_path}?mode=ro", uri=True)
@@ -425,19 +436,6 @@ def _board_errors(contract: dict[str, Any], observed: dict[str, Any], runtime: d
     if isinstance(implementation, dict):
         if implementation.get("parents") != [preflight_id]:
             errors.append("implementation task must depend exactly on the preflight task")
-        created_events = [
-            event for event in implementation.get("events", [])
-            if event.get("kind") == "created"
-        ]
-        if len(created_events) != 1 or created_events[0].get("initial_status") != "blocked":
-            errors.append("implementation task was not created blocked")
-        lifecycle_events = [
-            event.get("kind")
-            for event in implementation.get("events", [])
-            if event.get("kind") in {"blocked", "unblocked"}
-        ]
-        if not lifecycle_events or lifecycle_events[-1] != "blocked":
-            errors.append("implementation task lacks an explicit sticky blocked event")
     return errors
 
 
@@ -457,6 +455,7 @@ def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> No
     if path.is_symlink():
         raise ControlPlaneError("lifecycle evidence output cannot be a symlink")
     temp_path: Path | None = None
+    published = False
     try:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=evidence_root, delete=False) as handle:
             temp_path = Path(handle.name)
@@ -464,14 +463,52 @@ def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> No
             handle.flush()
             os.fsync(handle.fileno())
         temp_path.replace(target)
+        published = True
         directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
+    except (ControlPlaneError, OSError):
+        if published:
+            _invalidate_failed_lifecycle_evidence(target, evidence_root)
+        raise
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
+
+
+def _invalidate_failed_lifecycle_evidence(target: Path, evidence_root: Path) -> None:
+    """Ensure a reported post-rename failure cannot leave PASS evidence."""
+    try:
+        target.unlink(missing_ok=True)
+    except OSError:
+        invalid = b'{"errors":["evidence durability failure"],"verdict":"BLOCK"}\n'
+        flags = os.O_WRONLY | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(target, flags)
+        try:
+            view = memoryview(invalid)
+            while view:
+                written = os.write(fd, view)
+                if written <= 0:
+                    raise OSError("failed to invalidate lifecycle evidence")
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    directory_fd: int | None = None
+    try:
+        directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        os.fsync(directory_fd)
+    except OSError:
+        pass
+    finally:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                pass
 
 
 def validate_checkout(
@@ -1355,6 +1392,7 @@ def preflight(
     control_root: Path = CONTROL_ROOT,
     *,
     observed_at: str | None = None,
+    controller_repo_root: Path = PRODUCTION_CONTROLLER_REPO_ROOT,
     checkout_observer: Callable[[dict[str, Any]], dict[str, Any]] = observe_checkout,
     board_observer: Callable[[str, list[str]], dict[str, Any]] = observe_board,
 ) -> dict[str, Any]:
@@ -1383,6 +1421,7 @@ def preflight(
             project,
             runtime,
             control_root / "schemas" / "work-item-lifecycle.schema.json",
+            controller_repo_root=controller_repo_root,
         )
     except ControlPlaneError as exc:
         contract_errors = [str(exc)]

@@ -1,6 +1,6 @@
 # JellySSH lifecycle-aware dispatch preflight
 
-**Status:** Remediation in progress — nonspawnable hold-lane amendment approved for BUG-008
+**Status:** Remediation implemented — exact-commit independent review pending
 **Date:** 2026-08-11
 **Repository:** `dotalbot/-hermes-ops`
 **Base:** `0523e6d414a515d3009d12e5e6abc32d96aa3451`
@@ -107,7 +107,8 @@ Before merge, delete the feature branch and generated local evidence. After merg
 ## Acceptance
 
 - Independent review finds no blocking issue in the exact process commit.
-- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:3815aa07c0801b4af75fab5ca0d4b428de68b0abd7838458caf402adbab658a0`), verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
+- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:ad960fedd2689a8255ce18f7efc3d69bedeb63ae34f2e15d654e1b915b1bc451`), contract `sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a`, verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
+- [x] A disposable direct-library Kanban gate uses an asserted temporary database and proves unfinished-parent claim rejection, parent-completion promotion, unassigned dispatcher skipping, and dispatchability only after audited `jellybase_jellyssh` assignment; live CHI and JellySSH task IDs are compared separately before/after verification.
 - The aligned BUG-008 contract passes and produces digest-addressed evidence.
 - The dependent implementation card cannot dispatch before parent completion, remains unassigned/nonspawnable after parent completion, and becomes spawnable only after the operator's audited assignment.
 
