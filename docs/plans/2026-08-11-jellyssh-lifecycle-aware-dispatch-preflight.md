@@ -1,6 +1,6 @@
 # JellySSH lifecycle-aware dispatch preflight
 
-**Status:** Remediation round 2 implemented — exact-commit independent review pending
+**Status:** Remediation round 3 implemented — exact-commit independent review pending
 **Date:** 2026-08-11
 **Repository:** `dotalbot/-hermes-ops`
 **Base:** `0523e6d414a515d3009d12e5e6abc32d96aa3451`
@@ -33,7 +33,7 @@ The command must:
 5. Validate local and remote bridge resolution, approved profiles, model/provider/fallback policy, skill hashes, pinned host identity, reviewer sandbox/toolchain, and conservative concurrency.
 6. Read the named board without mutation and validate the declared task IDs, parent links, assignees, workspaces, and permitted statuses.
 7. Reject an implementation-release contract unless its preflight parent exists and the implementation task is dependent on that parent, unassigned, and nonspawnable before operator release.
-8. Write evidence atomically beneath the control plane's generated/evidence directory. Evidence includes the contract digest, observed exact state, check results, source digests, timestamp, and PASS/BLOCK verdict.
+8. Write evidence atomically beneath the control plane's generated/evidence directory. Evidence includes the contract digest, observed exact state, check results, source digests, timestamp, and PASS/BLOCK verdict. Publication commits only after target replacement and directory fsync. Failures before replacement propagate without creating trusted target evidence; failures after replacement but before the commit point propagate and invalidate the target. Later stale-temp cleanup is best-effort housekeeping.
 9. Return non-zero on every schema, authority, observation, or write failure.
 
 ## Kanban gate
@@ -107,8 +107,8 @@ Before merge, delete the feature branch and generated local evidence. After merg
 ## Acceptance
 
 - Independent review finds no blocking issue in the exact process commit.
-- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:d6c6e1086aa9fc7f052bf527c1f91fa885c682566f1abe1d67adb198815f158d`), contract `sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a`, verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
-- [x] A disposable direct-library Kanban gate uses an asserted temporary database and proves unfinished-parent claim rejection, parent-completion promotion, unassigned dispatcher skipping, and dispatchability only after audited `jellybase_jellyssh` assignment; retained read-only live-board proof is `skills-control-plane/generated/evidence/disposable-kanban-gate-live-board-proof.json` (`sha256:4096c23086cd9783c1ad409c2c199bfb00adfd3f470e8eefd9712c7f1e1111f3`), with equal before/after CHI and JellySSH task-ID counts and set digests.
+- [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:9961d5a6aab4c37be61c2f3b71a8225ea16eb444d488c21f2e391491d8c61c63`), contract `sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a`, verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
+- [x] A disposable direct-library Kanban gate uses an asserted temporary database and proves unfinished-parent claim rejection, parent-completion promotion, unassigned dispatcher skipping, and dispatchability only after audited `jellybase_jellyssh` assignment; retained read-only live-board proof is `skills-control-plane/generated/evidence/disposable-kanban-gate-live-board-proof.json` (`sha256:a227e86afb7a525dc02c5b33cbe8e409e01562b1b80524ad70c89c4180b2c362`), with equal before/after CHI and JellySSH task-ID counts and set digests.
 - The aligned BUG-008 contract passes and produces digest-addressed evidence.
 - The dependent implementation card cannot dispatch before parent completion, remains unassigned/nonspawnable after parent completion, and becomes spawnable only after the operator's audited assignment.
 

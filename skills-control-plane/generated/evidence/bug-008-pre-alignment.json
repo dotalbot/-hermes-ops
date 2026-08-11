@@ -110,8 +110,8 @@
     "catalog": "sha256:a9adde9a1339133bc478a50375b1dd1ab833ae5ecac5a1bc3b0f149286346f39",
     "lifecycle_schema": "sha256:345a10164d26be303c3f9ac67daca50805e9c0ad7919cf0a4ade0ebf33c83541",
     "project_manifest": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
-    "projectctl": "sha256:87fffe3d9837ff99cb801115f9572a797ec0b74a6635454810e775cd989bec49",
-    "runtime_manifest": "sha256:998f627ee7d96cc7e179ad51239c2fbbcf53ae1d8ef1bde6a7c6f6ce47947beb"
+    "projectctl": "sha256:bd85daabe35b0dcbd74527ee0bf771a44d8c6f7948b1ac273d1c29ad9c666341",
+    "runtime_manifest": "sha256:7f7d6faa245fa4641ef244cbc42a267b83b50bfbe2b019402ecf6c45a49f13dc"
   },
   "verdict": "BLOCK",
   "work_item": "BUG-008"

@@ -474,35 +474,79 @@ class LifecyclePreflightTests(unittest.TestCase):
         real_close = os.close
         real_unlink = Path.unlink
 
-        with self.subTest(fault="replace"):
-            with mock.patch.object(Path, "replace", side_effect=OSError("replace fixture")):
-                with self.assertRaises(OSError):
-                    projectctl.write_lifecycle_evidence(
-                        self.root, self.output, '{"verdict":"PASS"}\n'
-                    )
-            self.assertEqual(list(evidence_root.iterdir()), [])
+        invalidation_attempts: list[str] = []
 
-        def fail_final_temp_unlink(path: Path, missing_ok: bool = False) -> None:
-            if path != self.output and path.parent == evidence_root:
+        def fail_post_publish_cleanup_and_target_unlink(
+            path: Path, missing_ok: bool = False
+        ) -> None:
+            if path == self.output:
+                invalidation_attempts.append("target-unlink")
+                raise OSError("target unlink denied")
+            if path.parent == evidence_root:
                 raise OSError("stale temp cleanup fixture")
             real_unlink(path, missing_ok=missing_ok)
 
-        with self.subTest(fault="post-install-stale-temp-cleanup"):
-            with mock.patch.object(
-                Path,
-                "unlink",
-                autospec=True,
-                side_effect=fail_final_temp_unlink,
-            ):
-                with self.assertRaisesRegex(OSError, "stale temp cleanup fixture"):
+        def fail_target_truncate_open(path: Any, flags: int, *args: Any) -> int:
+            if Path(path) == self.output and flags & os.O_TRUNC:
+                invalidation_attempts.append("target-truncate-open")
+                raise OSError("fallback open denied")
+            return real_open(path, flags, *args)
+
+        with self.subTest(fault="post-publish-cleanup-is-best-effort"):
+            try:
+                with (
+                    mock.patch.object(
+                        Path,
+                        "unlink",
+                        autospec=True,
+                        side_effect=fail_post_publish_cleanup_and_target_unlink,
+                    ),
+                    mock.patch.object(
+                        projectctl.os,
+                        "open",
+                        side_effect=fail_target_truncate_open,
+                    ),
+                ):
                     projectctl.write_lifecycle_evidence(
                         self.root, self.output, '{"verdict":"PASS"}\n'
                     )
-            if self.output.exists():
+                self.assertEqual(invalidation_attempts, [])
                 self.assertEqual(
                     json.loads(self.output.read_text(encoding="utf-8"))["verdict"],
-                    "BLOCK",
+                    "PASS",
                 )
+            finally:
+                for entry in evidence_root.iterdir():
+                    real_unlink(entry, missing_ok=True)
+
+        def fail_pre_publish_temp_cleanup(path: Path, missing_ok: bool = False) -> None:
+            if path.parent == evidence_root:
+                raise OSError("pre-publish cleanup fixture")
+            real_unlink(path, missing_ok=missing_ok)
+
+        with self.subTest(fault="pre-publish-cleanup-preserves-primary-failure"):
+            try:
+                with (
+                    mock.patch.object(
+                        Path,
+                        "replace",
+                        side_effect=OSError("replace fixture"),
+                    ),
+                    mock.patch.object(
+                        Path,
+                        "unlink",
+                        autospec=True,
+                        side_effect=fail_pre_publish_temp_cleanup,
+                    ),
+                ):
+                    with self.assertRaisesRegex(OSError, "replace fixture"):
+                        projectctl.write_lifecycle_evidence(
+                            self.root, self.output, '{"verdict":"PASS"}\n'
+                        )
+                self.assertFalse(self.output.exists())
+            finally:
+                for entry in evidence_root.iterdir():
+                    real_unlink(entry, missing_ok=True)
 
         def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
             if Path(path) == evidence_root:

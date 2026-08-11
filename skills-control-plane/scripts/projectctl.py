@@ -478,9 +478,10 @@ def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> No
             try:
                 temp_path.unlink(missing_ok=True)
             except OSError:
-                if published:
-                    _invalidate_failed_lifecycle_evidence(target, evidence_root)
-                raise
+                # Publication commits after the target rename and directory fsync.
+                # Temp cleanup is housekeeping and must not change that outcome or
+                # mask an earlier publication failure.
+                pass
 
 
 def _invalidate_failed_lifecycle_evidence(target: Path, evidence_root: Path) -> None:
