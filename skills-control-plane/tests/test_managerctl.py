@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
+from typing import Any
 from unittest import mock
 
 import yaml
@@ -199,6 +202,57 @@ class ManagerTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
+
+    def test_atomic_write_has_single_commit_point(self) -> None:
+        target = self.root / "atomic" / "authority.json"
+        content = b'{"verdict":"PASS"}\n'
+        real_open = os.open
+        real_fsync = os.fsync
+        real_close = os.close
+
+        def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
+            if Path(path) == target.parent:
+                raise OSError("directory open fixture")
+            return real_open(path, flags, *args)
+
+        with mock.patch.object(managerlib.os, "open", side_effect=fail_directory_open):
+            with self.assertRaisesRegex(OSError, "directory open fixture"):
+                managerlib._atomic_write(target, content)
+        self.assertFalse(target.exists())
+
+        def fail_directory_fsync(fd: int) -> None:
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError("directory fsync fixture")
+            real_fsync(fd)
+
+        with mock.patch.object(managerlib.os, "fsync", side_effect=fail_directory_fsync):
+            managerlib._atomic_write(target, content)
+        self.assertEqual(target.read_bytes(), content)
+        target.unlink()
+
+        def close_then_fail(fd: int) -> None:
+            is_directory = stat.S_ISDIR(os.fstat(fd).st_mode)
+            real_close(fd)
+            if is_directory:
+                raise OSError("directory close fixture")
+
+        with mock.patch.object(managerlib.os, "close", side_effect=close_then_fail):
+            managerlib._atomic_write(target, content)
+        self.assertEqual(target.read_bytes(), content)
+
+    def test_public_output_write_failure_is_structured_block(self) -> None:
+        target = self.root / "fleet.json"
+        with (
+            mock.patch.object(managerctl.managerlib, "fleet_status", return_value={"state": "GREEN"}),
+            mock.patch.object(managerctl.managerlib, "_atomic_write", side_effect=OSError("directory open fixture")),
+            mock.patch("builtins.print") as printed,
+        ):
+            rc = managerctl.main([
+                "--control-root", str(self.control), "fleet", "status", "--output", str(target),
+            ])
+        self.assertEqual(rc, 2)
+        self.assertFalse(target.exists())
+        self.assertTrue(any("BLOCK:" in str(call) for call in printed.call_args_list))
 
     def test_plan_is_deterministic_and_hash_bound(self) -> None:
         first = managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)

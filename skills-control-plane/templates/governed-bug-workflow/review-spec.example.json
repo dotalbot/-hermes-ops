@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "project": "jellyssh",
+  "expected_commit": "REPLACE_FULL_TARGET_COMMIT",
+  "expected_tree": "REPLACE_FULL_TARGET_TREE",
+  "base_commit": "REPLACE_FULL_BASE_COMMIT",
+  "specification_commit": "REPLACE_FULL_SPECIFICATION_COMMIT",
+  "specification_path": "docs/bugs/REPLACE.md",
+  "review_type": "final",
+  "paths": ["REPLACE_APPROVED_PATH"],
+  "focus": ["REPLACE_REQUIREMENT"]
+}

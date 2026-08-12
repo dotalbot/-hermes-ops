@@ -42,7 +42,10 @@ def _write_output(path: Path | None, value: dict[str, Any] | str) -> None:
         return
     if not path.is_absolute():
         raise managerlib.ManagerError("output path must be absolute")
-    managerlib._atomic_write(path, data, 0o600)
+    try:
+        managerlib._atomic_write(path, data, 0o600)
+    except OSError as exc:
+        raise managerlib.ManagerError("output publication failed") from exc
     print(path)
 
 

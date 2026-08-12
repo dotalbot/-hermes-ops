@@ -514,65 +514,38 @@ def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> No
     if path.is_symlink():
         raise ControlPlaneError("lifecycle evidence output cannot be a symlink")
     temp_path: Path | None = None
-    published = False
+    directory_fd: int | None = None
+    committed = False
     try:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=evidence_root, delete=False) as handle:
             temp_path = Path(handle.name)
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        temp_path.replace(target)
-        published = True
         directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        temp_path.replace(target)
+        committed = True
+        # Atomic replacement is the lifecycle publication commit point.
+        # Never report post-commit durability failure with PASS visible.
         try:
             os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        except OSError:
+            pass
     except (ControlPlaneError, OSError):
-        if published:
-            _invalidate_failed_lifecycle_evidence(target, evidence_root)
         raise
-    finally:
-        if temp_path is not None:
-            try:
-                temp_path.unlink(missing_ok=True)
-            except OSError:
-                # Publication commits after the target rename and directory fsync.
-                # Temp cleanup is housekeeping and must not change that outcome or
-                # mask an earlier publication failure.
-                pass
-
-
-def _invalidate_failed_lifecycle_evidence(target: Path, evidence_root: Path) -> None:
-    """Ensure a reported post-rename failure cannot leave PASS evidence."""
-    try:
-        target.unlink(missing_ok=True)
-    except OSError:
-        invalid = b'{"errors":["evidence durability failure"],"verdict":"BLOCK"}\n'
-        flags = os.O_WRONLY | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(target, flags)
-        try:
-            view = memoryview(invalid)
-            while view:
-                written = os.write(fd, view)
-                if written <= 0:
-                    raise OSError("failed to invalidate lifecycle evidence")
-                view = view[written:]
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-
-    directory_fd: int | None = None
-    try:
-        directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        os.fsync(directory_fd)
-    except OSError:
-        pass
     finally:
         if directory_fd is not None:
             try:
                 os.close(directory_fd)
             except OSError:
+                if not committed:
+                    raise
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                # Temp cleanup is housekeeping and must not change a committed
+                # outcome or mask an earlier publication failure.
                 pass
 
 
@@ -962,6 +935,9 @@ def validate_runtime(
             "review_boundary.py": control_root / "scripts" / "review_boundary.py",
             "jellyssh_review_mcp.py": control_root / "scripts" / "jellyssh_review_mcp.py",
             "projectctl.py": control_root / "scripts" / "projectctl.py",
+            "governancectl.py": control_root / "scripts" / "governancectl.py",
+            "managerctl.py": control_root / "scripts" / "managerctl.py",
+            "managerlib.py": control_root / "scripts" / "managerlib.py",
         }
         component_hashes = boundary.get("implementation_sha256")
         if not isinstance(component_hashes, dict) or set(component_hashes) != set(component_paths):
@@ -980,6 +956,29 @@ def validate_runtime(
                             component_path,
                             component_hashes.get(name),
                             f"controller implementation hash drift: {name}",
+                        )
+                    except ControlPlaneError as exc:
+                        errors.append(str(exc))
+        schema_paths = {
+            "reviewer-capability-evidence.schema.json": control_root / "schemas" / "reviewer-capability-evidence.schema.json",
+            "governance-timing.schema.json": control_root / "schemas" / "governance-timing.schema.json",
+            "governed-review-contract.schema.json": control_root / "schemas" / "governed-review-contract.schema.json",
+            "governed-acceptance-request.schema.json": control_root / "schemas" / "governed-acceptance-request.schema.json",
+        }
+        schema_hashes = boundary.get("schema_sha256")
+        if not isinstance(schema_hashes, dict) or set(schema_hashes) != set(schema_paths):
+            errors.append(f"{runtime_path}: controller schema hash manifest shape drift")
+        else:
+            for name, schema_path in schema_paths.items():
+                authority_files[f"controller schema {name}"] = (schema_path, schema_hashes.get(name))
+                if schema_path.is_symlink() or not schema_path.is_file():
+                    errors.append(f"controller schema type drift: {name}")
+                else:
+                    try:
+                        _read_pinned_bytes(
+                            schema_path,
+                            schema_hashes.get(name),
+                            f"controller schema hash drift: {name}",
                         )
                     except ControlPlaneError as exc:
                         errors.append(str(exc))
@@ -1919,21 +1918,33 @@ def write_generated(path: Path, content: str) -> None:
     if path.is_symlink():
         raise ControlPlaneError("status output cannot be a symlink")
     temp_path: Path | None = None
+    directory_fd: int | None = None
+    committed = False
     try:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=generated, delete=False) as handle:
             temp_path = Path(handle.name)
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        temp_path.replace(target)
         directory_fd = os.open(generated, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        temp_path.replace(target)
+        committed = True
         try:
             os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        except OSError:
+            pass
     finally:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                if not committed:
+                    raise
         if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _emit(value: dict[str, Any], as_json: bool) -> None:
@@ -1992,7 +2003,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         try:
             write_generated(args.output, rendered)
-        except ControlPlaneError as exc:
+        except (ControlPlaneError, OSError) as exc:
             print(f"BLOCK: {exc}", file=sys.stderr)
             return 2
         print(args.output.resolve())

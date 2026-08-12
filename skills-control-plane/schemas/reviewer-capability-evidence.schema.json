@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/hermes/skills-control-plane/reviewer-capability-evidence.schema.json",
+  "title": "Exact-attempt non-semantic reviewer capability evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "kind", "project", "attempt_id", "created_at_utc",
+    "review_specification", "review_specification_sha256",
+    "controller_sources_sha256", "approved_specification",
+    "repository_metadata", "mcp_evidence", "mcp_evidence_sha256",
+    "capability_verdict", "semantic_verdict", "envelope_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "reviewer-capability"},
+    "project": {"const": "jellyssh"},
+    "attempt_id": {"type": "string", "pattern": "^t_[0-9a-f]{8}$"},
+    "created_at_utc": {"type": "string", "format": "date-time"},
+    "review_specification": {"type": "object"},
+    "review_specification_sha256": {"$ref": "#/$defs/sha256"},
+    "controller_sources_sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewctl.py", "review_boundary.py", "jellyssh_review_mcp.py", "projectctl.py", "governancectl.py",
+        "managerctl.py", "managerlib.py", "reviewer-capability-evidence.schema.json", "governance-timing.schema.json",
+        "governed-review-contract.schema.json", "governed-acceptance-request.schema.json", "project.yaml"
+      ],
+      "properties": {
+        "reviewctl.py": {"$ref": "#/$defs/sha256"},
+        "review_boundary.py": {"$ref": "#/$defs/sha256"},
+        "jellyssh_review_mcp.py": {"$ref": "#/$defs/sha256"},
+        "projectctl.py": {"$ref": "#/$defs/sha256"},
+        "governancectl.py": {"$ref": "#/$defs/sha256"},
+        "managerctl.py": {"$ref": "#/$defs/sha256"},
+        "managerlib.py": {"$ref": "#/$defs/sha256"},
+        "reviewer-capability-evidence.schema.json": {"$ref": "#/$defs/sha256"},
+        "governance-timing.schema.json": {"$ref": "#/$defs/sha256"},
+        "governed-review-contract.schema.json": {"$ref": "#/$defs/sha256"},
+        "governed-acceptance-request.schema.json": {"$ref": "#/$defs/sha256"},
+        "project.yaml": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "approved_specification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit", "path", "sha256"],
+      "properties": {
+        "commit": {"$ref": "#/$defs/commit"},
+        "path": {"type": "string", "minLength": 1, "maxLength": 500},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "repository_metadata": {"type": "object"},
+    "mcp_evidence": {"type": "object"},
+    "mcp_evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "capability_verdict": {"enum": ["PASS", "BLOCK"]},
+    "semantic_verdict": {"type": "null"},
+    "envelope_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+  }
+}

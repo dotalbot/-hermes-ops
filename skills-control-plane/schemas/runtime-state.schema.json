@@ -165,6 +165,7 @@
         "ssh_host_key_fingerprint",
         "pinned_known_hosts_path",
         "implementation_sha256",
+        "schema_sha256",
         "conditional_ui_model",
         "conditional_ui_routing_state",
         "conditional_ui_evidence",
@@ -299,7 +300,10 @@
             "reviewctl.py",
             "review_boundary.py",
             "jellyssh_review_mcp.py",
-            "projectctl.py"
+            "projectctl.py",
+            "governancectl.py",
+            "managerctl.py",
+            "managerlib.py"
           ],
           "properties": {
             "reviewctl.py": {
@@ -313,7 +317,32 @@
             },
             "projectctl.py": {
               "$ref": "#/$defs/nonZeroSha256"
+            },
+            "governancectl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "managerctl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "managerlib.py": {
+              "$ref": "#/$defs/nonZeroSha256"
             }
+          }
+        },
+        "schema_sha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewer-capability-evidence.schema.json",
+            "governance-timing.schema.json",
+            "governed-review-contract.schema.json",
+            "governed-acceptance-request.schema.json"
+          ],
+          "properties": {
+            "reviewer-capability-evidence.schema.json": {"$ref": "#/$defs/nonZeroSha256"},
+            "governance-timing.schema.json": {"$ref": "#/$defs/nonZeroSha256"},
+            "governed-review-contract.schema.json": {"$ref": "#/$defs/nonZeroSha256"},
+            "governed-acceptance-request.schema.json": {"$ref": "#/$defs/nonZeroSha256"}
           }
         },
         "conditional_ui_model": {

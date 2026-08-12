@@ -588,6 +588,7 @@ class ReviewRepository:
 
     def metadata(self) -> dict[str, object]:
         head = self._git(["rev-parse", "HEAD"]).strip()
+        head_tree = self._git(["rev-parse", "HEAD^{tree}"]).strip()
         branch = self._git(["branch", "--show-current"]).strip()
         status = self._git(["status", "--short", "--branch", "--untracked-files=all"])
         try:
@@ -607,6 +608,7 @@ class ReviewRepository:
             "transport": "ssh" if self.ssh_target else "local",
             "ssh_target": self.ssh_target or None,
             "head": head,
+            "head_tree": head_tree,
             "branch": branch,
             "status": status,
             "origin": origin,

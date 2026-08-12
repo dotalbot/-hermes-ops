@@ -33,7 +33,7 @@ The command must:
 5. Validate local and remote bridge resolution, approved profiles, model/provider/fallback policy, skill hashes, pinned host identity, reviewer sandbox/toolchain, and conservative concurrency.
 6. Read the named board without mutation and validate the declared task IDs, parent links, assignees, workspaces, and permitted statuses.
 7. Reject an implementation-release contract unless its preflight parent exists and the implementation task is dependent on that parent, unassigned, and nonspawnable before operator release.
-8. Write evidence atomically beneath the control plane's generated/evidence directory. Evidence includes the contract digest, observed exact state, check results, source digests, timestamp, and PASS/BLOCK verdict. Publication commits only after target replacement and directory fsync. Failures before replacement propagate without creating trusted target evidence; failures after replacement but before the commit point propagate and invalidate the target. Later stale-temp cleanup is best-effort housekeeping.
+8. Write evidence atomically beneath the control plane's generated/evidence directory. Evidence includes the contract digest, observed exact state, check results, source digests, timestamp, and PASS/BLOCK verdict. Atomic replacement is the publication commit point: failures before replacement propagate without creating new trusted target evidence; post-commit directory durability and stale-temp cleanup are best effort and never report failure after PASS exposure.
 9. Return non-zero on every schema, authority, observation, or write failure.
 
 ## Kanban gate

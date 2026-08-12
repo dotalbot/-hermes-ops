@@ -467,95 +467,49 @@ class LifecyclePreflightTests(unittest.TestCase):
         self.assertIsNone(result["evidence_path"])
         self.assertFalse(outside.exists())
 
-    def test_atomic_evidence_write_failures_never_leave_pass_evidence(self) -> None:
+    def test_atomic_evidence_write_has_single_commit_point(self) -> None:
         evidence_root = self.root / "generated" / "evidence"
         real_open = os.open
         real_fsync = os.fsync
         real_close = os.close
         real_unlink = Path.unlink
 
-        invalidation_attempts: list[str] = []
-
-        def fail_post_publish_cleanup_and_target_unlink(
-            path: Path, missing_ok: bool = False
-        ) -> None:
-            if path == self.output:
-                invalidation_attempts.append("target-unlink")
-                raise OSError("target unlink denied")
+        def fail_post_publish_cleanup(path: Path, missing_ok: bool = False) -> None:
             if path.parent == evidence_root:
                 raise OSError("stale temp cleanup fixture")
             real_unlink(path, missing_ok=missing_ok)
 
-        def fail_target_truncate_open(path: Any, flags: int, *args: Any) -> int:
-            if Path(path) == self.output and flags & os.O_TRUNC:
-                invalidation_attempts.append("target-truncate-open")
-                raise OSError("fallback open denied")
-            return real_open(path, flags, *args)
-
         with self.subTest(fault="post-publish-cleanup-is-best-effort"):
             try:
-                with (
-                    mock.patch.object(
-                        Path,
-                        "unlink",
-                        autospec=True,
-                        side_effect=fail_post_publish_cleanup_and_target_unlink,
-                    ),
-                    mock.patch.object(
-                        projectctl.os,
-                        "open",
-                        side_effect=fail_target_truncate_open,
-                    ),
+                with mock.patch.object(
+                    Path, "unlink", autospec=True, side_effect=fail_post_publish_cleanup,
                 ):
                     projectctl.write_lifecycle_evidence(
                         self.root, self.output, '{"verdict":"PASS"}\n'
                     )
-                self.assertEqual(invalidation_attempts, [])
                 self.assertEqual(
-                    json.loads(self.output.read_text(encoding="utf-8"))["verdict"],
-                    "PASS",
+                    json.loads(self.output.read_text(encoding="utf-8"))["verdict"], "PASS"
                 )
             finally:
                 for entry in evidence_root.iterdir():
                     real_unlink(entry, missing_ok=True)
 
-        def fail_pre_publish_temp_cleanup(path: Path, missing_ok: bool = False) -> None:
-            if path.parent == evidence_root:
-                raise OSError("pre-publish cleanup fixture")
-            real_unlink(path, missing_ok=missing_ok)
-
-        with self.subTest(fault="pre-publish-cleanup-preserves-primary-failure"):
-            try:
-                with (
-                    mock.patch.object(
-                        Path,
-                        "replace",
-                        side_effect=OSError("replace fixture"),
-                    ),
-                    mock.patch.object(
-                        Path,
-                        "unlink",
-                        autospec=True,
-                        side_effect=fail_pre_publish_temp_cleanup,
-                    ),
-                ):
-                    with self.assertRaisesRegex(OSError, "replace fixture"):
-                        projectctl.write_lifecycle_evidence(
-                            self.root, self.output, '{"verdict":"PASS"}\n'
-                        )
-                self.assertFalse(self.output.exists())
-            finally:
-                for entry in evidence_root.iterdir():
-                    real_unlink(entry, missing_ok=True)
+        with self.subTest(fault="replace"):
+            with mock.patch.object(Path, "replace", side_effect=OSError("replace fixture")):
+                with self.assertRaisesRegex(OSError, "replace fixture"):
+                    projectctl.write_lifecycle_evidence(
+                        self.root, self.output, '{"verdict":"PASS"}\n'
+                    )
+            self.assertFalse(self.output.exists())
 
         def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
             if Path(path) == evidence_root:
                 raise OSError("directory open fixture")
             return real_open(path, flags, *args)
 
-        with self.subTest(fault="directory-open"):
+        with self.subTest(fault="directory-open-before-commit"):
             with mock.patch.object(projectctl.os, "open", side_effect=fail_directory_open):
-                with self.assertRaises(OSError):
+                with self.assertRaisesRegex(OSError, "directory open fixture"):
                     projectctl.write_lifecycle_evidence(
                         self.root, self.output, '{"verdict":"PASS"}\n'
                     )
@@ -566,13 +520,15 @@ class LifecyclePreflightTests(unittest.TestCase):
                 raise OSError("directory fsync fixture")
             real_fsync(fd)
 
-        with self.subTest(fault="directory-fsync"):
+        with self.subTest(fault="directory-fsync-after-commit"):
             with mock.patch.object(projectctl.os, "fsync", side_effect=fail_directory_fsync):
-                with self.assertRaises(OSError):
-                    projectctl.write_lifecycle_evidence(
-                        self.root, self.output, '{"verdict":"PASS"}\n'
-                    )
-            self.assertFalse(self.output.exists())
+                projectctl.write_lifecycle_evidence(
+                    self.root, self.output, '{"verdict":"PASS"}\n'
+                )
+            self.assertEqual(
+                json.loads(self.output.read_text(encoding="utf-8"))["verdict"], "PASS"
+            )
+            self.output.unlink()
 
         def close_then_fail(fd: int) -> None:
             is_directory = stat.S_ISDIR(os.fstat(fd).st_mode)
@@ -580,32 +536,13 @@ class LifecyclePreflightTests(unittest.TestCase):
             if is_directory:
                 raise OSError("directory close fixture")
 
-        with self.subTest(fault="directory-close"):
+        with self.subTest(fault="directory-close-after-commit"):
             with mock.patch.object(projectctl.os, "close", side_effect=close_then_fail):
-                with self.assertRaises(OSError):
-                    projectctl.write_lifecycle_evidence(
-                        self.root, self.output, '{"verdict":"PASS"}\n'
-                    )
-            self.assertFalse(self.output.exists())
-
-        def fail_target_unlink(path: Path, missing_ok: bool = False) -> None:
-            if path == self.output:
-                raise OSError("target unlink fixture")
-            real_unlink(path, missing_ok=missing_ok)
-
-        with self.subTest(fault="cleanup-unlink"):
-            with (
-                mock.patch.object(projectctl.os, "fsync", side_effect=fail_directory_fsync),
-                mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_target_unlink),
-            ):
-                with self.assertRaises(OSError):
-                    projectctl.write_lifecycle_evidence(
-                        self.root, self.output, '{"verdict":"PASS"}\n'
-                    )
-            self.assertTrue(self.output.exists())
+                projectctl.write_lifecycle_evidence(
+                    self.root, self.output, '{"verdict":"PASS"}\n'
+                )
             self.assertEqual(
-                json.loads(self.output.read_text(encoding="utf-8"))["verdict"],
-                "BLOCK",
+                json.loads(self.output.read_text(encoding="utf-8"))["verdict"], "PASS"
             )
 
     def test_evidence_parent_symlink_cannot_escape_control_root(self) -> None:

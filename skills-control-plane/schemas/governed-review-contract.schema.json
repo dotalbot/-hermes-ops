@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/hermes/skills-control-plane/governed-review-contract.schema.json",
+  "title": "Fresh governed review binder contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "work_item", "review_card_id", "capability_evidence_sha256", "authority", "required_axes", "expected_workspace_kind", "expected_max_runtime_seconds", "expected_max_retries", "kanban_board", "expected_reviewer_profile"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "work_item": {"type": "string", "pattern": "^[A-Z]+-[0-9]+$"},
+    "review_card_id": {"$ref": "#/$defs/card"},
+    "capability_evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "authority": {"$ref": "#/$defs/authority"},
+    "required_axes": {"const": ["standards", "specification"]},
+    "expected_workspace_kind": {"const": "scratch"},
+    "expected_max_runtime_seconds": {"const": 1200},
+    "expected_max_retries": {"const": 1},
+    "kanban_board": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"},
+    "expected_reviewer_profile": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"}
+  },
+  "$defs": {
+    "card": {"type": "string", "pattern": "^t_[0-9a-f]{8}$"},
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "base_commit", "specification_commit", "specification_path", "approved_specification_sha256", "target_commit", "target_tree"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "base_commit": {"$ref": "#/$defs/sha"},
+        "specification_commit": {"$ref": "#/$defs/sha"},
+        "specification_path": {"type": "string", "pattern": "^docs/(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
+        "approved_specification_sha256": {"$ref": "#/$defs/sha256"},
+        "target_commit": {"$ref": "#/$defs/sha"},
+        "target_tree": {"$ref": "#/$defs/sha"}
+      }
+    }
+  }
+}
