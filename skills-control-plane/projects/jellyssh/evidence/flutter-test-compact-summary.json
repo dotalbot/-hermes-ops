@@ -1,0 +1,96 @@
+{
+  "board_invariance": {
+    "continuous-hermes-improvement": {
+      "after": {
+        "count": 112,
+        "task_id_set_sha256": "sha256:f97100ae0e3bd6dfc0eb23975bd7313ab24474f9af20e5249261423523c17a72"
+      },
+      "before": {
+        "count": 112,
+        "task_id_set_sha256": "sha256:f97100ae0e3bd6dfc0eb23975bd7313ab24474f9af20e5249261423523c17a72"
+      },
+      "equal": true
+    },
+    "jellyssh": {
+      "after": {
+        "count": 9,
+        "task_id_set_sha256": "sha256:663b05279b55a25967c979e5714aee099b2aaaa88607761869225e34cc88418a"
+      },
+      "before": {
+        "count": 9,
+        "task_id_set_sha256": "sha256:663b05279b55a25967c979e5714aee099b2aaaa88607761869225e34cc88418a"
+      },
+      "equal": true
+    }
+  },
+  "checkout_invariance": {
+    "implementation": {
+      "after": {
+        "branch": "fix/bug-008-zero-byte-sftp-transfers",
+        "head": "da96d24bf57daf47ee5f8a238e8c5f940f3cae3d",
+        "status_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "before": {
+        "branch": "fix/bug-008-zero-byte-sftp-transfers",
+        "head": "da96d24bf57daf47ee5f8a238e8c5f940f3cae3d",
+        "status_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "equal": true,
+      "path": "/home/jellydev/dev_projects/jellyssh"
+    },
+    "reviewer": {
+      "after": {
+        "branch": "",
+        "head": "da96d24bf57daf47ee5f8a238e8c5f940f3cae3d",
+        "status_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "before": {
+        "branch": "",
+        "head": "da96d24bf57daf47ee5f8a238e8c5f940f3cae3d",
+        "status_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "equal": true,
+      "path": "/home/jellydev/dev_projects/jellyssh-review"
+    }
+  },
+  "controller_sources_sha256": {
+    "review_boundary.py": "sha256:611df8c1fccd1edde7aa7b16308a9003950425b45af062c09cb800fbabc2752e",
+    "reviewctl.py": "sha256:b12c27fa92fc9a52237323b4bf9aa40b4e9c2a1e204234833d02a1521273bfef"
+  },
+  "evidence_type": "restricted-flutter-test-compact-summary",
+  "generated_at": "2026-08-11T16:32:55+01:00",
+  "output_bound_bytes": 4096,
+  "output_bytes": 854,
+  "prior_raw_output_characters": 263513,
+  "project": "jellyssh",
+  "sandbox_controls": [
+    "disposable-exact-commit",
+    "network-none",
+    "no-new-privileges",
+    "pid-memory-swap-cpu-bounded",
+    "read-only-input",
+    "read-only-root",
+    "sequential-controller-checks",
+    "timeout-bounded",
+    "tmpfs-storage-bounded"
+  ],
+  "schema_version": 1,
+  "summary": {
+    "check": "flutter-test",
+    "diagnostics": [
+      "stderr: The new artifact \"libimobiledevice\" was downloaded, but Flutter failed to update its stamp file, receiving the error \"FileSystemException: Cannot open file, path = '/opt/flutter/bin/cache/libimobiledevice.stamp' (OS Error: Read-only file system, errno = 30)\". Flutter can continue, but the artifact may be re-dow",
+      "stderr: The new artifact \"libusbmuxd\" was downloaded, but Flutter failed to update its stamp file, receiving the error \"FileSystemException: Cannot open file, path = '/opt/flutter/bin/cache/libusbmuxd.stamp' (OS Error: Read-only file system, errno = 30)\". Flutter can continue, but the artifact may be re-downloaded on s"
+    ],
+    "exit_code": 0,
+    "failed": 0,
+    "passed": 716,
+    "protocol_version": "0.1.1",
+    "reporter": "json",
+    "schema_version": 1,
+    "skipped": 0,
+    "success": true,
+    "terminal": "done",
+    "total": 716
+  },
+  "target_commit": "da96d24bf57daf47ee5f8a238e8c5f940f3cae3d"
+}

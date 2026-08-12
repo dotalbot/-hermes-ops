@@ -1,5 +1,23 @@
 schema_version: 1
 project: jellyssh
+evidence_scopes:
+  bootstrap_baseline:
+    cut: '2026-08-09T12:08:00+01:00'
+    sections:
+    - state
+    - paths
+    - profiles
+    - repository_auth
+    - toolchain
+    - board
+    - rollback
+    - skill_materialization
+    - governance_decisions
+  reviewed_authority:
+    update_policy: exact-hash-reviewed-with-control-plane-changes
+    sections:
+    - review_boundary
+current_state_source: live-projectctl-scan-and-work-item-preflight
 state: setup-verified-routing-blocked
 paths:
   coordinator_checkout: /home/jellybot/dev_projects/jellyssh
@@ -58,6 +76,8 @@ review_boundary:
   controller_evidence: skills-control-plane/projects/jellyssh/evidence/reviewer-controller-smoke.json
   controller_evidence_sha256: sha256:c09e9ec2e7bd12b6887ad00645e6581bf871e1cffad473fe29d24a5a7462ed55
   controller_verdict: BLOCK
+  flutter_test_compact_evidence: skills-control-plane/projects/jellyssh/evidence/flutter-test-compact-summary.json
+  flutter_test_compact_evidence_sha256: sha256:c2118f1a86e772448dfd53cc8789c67a2a0f84bc5e596275dfc5a6db1bae0134
   sandbox_image_digest: sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
   project_state_commit: 7f612d96bd35fcaa336956d7922a82513d2e9e0d
   project_state_sha256: sha256:85ea70abf69c056069a1b3dfb74ec5d52ef789db14f8c703e5e7c6d8bab135f9
@@ -66,10 +86,10 @@ review_boundary:
   ssh_host_key_fingerprint: SHA256:MsKB6W/Pdd/0AU70/OvI8DnG9tFMyQvcEeYjaTLazR0
   pinned_known_hosts_path: /home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts
   implementation_sha256:
-    reviewctl.py: sha256:c8fdad1ed905aba56f91d5b9d78d2bc34085067f443788998751d25ce87c573c
-    review_boundary.py: sha256:e49f54e08bd079b1b89669e387cdf75ec78ca5ad5c8acd391706611710c8ef87
+    reviewctl.py: sha256:b12c27fa92fc9a52237323b4bf9aa40b4e9c2a1e204234833d02a1521273bfef
+    review_boundary.py: sha256:611df8c1fccd1edde7aa7b16308a9003950425b45af062c09cb800fbabc2752e
     jellyssh_review_mcp.py: sha256:a560a09bad07114bc2d084c5aabe8b628893f12b7f5976530d742c8ee7c36ed2
-    projectctl.py: sha256:b86834a43bb6ac164f280ff6e5d05044d334c766c1c9012b1686589fd14f9290
+    projectctl.py: sha256:4f2768943dfaed67bb0faefe16b251752801f117f9b17930b0d25ecee388d274
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
   conditional_ui_routing_state: verified
   conditional_ui_evidence: skills-control-plane/projects/jellyssh/evidence/ui-controller-smoke.json

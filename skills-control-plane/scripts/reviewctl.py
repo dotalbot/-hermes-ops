@@ -368,6 +368,41 @@ def _validate_check_output(name: str, ok: bool, text: str) -> None:
             raise ReviewControlError("submodule status is uninitialized or mismatched")
     if name == "dart-format-check" and (not ok or not re.search(r"Formatted \d+ files \(0 changed\)", text)):
         raise ReviewControlError("Dart format check output drift")
+    if name == "flutter-test":
+        if not ok or len(text.encode("utf-8")) > 4096:
+            raise ReviewControlError("Flutter test compact output failed or exceeded its bound")
+        try:
+            summary = json.loads(stripped)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ReviewControlError("Flutter test compact output is not JSON") from exc
+        expected_keys = {
+            "schema_version", "check", "reporter", "protocol_version",
+            "exit_code", "success", "terminal", "passed", "failed",
+            "skipped", "total", "diagnostics",
+        }
+        if not isinstance(summary, dict) or set(summary) != expected_keys:
+            raise ReviewControlError("Flutter test compact output shape drift")
+        counts = [summary[key] for key in ("passed", "failed", "skipped", "total")]
+        diagnostics = summary["diagnostics"]
+        if (
+            summary["schema_version"] != 1
+            or summary["check"] != "flutter-test"
+            or summary["reporter"] != "json"
+            or not isinstance(summary["protocol_version"], str)
+            or not re.fullmatch(r"0\.1\.\d+", summary["protocol_version"])
+            or type(summary["exit_code"]) is not int
+            or summary["exit_code"] != 0
+            or summary["success"] is not True
+            or summary["terminal"] != "done"
+            or any(type(value) is not int or value < 0 for value in counts)
+            or summary["total"] < 1
+            or summary["failed"] != 0
+            or summary["total"] != summary["passed"] + summary["failed"] + summary["skipped"]
+            or not isinstance(diagnostics, list)
+            or len(diagnostics) > 8
+            or any(not isinstance(item, str) or not item or len(item) > 320 for item in diagnostics)
+        ):
+            raise ReviewControlError("Flutter test compact terminal contract drift")
 
 
 def _required_checks(review_type: str) -> list[str]:

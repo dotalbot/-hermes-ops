@@ -4,6 +4,8 @@
 >
 > **Evidence cut:** 2026-08-09 12:08 BST
 >
+> **Historical snapshot:** This report preserves the Phase 2 setup boundary at its evidence cut. The later operator-authorized BUG-008 Phase 3 pilot completed and is recorded in `jellyssh-phase3-bug008-pilot-2026-08-12.md`; statements below that Phase 3 was unauthorized or no development cards existed are historical, not current runtime claims.
+>
 > **Branch:** `feat/jellyssh-phase2-routing`
 >
 > **Accepted Phase 1 base:** `c3daa570e7e1d3a8b15f8667c6803361130b0504`
@@ -105,7 +107,13 @@ The boundary:
 - bounds paths, files, lines, output size, response size, and time;
 - never exposes model terminal, file, code, Kanban, memory, or arbitrary MCP tools.
 
-Fixed Flutter checks use attribute-independent `ls-tree`/`cat-file` materialization of every regular tracked blob from the exact commit in a disposable directory and a digest-pinned local Docker image with `--network none`, a private IPC/PID namespace, a read-only root, dropped capabilities, no-new-privileges, no host home or runtime-socket mounts, bounded read-only SDK/cache mounts, one disposable writable scratch mount, and PID/process/memory/CPU/time/file-size limits. The exact commit's resolved `.dart_tool` metadata is hash-pinned and copied into scratch, so review checks perform no dependency resolution or network access. A fixed sandbox self-check proves network denial, container PID isolation, host-home/socket absence, root read-only behavior, and scratch cleanup before evidence is accepted. SSH ignores user configuration and uses an exact LAN address, user, key, port, disabled proxy/jump, a dedicated ED25519 known-hosts pin, and validated Jellybase hostname plus hashed machine identity.
+Fixed Flutter checks use attribute-independent `ls-tree`/`cat-file` materialization of every regular tracked blob from the exact commit in a disposable directory and a digest-pinned local Docker image with `--network none`, a private IPC/PID namespace, a read-only root, dropped capabilities, no-new-privileges, no host home or runtime-socket mounts, bounded read-only SDK/cache mounts, one disposable writable scratch mount, and PID/process/memory/CPU/time/file-size limits. The exact commit's resolved `.dart_tool` metadata is hash-pinned and copied into scratch, so review checks perform no dependency resolution or network access. A fixed sandbox self-check proves network denial, container PID isolation, host-home/socket absence, root read-only behavior, and scratch cleanup before evidence is accepted. SSH ignores user configuration and uses an exact LAN address, user, key, port, disabled proxy/jump, a dedicated ED25519 known-hosts pin, and validated Jellybase hostname plus hashed machine identity. As of 2026-08-11, `flutter-test` additionally uses Flutter's JSON machine reporter and summarizes its sandbox-local stream before SSH/MCP; the controller accepts only a bounded, versioned, terminally complete and internally consistent success object, never a `PASS` substring.
+
+### Compact Flutter test proof
+
+Evidence: `skills-control-plane/projects/jellyssh/evidence/flutter-test-compact-summary.json`
+
+The frozen BUG-008 target `da96d24bf57daf47ee5f8a238e8c5f940f3cae3d` completed the unchanged restricted sandbox with 716 passed, 0 failed, 0 skipped, terminal `done`, process exit `0`, and protocol `0.1.1`. The summary was 854 bytes against a 4096-byte controller bound; the earlier raw MCP result was 263,513 characters and lost its terminal totals at the bridge. Two bounded read-only Flutter SDK stamp warnings are retained as diagnostics. CHI/JellySSH task-ID sets and both Jellybase JellySSH checkout heads/branches/clean-status digests matched before and after the proof.
 
 ### Preserved controller verdict
 

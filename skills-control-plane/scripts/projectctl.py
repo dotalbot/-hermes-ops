@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import stat
 import sqlite3
@@ -24,7 +27,7 @@ from review_boundary import ReviewBoundaryError, ReviewRepository
 
 
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = CONTROL_ROOT.parent
+PRODUCTION_CONTROLLER_REPO_ROOT = Path("/home/jellybot/dev_projects/hermes-ops")
 DEFAULT_PROJECT = CONTROL_ROOT / "projects" / "jellyssh" / "project.yaml"
 SCHEMA = CONTROL_ROOT / "schemas" / "project-skill-profile.schema.json"
 CATALOG = CONTROL_ROOT / "catalog.yaml"
@@ -42,6 +45,17 @@ EXPECTED_CONTROLLER_CHECKS = frozenset({
     "controller:dart-format-check:PASS",
     "controller:flutter-analyze:BLOCK",
     "controller:flutter-test:BLOCK",
+})
+EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS = frozenset({
+    "disposable-exact-commit",
+    "network-none",
+    "no-new-privileges",
+    "pid-memory-swap-cpu-bounded",
+    "read-only-input",
+    "read-only-root",
+    "sequential-controller-checks",
+    "timeout-bounded",
+    "tmpfs-storage-bounded",
 })
 PINNED_SSH_OPTIONS = [
     "-F", "/dev/null",
@@ -150,6 +164,371 @@ def file_sha256_or_none(path: Path) -> str | None:
         return None
 
 
+def canonical_sha256(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def load_json_object(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ControlPlaneError(f"missing JSON: {path}") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ControlPlaneError(f"invalid JSON {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ControlPlaneError(f"JSON root must be an object: {path}")
+    return value
+
+
+def _schema_errors(document: dict[str, Any], schema_path: Path, label: str) -> list[str]:
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        jsonschema.Draft202012Validator.check_schema(schema)
+    except (OSError, UnicodeError, json.JSONDecodeError, jsonschema.SchemaError) as exc:
+        return [f"{label} schema unavailable or invalid: {exc}"]
+    found = sorted(
+        jsonschema.Draft202012Validator(schema).iter_errors(document),
+        key=lambda err: (list(err.absolute_path), err.message),
+    )
+    return [
+        f"{label} schema {'.'.join(map(str, err.absolute_path)) or '<root>'}: {err.message}"
+        for err in found
+    ]
+
+
+def validate_lifecycle_contract(
+    contract: dict[str, Any],
+    project: dict[str, Any],
+    runtime: dict[str, Any],
+    schema_path: Path,
+    *,
+    controller_repo_root: Path = PRODUCTION_CONTROLLER_REPO_ROOT,
+) -> list[str]:
+    errors = _schema_errors(contract, schema_path, "lifecycle contract")
+    if errors:
+        return errors
+
+    repository = contract["repository"]
+    if repository["remote"] != project.get("authority", {}).get("remote"):
+        errors.append("lifecycle repository remote does not match project authority")
+    if repository["remote"] != runtime.get("repository_auth", {}).get("remote"):
+        errors.append("lifecycle repository remote does not match runtime authority")
+
+    expected_roles = {
+        "coordinator": ("coordinator_checkout", "local", repository["specification_commit"], repository["branch"]),
+        "coordinator-review": ("coordinator_review_checkout", "local", repository["base_commit"], "main"),
+        "implementation": ("implementation_checkout", "ssh", repository["specification_commit"], repository["branch"]),
+        "reviewer": ("reviewer_checkout", "ssh", repository["base_commit"], "main"),
+    }
+    by_role = {item["role"]: item for item in contract["checkouts"]}
+    if set(by_role) != set(expected_roles) or len(by_role) != len(contract["checkouts"]):
+        errors.append("lifecycle contract must declare each checkout role exactly once")
+    runtime_paths = runtime.get("paths", {})
+    for role, expected in expected_roles.items():
+        item = by_role.get(role)
+        if item is None:
+            continue
+        runtime_key, transport, commit, branch = expected
+        if item["runtime_path"] != runtime_key:
+            errors.append(f"{role} runtime path binding mismatch")
+        if item["path"] != runtime_paths.get(runtime_key):
+            errors.append(f"{role} path does not match configured runtime path")
+        if item["transport"] != transport:
+            errors.append(f"{role} transport mismatch")
+        if item["commit"] != commit or item["branch"] != branch:
+            errors.append(f"{role} ref does not match lifecycle repository authority")
+
+    board = contract["board"]
+    runtime_board = runtime.get("board", {})
+    if board["preflight_task_id"] == board["implementation_task_id"]:
+        errors.append("preflight and implementation task IDs must differ")
+    if board["slug"] != runtime_board.get("slug"):
+        errors.append("lifecycle board slug does not match runtime authority")
+    if board["preflight"] != {
+        "assignee": None,
+        "workspace_kind": "dir",
+        "workspace_path": str(controller_repo_root),
+        "permitted_statuses": ["ready", "running"],
+    }:
+        errors.append("preflight task authority must be unassigned in the control-plane workspace")
+    if board["implementation"] != {
+        "assignee": None,
+        "workspace_kind": runtime_board.get("workspace_kind"),
+        "workspace_path": runtime_board.get("default_workdir"),
+        "permitted_statuses": ["todo"],
+    }:
+        errors.append("implementation task authority must be unassigned todo in the implementation workspace")
+    if contract["concurrency"] != {
+        "max_spawn": runtime_board.get("max_spawn"),
+        "max_in_progress": runtime_board.get("max_in_progress"),
+    }:
+        errors.append("lifecycle concurrency does not match runtime authority")
+    return errors
+
+
+def _run_local_git(path: str, args: list[str]) -> str:
+    command = [
+        "env", "-i", "HOME=/nonexistent", "PATH=/usr/bin:/bin", "LANG=C.UTF-8",
+        "GIT_NO_REPLACE_OBJECTS=1", "git", "-c", "core.fsmonitor=false",
+        "-c", "core.hooksPath=/dev/null", "-C", path, *args,
+    ]
+    proc = subprocess.run(
+        command,
+        check=False,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        raise ControlPlaneError(f"local checkout probe failed: git {args[0]}")
+    return proc.stdout.strip()
+
+
+def observe_checkout(item: dict[str, Any]) -> dict[str, Any]:
+    path = str(item["path"])
+    transport = str(item["transport"])
+    if transport == "local":
+        raw_path = Path(path)
+        try:
+            resolved_path = raw_path.resolve(strict=True)
+        except OSError as exc:
+            raise ControlPlaneError(f"local checkout path resolution failed: {type(exc).__name__}") from exc
+        if raw_path.is_symlink() or resolved_path != raw_path:
+            raise ControlPlaneError("local checkout path is not canonical")
+    elif transport == "ssh":
+        if resolve_remote_path(path) != path:
+            raise ControlPlaneError("remote checkout path is not canonical")
+
+    def run(args: list[str]) -> str:
+        if transport == "local":
+            return _run_local_git(path, args)
+        if transport == "ssh":
+            return run_remote_fixed(
+                ["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-C", path, *args],
+                "jellydev@jellybase-lan",
+            )
+        raise ControlPlaneError(f"unsupported checkout transport: {transport}")
+
+    branch = run(["rev-parse", "--abbrev-ref", "HEAD"])
+    replacement_output = run(["for-each-ref", "--format=%(refname)", "refs/replace"])
+    return {
+        "role": item["role"],
+        "runtime_path": item["runtime_path"],
+        "path": path,
+        "transport": transport,
+        "commit": run(["rev-parse", "--verify", "HEAD"]),
+        "branch": None if branch == "HEAD" else branch,
+        "detached": branch == "HEAD",
+        "clean": run(["status", "--porcelain=v1", "--untracked-files=all"]) == "",
+        "remote": run(["remote", "get-url", "origin"]),
+        "replacement_refs": sorted(line for line in replacement_output.splitlines() if line),
+    }
+
+
+def observe_board(slug: str, task_ids: list[str]) -> dict[str, Any]:
+    hermes_root = Path.home() / ".hermes"
+    kanban_root = hermes_root / "kanban"
+    boards_root = kanban_root / "boards"
+    board_root = boards_root / slug
+    metadata_path = board_root / "board.json"
+    database_path = board_root / "kanban.db"
+    for authority_path in (
+        hermes_root,
+        kanban_root,
+        boards_root,
+        board_root,
+        metadata_path,
+        database_path,
+    ):
+        try:
+            if stat.S_ISLNK(authority_path.lstat().st_mode):
+                raise ControlPlaneError(f"board authority path cannot be a symlink: {authority_path}")
+        except FileNotFoundError:
+            pass
+    metadata = load_json_object(metadata_path)
+    tasks: dict[str, Any] = {}
+    connection = sqlite3.connect(f"file:{database_path}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
+    try:
+        connection.execute("PRAGMA query_only=ON")
+        connection.execute("BEGIN")
+        for task_id in sorted(task_ids):
+            row = connection.execute(
+                "SELECT id, assignee, status, workspace_kind, workspace_path, "
+                "claim_lock, worker_pid, current_run_id FROM tasks WHERE id = ?",
+                (task_id,),
+            ).fetchone()
+            if row is None:
+                continue
+            parents = [
+                value[0]
+                for value in connection.execute(
+                    "SELECT parent_id FROM task_links WHERE child_id = ? ORDER BY parent_id",
+                    (task_id,),
+                ).fetchall()
+            ]
+            events = []
+            for value in connection.execute(
+                "SELECT id, kind, payload, created_at FROM task_events WHERE task_id = ? ORDER BY id",
+                (task_id,),
+            ).fetchall():
+                event = {"id": value[0], "kind": value[1], "created_at": value[3]}
+                if value[1] == "created":
+                    try:
+                        payload = json.loads(value[2] or "{}")
+                    except (TypeError, json.JSONDecodeError):
+                        payload = {}
+                    event["initial_status"] = payload.get("status") if isinstance(payload, dict) else None
+                events.append(event)
+            tasks[task_id] = {
+                "id": row["id"],
+                "assignee": row["assignee"],
+                "status": row["status"],
+                "workspace_kind": row["workspace_kind"],
+                "workspace_path": row["workspace_path"],
+                "parents": parents,
+                "events": events,
+                "active_claim": any(row[key] is not None for key in ("claim_lock", "worker_pid", "current_run_id")),
+            }
+        connection.commit()
+    except sqlite3.Error as exc:
+        raise ControlPlaneError(f"board observation failed: {exc}") from exc
+    finally:
+        connection.close()
+    return {
+        "slug": metadata.get("slug"),
+        "default_workdir": metadata.get("default_workdir"),
+        "tasks": tasks,
+    }
+
+
+def _checkout_errors(expected: dict[str, Any], observed: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for key in ("role", "runtime_path", "path", "transport", "commit", "branch", "detached", "clean"):
+        if observed.get(key) != expected.get(key):
+            errors.append(f"{expected['role']} checkout {key} drift")
+    if observed.get("remote") != expected.get("remote"):
+        errors.append(f"{expected['role']} checkout remote drift")
+    if observed.get("replacement_refs") != []:
+        errors.append(f"{expected['role']} checkout has replacement refs")
+    return errors
+
+
+def _board_errors(contract: dict[str, Any], observed: dict[str, Any], runtime: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    board = contract["board"]
+    if observed.get("slug") != board["slug"]:
+        errors.append("observed board slug mismatch")
+    if observed.get("default_workdir") != runtime.get("board", {}).get("default_workdir"):
+        errors.append("observed board default workdir mismatch")
+    tasks = observed.get("tasks", {})
+    preflight_id = board["preflight_task_id"]
+    implementation_id = board["implementation_task_id"]
+    preflight = tasks.get(preflight_id)
+    implementation = tasks.get(implementation_id)
+    for label, expectation, task in (
+        ("preflight", board["preflight"], preflight),
+        ("implementation", board["implementation"], implementation),
+    ):
+        if not isinstance(task, dict):
+            errors.append(f"{label} task is missing from the declared board")
+            continue
+        for key in ("assignee", "workspace_kind", "workspace_path"):
+            if task.get(key) != expectation[key]:
+                errors.append(f"{label} task {key} mismatch")
+        if task.get("status") not in expectation["permitted_statuses"]:
+            errors.append(f"{label} task status is not permitted")
+        if task.get("active_claim") is True:
+            errors.append(f"{label} task has an active claim")
+    if isinstance(preflight, dict) and preflight.get("parents") != []:
+        errors.append("preflight task must not have parents")
+    if isinstance(implementation, dict):
+        if implementation.get("parents") != [preflight_id]:
+            errors.append("implementation task must depend exactly on the preflight task")
+    return errors
+
+
+def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> None:
+    generated_root = control_root / "generated"
+    if generated_root.is_symlink():
+        raise ControlPlaneError("generated output directory cannot be a symlink")
+    generated_root.mkdir(parents=True, exist_ok=True)
+    evidence_root = generated_root / "evidence"
+    if evidence_root.is_symlink():
+        raise ControlPlaneError("lifecycle evidence directory cannot be a symlink")
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    evidence_root = evidence_root.resolve()
+    target = path.resolve(strict=False)
+    if target.parent != evidence_root or target.suffix != ".json":
+        raise ControlPlaneError("lifecycle evidence output must be a direct .json child of skills-control-plane/generated/evidence")
+    if path.is_symlink():
+        raise ControlPlaneError("lifecycle evidence output cannot be a symlink")
+    temp_path: Path | None = None
+    published = False
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=evidence_root, delete=False) as handle:
+            temp_path = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temp_path.replace(target)
+        published = True
+        directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except (ControlPlaneError, OSError):
+        if published:
+            _invalidate_failed_lifecycle_evidence(target, evidence_root)
+        raise
+    finally:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                # Publication commits after the target rename and directory fsync.
+                # Temp cleanup is housekeeping and must not change that outcome or
+                # mask an earlier publication failure.
+                pass
+
+
+def _invalidate_failed_lifecycle_evidence(target: Path, evidence_root: Path) -> None:
+    """Ensure a reported post-rename failure cannot leave PASS evidence."""
+    try:
+        target.unlink(missing_ok=True)
+    except OSError:
+        invalid = b'{"errors":["evidence durability failure"],"verdict":"BLOCK"}\n'
+        flags = os.O_WRONLY | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(target, flags)
+        try:
+            view = memoryview(invalid)
+            while view:
+                written = os.write(fd, view)
+                if written <= 0:
+                    raise OSError("failed to invalidate lifecycle evidence")
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    directory_fd: int | None = None
+    try:
+        directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        os.fsync(directory_fd)
+    except OSError:
+        pass
+    finally:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                pass
+
+
 def validate_checkout(
     path: str,
     authority: dict[str, Any],
@@ -196,7 +575,10 @@ def resolve_remote_path(path: str, ssh_target: str = "jellydev@jellybase-lan") -
 
 
 def run_remote_fixed(args: list[str], ssh_target: str, timeout: int = 30) -> str:
-    command = shlex.join(["env", "-i", "HOME=/home/jellydev", "PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", *args])
+    command = shlex.join([
+        "env", "-i", "HOME=/home/jellydev", "PATH=/usr/local/bin:/usr/bin:/bin",
+        "LANG=C.UTF-8", "GIT_NO_REPLACE_OBJECTS=1", *args,
+    ])
     proc = subprocess.run(
         ["ssh", *PINNED_SSH_OPTIONS, "--", ssh_target, command],
         text=True,
@@ -276,15 +658,179 @@ def validate_descriptor(control_root: Path, descriptor_path: Path) -> tuple[dict
     return doc, errors
 
 
+def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> list[str]:
+    error = "compact Flutter test evidence contract drift"
+    if not isinstance(evidence, dict) or set(evidence) != {
+        "schema_version", "project", "evidence_type", "generated_at",
+        "target_commit", "prior_raw_output_characters", "output_bound_bytes",
+        "output_bytes", "summary", "sandbox_controls",
+        "controller_sources_sha256", "board_invariance", "checkout_invariance",
+    }:
+        return [error]
+    target = evidence.get("target_commit")
+    summary = evidence.get("summary")
+    source_hashes = evidence.get("controller_sources_sha256")
+    diagnostics = summary.get("diagnostics") if isinstance(summary, dict) else None
+    counts = (
+        [summary.get(key) for key in ("passed", "failed", "skipped", "total")]
+        if isinstance(summary, dict)
+        else []
+    )
+    if (
+        evidence.get("schema_version") != 1
+        or evidence.get("project") != "jellyssh"
+        or evidence.get("evidence_type") != "restricted-flutter-test-compact-summary"
+        or not isinstance(evidence.get("generated_at"), str)
+        or not evidence["generated_at"]
+        or not isinstance(target, str)
+        or len(target) != 40
+        or any(char not in "0123456789abcdef" for char in target)
+        or evidence.get("prior_raw_output_characters") != 263513
+        or evidence.get("output_bound_bytes") != 4096
+        or not isinstance(summary, dict)
+        or set(summary) != {
+            "schema_version", "check", "reporter", "protocol_version",
+            "exit_code", "success", "terminal", "passed", "failed",
+            "skipped", "total", "diagnostics",
+        }
+        or summary.get("schema_version") != 1
+        or summary.get("check") != "flutter-test"
+        or summary.get("reporter") != "json"
+        or not isinstance(summary.get("protocol_version"), str)
+        or not re.fullmatch(r"0\.1\.\d+", summary["protocol_version"])
+        or type(summary.get("exit_code")) is not int
+        or summary["exit_code"] != 0
+        or summary.get("success") is not True
+        or summary.get("terminal") != "done"
+        or len(counts) != 4
+        or any(type(value) is not int or value < 0 for value in counts)
+        or summary.get("failed") != 0
+        or summary.get("total", 0) < 1
+        or summary.get("total") != sum(
+            int(value) for value in counts[:3] if type(value) is int
+        )
+        or not isinstance(diagnostics, list)
+        or len(diagnostics) > 8
+        or any(not isinstance(item, str) or not item or len(item) > 320 for item in diagnostics)
+        or set(evidence.get("sandbox_controls") or []) != EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS
+        or len(evidence.get("sandbox_controls") or []) != len(EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS)
+        or not isinstance(source_hashes, dict)
+        or set(source_hashes) != {"review_boundary.py", "reviewctl.py"}
+        or source_hashes.get("review_boundary.py") != file_sha256(control_root / "scripts/review_boundary.py")
+        or source_hashes.get("reviewctl.py") != file_sha256(control_root / "scripts/reviewctl.py")
+    ):
+        return [error]
+    canonical_output = json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n"
+    canonical_output_bytes = len(canonical_output.encode("utf-8"))
+    if (
+        evidence.get("output_bytes") != canonical_output_bytes
+        or canonical_output_bytes > evidence["output_bound_bytes"]
+    ):
+        return [error]
+
+    boards = evidence.get("board_invariance")
+    if not isinstance(boards, dict) or set(boards) != {"continuous-hermes-improvement", "jellyssh"}:
+        return [error]
+    for item in boards.values():
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"before", "after", "equal"}
+            or item.get("equal") is not True
+            or item.get("before") != item.get("after")
+        ):
+            return [error]
+        snapshot = item.get("before")
+        if (
+            not isinstance(snapshot, dict)
+            or set(snapshot) != {"count", "task_id_set_sha256"}
+            or type(snapshot.get("count")) is not int
+            or snapshot["count"] < 0
+            or not isinstance(snapshot.get("task_id_set_sha256"), str)
+            or len(snapshot["task_id_set_sha256"]) != 71
+            or not snapshot["task_id_set_sha256"].startswith("sha256:")
+        ):
+            return [error]
+
+    checkouts = evidence.get("checkout_invariance")
+    expected_paths = {
+        "implementation": "/home/jellydev/dev_projects/jellyssh",
+        "reviewer": "/home/jellydev/dev_projects/jellyssh-review",
+    }
+    if not isinstance(checkouts, dict) or set(checkouts) != set(expected_paths):
+        return [error]
+    for name, item in checkouts.items():
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"path", "before", "after", "equal"}
+            or item.get("path") != expected_paths[name]
+            or item.get("equal") is not True
+            or item.get("before") != item.get("after")
+        ):
+            return [error]
+        snapshot = item.get("before")
+        if (
+            not isinstance(snapshot, dict)
+            or set(snapshot) != {"head", "branch", "status_sha256"}
+            or snapshot.get("head") != target
+            or snapshot.get("status_sha256") != "sha256:" + hashlib.sha256(b"").hexdigest()
+            or snapshot.get("branch") != (
+                "fix/bug-008-zero-byte-sftp-transfers" if name == "implementation" else ""
+            )
+        ):
+            return [error]
+    return []
+
+
+def _validate_quality_evidence(
+    runtime: dict[str, Any],
+    project: dict[str, Any],
+    control_root: Path,
+) -> list[str]:
+    errors: list[str] = []
+    toolchain_data = runtime.get("toolchain", {})
+    if not isinstance(toolchain_data, dict):
+        return errors
+    try:
+        quality_rel = Path(str(toolchain_data.get("quality_gate_evidence", "")))
+        if quality_rel.is_absolute() or ".." in quality_rel.parts:
+            raise ControlPlaneError("quality evidence path is unsafe")
+        quality_path = (control_root.parent / quality_rel).resolve()
+        quality_path.relative_to(control_root.parent.resolve())
+        if file_sha256(quality_path) != toolchain_data.get("quality_gate_evidence_sha256"):
+            errors.append("Flutter quality evidence hash drift")
+        quality = json.loads(quality_path.read_text(encoding="utf-8"))
+        restricted = quality.get("restricted_controller", {})
+        if (
+            quality.get("project") != "jellyssh"
+            or quality.get("expected_commit") != project.get("authority", {}).get("commit")
+            or len(quality.get("findings") or []) != 4
+            or restricted.get("sandbox_self_check") != "PASS"
+            or restricted.get("dart_format") != "PASS-135-files-0-changed"
+            or restricted.get("flutter_analyze") != "BLOCK"
+            or restricted.get("flutter_test") != "BLOCK"
+        ):
+            errors.append("Flutter quality evidence contract drift")
+    except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"Flutter quality evidence invalid: {type(exc).__name__}")
+    return errors
+
+
 def validate_runtime(
     runtime_path: Path,
     project: dict[str, Any],
     control_root: Path = CONTROL_ROOT,
     declared_skills: dict[str, dict[str, Any]] | None = None,
+    lifecycle_contract: dict[str, Any] | None = None,
+    live_discovery: bool = True,
 ) -> list[str]:
     errors: list[str] = []
     declared_skills = declared_skills or {}
     runtime = load_yaml(runtime_path)
+    lifecycle_by_runtime = {
+        str(item.get("runtime_path")): item
+        for item in (lifecycle_contract or {}).get("checkouts", [])
+        if isinstance(item, dict)
+    }
     schema_path = control_root / "schemas" / "runtime-state.schema.json"
     try:
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -392,6 +938,18 @@ def validate_runtime(
         except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"controller review evidence invalid: {type(exc).__name__}")
         try:
+            compact_rel = Path(str(boundary.get("flutter_test_compact_evidence", "")))
+            if compact_rel.is_absolute() or ".." in compact_rel.parts:
+                raise ControlPlaneError("compact Flutter test evidence path is unsafe")
+            compact_path = (control_root.parent / compact_rel).resolve()
+            compact_path.relative_to(control_root.parent.resolve())
+            if file_sha256(compact_path) != boundary.get("flutter_test_compact_evidence_sha256"):
+                errors.append("compact Flutter test evidence hash drift")
+            compact_evidence = json.loads(compact_path.read_text(encoding="utf-8"))
+            errors.extend(_validate_compact_flutter_evidence(compact_evidence, control_root))
+        except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"compact Flutter test evidence invalid: {type(exc).__name__}")
+        try:
             ui_rel = Path(str(boundary.get("conditional_ui_evidence", "")))
             if ui_rel.is_absolute() or ".." in ui_rel.parts:
                 raise ControlPlaneError("conditional UI evidence path is unsafe")
@@ -415,6 +973,44 @@ def validate_runtime(
             errors.append(f"conditional UI review evidence invalid: {type(exc).__name__}")
 
     profile_specs = runtime.get("profiles")
+    if not live_discovery:
+        if not isinstance(profile_specs, dict):
+            errors.append(f"{runtime_path}: profiles must be a mapping")
+        else:
+            for role in ("implementation", "reviewer"):
+                observed = profile_specs.get(role)
+                declared = project.get("profiles", {}).get(role, {})
+                if not isinstance(observed, dict):
+                    errors.append(f"{runtime_path}: missing runtime profile {role}")
+                    continue
+                if observed.get("name") != declared.get("name"):
+                    errors.append(f"{runtime_path}: {role} profile name mismatch")
+                expected_skills = set(observed.get("skills") or [])
+                bundle_name = str(declared.get("bundle", ""))
+                authoritative_skills = set(
+                    project.get("skill_layers", {}).get("bundles", {}).get(bundle_name) or []
+                )
+                if expected_skills != authoritative_skills:
+                    errors.append(
+                        f"{role} runtime skill set does not match authoritative bundle {bundle_name}: "
+                        f"runtime={sorted(expected_skills)}, bundle={sorted(authoritative_skills)}"
+                    )
+        errors.extend(_validate_quality_evidence(runtime, project, control_root))
+        if runtime.get("state") == "setup-verified-routing-blocked":
+            profile_states = {
+                role: value.get("state") if isinstance(value, dict) else None
+                for role, value in (profile_specs or {}).items()
+            } if isinstance(profile_specs, dict) else {}
+            if (
+                not isinstance(boundary, dict)
+                or boundary.get("routing_state") != "verified"
+                or profile_states.get("implementation") != "verified"
+                or profile_states.get("reviewer") != "verified"
+                or runtime.get("board", {}).get("state") != "verified-empty"
+            ):
+                errors.append("setup-verified state lacks verified profiles, reviewer route, or empty board evidence")
+        return errors
+
     if not isinstance(profile_specs, dict):
         errors.append(f"{runtime_path}: profiles must be a mapping")
     else:
@@ -537,11 +1133,16 @@ def validate_runtime(
                     or declared.get("workspace") != runtime_paths.get("reviewer_checkout")
                 ):
                     errors.append("reviewer inert bootstrap workspace binding drift")
+                reviewer_expected_commit = project.get("authority", {}).get("commit")
+                reviewer_base_commit = reviewer_expected_commit
+                if lifecycle_contract is not None:
+                    reviewer_expected_commit = lifecycle_by_runtime.get("reviewer_checkout", {}).get("commit")
+                    reviewer_base_commit = lifecycle_contract.get("repository", {}).get("base_commit")
                 if (
                     server_env.get("JELLYSSH_REVIEW_ROOT") != runtime_paths.get("reviewer_checkout")
                     or server_env.get("JELLYSSH_REVIEW_SSH_TARGET") != "jellydev@jellybase-lan"
-                    or server_env.get("JELLYSSH_EXPECTED_COMMIT") != project.get("authority", {}).get("commit")
-                    or server_env.get("JELLYSSH_REVIEW_BASE_COMMIT") != project.get("authority", {}).get("commit")
+                    or server_env.get("JELLYSSH_EXPECTED_COMMIT") != reviewer_expected_commit
+                    or server_env.get("JELLYSSH_REVIEW_BASE_COMMIT") != reviewer_base_commit
                     or set(server_env) != {
                         "JELLYSSH_REVIEW_ROOT",
                         "JELLYSSH_EXPECTED_COMMIT",
@@ -567,14 +1168,15 @@ def validate_runtime(
 
     if isinstance(paths, dict):
         authority = project.get("authority", {})
-        for key in ("coordinator_checkout", "coordinator_review_checkout"):
-            errors.extend(validate_checkout(str(paths.get(key, "")), authority, key))
-        for key in ("implementation_checkout", "reviewer_checkout"):
-            errors.extend(
-                validate_checkout(
-                    str(paths.get(key, "")), authority, key, "jellydev@jellybase-lan"
+        if lifecycle_contract is None:
+            for key in ("coordinator_checkout", "coordinator_review_checkout"):
+                errors.extend(validate_checkout(str(paths.get(key, "")), authority, key))
+            for key in ("implementation_checkout", "reviewer_checkout"):
+                errors.extend(
+                    validate_checkout(
+                        str(paths.get(key, "")), authority, key, "jellydev@jellybase-lan"
+                    )
                 )
-            )
         for target_key, bridge_key in (
             ("coordinator_checkout", "implementation_bridge"),
             ("coordinator_review_checkout", "reviewer_bridge"),
@@ -708,33 +1310,10 @@ def validate_runtime(
             errors.append("live Hindsight discovery did not find jellyssh-main")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         errors.append(f"live Hindsight bank discovery failed: {type(exc).__name__}")
-    toolchain_data = runtime.get("toolchain", {})
-    if isinstance(toolchain_data, dict):
-        try:
-            quality_rel = Path(str(toolchain_data.get("quality_gate_evidence", "")))
-            if quality_rel.is_absolute() or ".." in quality_rel.parts:
-                raise ControlPlaneError("quality evidence path is unsafe")
-            quality_path = (control_root.parent / quality_rel).resolve()
-            quality_path.relative_to(control_root.parent.resolve())
-            if file_sha256(quality_path) != toolchain_data.get("quality_gate_evidence_sha256"):
-                errors.append("Flutter quality evidence hash drift")
-            quality = json.loads(quality_path.read_text(encoding="utf-8"))
-            restricted = quality.get("restricted_controller", {})
-            if (
-                quality.get("project") != "jellyssh"
-                or quality.get("expected_commit") != project.get("authority", {}).get("commit")
-                or len(quality.get("findings") or []) != 4
-                or restricted.get("sandbox_self_check") != "PASS"
-                or restricted.get("dart_format") != "PASS-135-files-0-changed"
-                or restricted.get("flutter_analyze") != "BLOCK"
-                or restricted.get("flutter_test") != "BLOCK"
-            ):
-                errors.append("Flutter quality evidence contract drift")
-        except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
-            errors.append(f"Flutter quality evidence invalid: {type(exc).__name__}")
+    errors.extend(_validate_quality_evidence(runtime, project, control_root))
     board = runtime.get("board", {})
     board_root = Path.home() / ".hermes" / "kanban" / "boards" / str(board.get("slug", ""))
-    if board.get("state") == "verified-empty":
+    if board.get("state") == "verified-empty" and lifecycle_contract is None:
         try:
             board_meta = json.loads((board_root / "board.json").read_text(encoding="utf-8"))
             if board_meta.get("slug") != board.get("slug") or board_meta.get("default_workdir") != board.get("default_workdir"):
@@ -788,7 +1367,12 @@ def validate_runtime(
     return errors
 
 
-def scan(project_path: Path = DEFAULT_PROJECT, control_root: Path = CONTROL_ROOT) -> dict[str, Any]:
+def scan(
+    project_path: Path = DEFAULT_PROJECT,
+    control_root: Path = CONTROL_ROOT,
+    lifecycle_contract: dict[str, Any] | None = None,
+    live_discovery: bool = True,
+) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
     schema_path = control_root / "schemas" / "project-skill-profile.schema.json"
@@ -972,7 +1556,16 @@ def scan(project_path: Path = DEFAULT_PROJECT, control_root: Path = CONTROL_ROOT
 
     runtime_path = project_dir / "runtime.yaml"
     try:
-        errors.extend(validate_runtime(runtime_path, project, control_root, declared_skills))
+        errors.extend(
+            validate_runtime(
+                runtime_path,
+                project,
+                control_root,
+                declared_skills,
+                lifecycle_contract=lifecycle_contract,
+                live_discovery=live_discovery,
+            )
+        )
     except ControlPlaneError as exc:
         errors.append(str(exc))
 
@@ -994,6 +1587,117 @@ def scan(project_path: Path = DEFAULT_PROJECT, control_root: Path = CONTROL_ROOT
             "runtime_manifest": file_sha256_or_none(runtime_path),
             "catalog": file_sha256_or_none(catalog_path),
         },
+    }
+
+
+def preflight(
+    project_path: Path,
+    contract_path: Path,
+    output_path: Path,
+    control_root: Path = CONTROL_ROOT,
+    *,
+    observed_at: str | None = None,
+    controller_repo_root: Path = PRODUCTION_CONTROLLER_REPO_ROOT,
+    checkout_observer: Callable[[dict[str, Any]], dict[str, Any]] = observe_checkout,
+    board_observer: Callable[[str, list[str]], dict[str, Any]] = observe_board,
+) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    observations: dict[str, Any] = {"checkouts": [], "board": None}
+    source_digests: dict[str, Any] = {
+        "project_manifest": file_sha256_or_none(project_path),
+        "runtime_manifest": file_sha256_or_none(project_path.parent / "runtime.yaml"),
+        "catalog": file_sha256_or_none(control_root / "catalog.yaml"),
+        "lifecycle_schema": file_sha256_or_none(control_root / "schemas" / "work-item-lifecycle.schema.json"),
+        "projectctl": file_sha256_or_none(control_root / "scripts" / "projectctl.py"),
+    }
+    contract: dict[str, Any] = {}
+    contract_digest = file_sha256_or_none(contract_path)
+    project: dict[str, Any] = {}
+    runtime: dict[str, Any] = {}
+
+    contract_errors: list[str] = []
+    try:
+        contract = load_json_object(contract_path)
+        contract_digest = canonical_sha256(contract)
+        project = load_yaml(project_path)
+        runtime = load_yaml(project_path.parent / "runtime.yaml")
+        contract_errors = validate_lifecycle_contract(
+            contract,
+            project,
+            runtime,
+            control_root / "schemas" / "work-item-lifecycle.schema.json",
+            controller_repo_root=controller_repo_root,
+        )
+    except ControlPlaneError as exc:
+        contract_errors = [str(exc)]
+    except (AttributeError, KeyError, TypeError) as exc:
+        contract_errors = [f"lifecycle authority invalid: {type(exc).__name__}"]
+    checks.append({"name": "contract", "ok": not contract_errors, "errors": contract_errors})
+
+    if not contract_errors:
+        static_result = scan(project_path, control_root, lifecycle_contract=contract)
+        static_errors = list(static_result.get("errors") or [])
+        source_digests.update(static_result.get("source_digests") or {})
+        checks.append({"name": "control-plane", "ok": not static_errors, "errors": static_errors})
+
+        repository_remote = contract["repository"]["remote"]
+        for expected in sorted(contract["checkouts"], key=lambda item: item["role"]):
+            observed: dict[str, Any] = {}
+            found: list[str] = []
+            try:
+                observed = checkout_observer(expected)
+                expected_observation = dict(expected)
+                expected_observation["remote"] = repository_remote
+                found = _checkout_errors(expected_observation, observed)
+            except (ControlPlaneError, OSError, subprocess.TimeoutExpired) as exc:
+                found = [f"{expected['role']} checkout observation failed: {type(exc).__name__}: {exc}"]
+            observations["checkouts"].append(observed or {"role": expected["role"], "observation_failed": True})
+            checks.append({"name": f"checkout:{expected['role']}", "ok": not found, "errors": found})
+
+        board_errors: list[str] = []
+        try:
+            task_ids = [contract["board"]["preflight_task_id"], contract["board"]["implementation_task_id"]]
+            board_observation = board_observer(contract["board"]["slug"], task_ids)
+            observations["board"] = board_observation
+            board_errors = _board_errors(contract, board_observation, runtime)
+        except (ControlPlaneError, OSError, sqlite3.Error) as exc:
+            board_errors = [f"board observation failed: {type(exc).__name__}: {exc}"]
+        checks.append({"name": "board", "ok": not board_errors, "errors": board_errors})
+
+    all_errors = [error for check in checks for error in check["errors"]]
+    verdict = "PASS" if not all_errors else "BLOCK"
+    timestamp = observed_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    evidence = {
+        "schema_version": 1,
+        "project": contract.get("project"),
+        "work_item": contract.get("work_item"),
+        "phase": contract.get("phase"),
+        "observed_at": timestamp,
+        "contract_sha256": contract_digest,
+        "source_digests": source_digests,
+        "observations": observations,
+        "checks": checks,
+        "verdict": verdict,
+    }
+    content = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
+    try:
+        write_lifecycle_evidence(control_root, output_path, content)
+    except (ControlPlaneError, OSError) as exc:
+        return {
+            "ok": False,
+            "verdict": "BLOCK",
+            "errors": all_errors + [f"evidence write failed: {exc}"],
+            "contract_sha256": contract_digest,
+            "evidence_path": None,
+            "evidence_sha256": None,
+        }
+    return {
+        "ok": verdict == "PASS",
+        "verdict": verdict,
+        "errors": all_errors,
+        "contract_sha256": contract_digest,
+        "evidence_path": str(output_path.resolve()),
+        "evidence_sha256": "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest(),
     }
 
 
@@ -1143,6 +1847,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("plan")
     init = sub.add_parser("project-init")
     init.add_argument("--dry-run", action="store_true")
+    preflight_parser = sub.add_parser("preflight")
+    preflight_parser.add_argument("--contract", type=Path, required=True)
+    preflight_parser.add_argument("--output", type=Path, required=True)
     status_parser = sub.add_parser("status")
     status_parser.add_argument("--output", type=Path)
     status_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
@@ -1161,6 +1868,10 @@ def main(argv: list[str] | None = None) -> int:
             print("BLOCK: project-init requires --dry-run; apply is deliberately not implemented in Phase 2", file=sys.stderr)
             return 2
         result = plan(args.project)
+        _emit(result, args.json)
+        return 0 if result["ok"] else 1
+    if args.command == "preflight":
+        result = preflight(args.project, args.contract, args.output)
         _emit(result, args.json)
         return 0 if result["ok"] else 1
     result = scan(args.project)

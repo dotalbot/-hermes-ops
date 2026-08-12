@@ -1,10 +1,10 @@
 # Jellyberry Kanban orchestration design — V3: JellySSH pilot and expert-agent governance
 
-> **Status:** Operator-approved design; Phases 0, 1 and 2 accepted; Phase 2 merged; reusable Skills Manager/Project Setup Phase 2.5 authorized and in progress
+> **Status:** Operator-approved design; Phases 0, 1, 2, 2.5, and the first Phase 3 JellySSH pilot accepted; lifecycle infrastructure PR and one repeatability pilot preparation authorized
 >
 > **Based on:** V2 plus the operator's LogK exclusion, JellySSH pilot selection, live Jellyhome LogK/OpenCode inspection, and read-only JellySSH repository intake
 >
-> **Checked:** 2026-08-09 after Phase 2 acceptance
+> **Checked:** 2026-08-12 after BUG-008 merge and reconciliation
 >
 > **Original design approval:** Approved in the Hermes CLI session on 2026-08-09 with Phase 0 as the first authorized action.
 >
@@ -14,7 +14,9 @@
 >
 > **Phase transition:** Phase 2 was accepted, merged into the repository default branch, and Phase 2.5 Skills Manager/Project Setup work was authorized by the operator on 2026-08-09.
 >
-> **Implementation state:** Phase 0 corrections, Phase 1 governance, and Phase 2's independently reviewed JellySSH control-plane/setup route are complete. Phase 2.5 may generalize approval-bound project setup, doctor/reconciliation, skill lifecycle and fleet projections without creating or dispatching a JellySSH card. Phase 2.5 does not authorize the JellySSH Phase 3 pilot, LogK changes, privilege use, PR creation, release, signing, sideloading or deployment. V1 and V2 remain preserved separately.
+> **Phase transition:** The operator authorized the first Phase 3 JellySSH pilot; BUG-008 completed the governed path and PR #2 merged on 2026-08-12. The operator then authorized preparing the lifecycle-infrastructure PR and one second small JellySSH pilot to prove repeatability. Merging the Hermes-ops PR, product PR/merge, LogK work, privilege use, release, signing, sideloading, and deployment remain separate gates.
+>
+> **Implementation state:** Phase 0 corrections, Phase 1 governance, Phase 2 setup/routing, Phase 2.5 project/skill controls, lifecycle-aware dispatch preflight, compact reviewer evidence, and the first Phase 3 JellySSH pilot are complete. V1 and V2 remain preserved separately.
 
 ## What V3 changes
 
@@ -255,7 +257,9 @@ Physical-device and APK claims remain manual evidence. A worker must not claim t
 
 ## 4. Board, repository, profile, skill, expert, model, and bank routing
 
-### 4.1 Proposed project manifest
+### 4.1 Historical proposal manifest
+
+The YAML below is the original pre-Phase-2 proposal and is retained as design history. It is not current runtime authority. Current Git authority is under `skills-control-plane/projects/jellyssh/`; live profile, checkout, MCP, board, and ticket state comes from `projectctl scan` and exact lifecycle preflight evidence.
 
 ```yaml
 projects:
@@ -334,11 +338,11 @@ projects:
       candidate_updates_are_routable: false
 ```
 
-This is proposed configuration, not current runtime state. The paths must be verified before any clone or card is created.
+At proposal time this was configuration, not runtime state. Phase 2 subsequently verified the dedicated profiles, bank, board, and checkout paths. Every new ticket still re-verifies exact path, ownership, remote, cleanliness, target/base, and review routing before dispatch.
 
 Every dispatch has a fail-closed preflight. The resolved profile must exist, report `jellyssh-main`, load every pinned skill from the approved manifest, use the expected retention mode, and resolve to the approved checkout and branch. A mismatch blocks the card; it must never fall back to `jellybase_hermes`, `jellybase-worker-main`, another project bank, or an unreviewed skill copy.
 
-The proposed checkout paths above are routing candidates, not discovered facts. They become dispatchable only after live path, ownership, remote, and clean-state verification records `paths_verified: true`.
+The proposal's checkout paths became verified Phase 2 bindings. They are not permanently dispatchable facts: lifecycle preflight must observe them again for each work-item release, and any drift blocks.
 
 ### 4.2 Current and proposed memory routes
 
@@ -346,7 +350,7 @@ The proposed checkout paths above are routing candidates, not discovered facts. 
 Workstream                      Board                           Memory route
 Hermes operations               continuous-hermes-improvement   hermes-main
 Home network                    home-network                    home-network-main
-JellySSH pilot                  jellyssh (proposed)             jellyssh-main
+JellySSH pilot                  jellyssh                        jellyssh-main
 Jellybase transport validation  spawner                         jellybase-worker-main
 LogK post-pilot                 logk (later)                    logk-main
 Portfolio intelligence          portfolio                       portfolio-intel-main
@@ -360,7 +364,7 @@ JellySSH and the later LogK workstream have no native cross-board dependency edg
 
 ---
 
-## 5. Proposed profile roster
+## 5. Profile roster
 
 ### 5.1 `default`
 
@@ -381,7 +385,7 @@ Existing generic Jellybase worker baseline:
 - `jellybase-worker-main` with automatic retention disabled.
 - Source baseline for a project-specific profile, not the normal JellySSH pilot assignee.
 
-### 5.3 `jellybase_jellyssh` — proposed
+### 5.3 `jellybase_jellyssh` — installed and verified
 
 JellySSH implementation profile:
 
@@ -391,7 +395,7 @@ JellySSH implementation profile:
 - Loads only approved implementation, TDD, project, and expert-support skills.
 - Blocks on sudo, credentials, release signing, device access, production paths, unknown local changes, or scope conflict.
 
-### 5.4 `jellybase_jellyssh_reviewer` — proposed
+### 5.4 `jellybase_jellyssh_reviewer` — installed and verified
 
 Independent reviewer:
 
@@ -547,7 +551,7 @@ Risk activation is explicit:
 - Level 2 — architecture, security, database/data, UI, dependency/external-process, concurrency, large/multi-module, uncertain, or previously failed work; pre-implementation expert review plus post-commit expert/final review.
 - Level 3 — destructive/irreversible data, production repair, credentials/crypto/permissions/signing, release/deployment, or conflicting verdicts; expert review plus explicit operator hold.
 
-The JellySSH lower-cost proposed final reviewer is OpenRouter `deepseek/deepseek-v3.2`, distinct from the OpenAI Codex implementation family. Model availability and credential usability must be rechecked in a fresh Phase 2 session. No same-family or unreviewed alias fallback counts as cross-model evidence.
+The verified JellySSH lower-cost final reviewer route uses OpenRouter `deepseek/deepseek-v3.2`, distinct from the OpenAI Codex implementation family. The restricted controller smoke and BUG-008 review exercised this route. Availability, credential usability, and response identity are still rechecked for each exact review; no same-family or unreviewed alias fallback counts as cross-model evidence.
 
 For the pilot's final independent code-review gate, model diversity is required when a second approved tool-capable model is available. If it is unavailable, the card blocks for an operator decision rather than silently treating same-model review as cross-model evidence. Earlier specialist advice may use the same model when its role, context, and tools are still independently bounded.
 
@@ -581,7 +585,9 @@ The established LogK/OpenCode method contributes:
 
 JellySSH already contributes project-specific Flutter, SSH/terminal, Drift/Riverpod, mobile UX, test, review, and documentation specialists.
 
-### 7.2 Proposed pilot lifecycle
+### 7.2 Exercised pilot lifecycle
+
+BUG-008 exercised this lifecycle through independent exact-commit review and operator acceptance. The same sequence remains the governed template for later tickets; each ticket must satisfy fresh lifecycle preflight rather than inheriting BUG-008 authorization.
 
 ```mermaid
 flowchart LR
@@ -937,13 +943,13 @@ The revised design is:
 - [x] Jellyberry remains the sole Kanban control plane.
 - [x] JellySSH replaces LogK as the first pilot.
 - [x] JellySSH development executes on Jellybase.
-- [x] `jellyssh-main` is the proposed project memory bank, subject to fresh routing verification.
+- [x] `jellyssh-main` is the verified project memory bank; each ticket still requires fresh routing verification.
 - [x] LogK remains read-only and outside the pilot.
 - [x] Future LogK development remains on Jellyhome using OpenCode behind a Hermes-owned adapter.
 - [x] The pilot begins with one small, reversible, non-security-critical ticket.
 - [x] Automatic decomposition and automatic fallback assignment remain disabled.
 - [x] Pilot concurrency remains one executable card.
-- [x] `jellybase_jellyssh` and `jellybase_jellyssh_reviewer` are the proposed first project-bound pair.
+- [x] `jellybase_jellyssh` and `jellybase_jellyssh_reviewer` are the installed and verified first project-bound pair.
 - [x] The reviewer uses a separate workspace, read-only tools, automatic retention disabled, and preferably a different model.
 - [x] Matt skills, local skills, project overlays, experts, profiles, and models remain distinct managed layers.
 - [x] Upstream skill updates use inventory, diff, review, sandbox test, approval, promotion, and rollback.
@@ -951,14 +957,14 @@ The revised design is:
 - [x] Database/data expertise is a governed capability pack with explicit mandatory triggers.
 - [x] Project initialization is dry-run first, schema-validated, idempotent, and non-executable until verified.
 - [x] Skill health and update views are generated from manifests and live audits rather than maintained as a second authority.
-- [x] The lower-cost proposed OpenRouter reviewer is `deepseek/deepseek-v3.2`; exact availability must be rechecked before routing.
+- [x] The verified lower-cost OpenRouter reviewer route uses `deepseek/deepseek-v3.2`; availability, credential usability, and response identity are rechecked for every exact review.
 - [x] Architecture, security, UI, and database/data expert triggers are explicit.
 - [x] Repository and live evidence override conflicting memory.
 - [x] PR, merge, release, signing, sideloading, deployment, sudo, and secrets remain operator-controlled.
 
 ### Current authorized action
 
-Execute **Phase 2 setup only**: materialize and test the minimum Skill Control Plane, prepare verified separate JellySSH implementation/review checkouts, create and verify the project profiles/bank/skills/models/tool boundaries, and create the `jellyssh` board without executable development cards. Stop before Phase 3 ticket selection, design, implementation, or dispatch and before any PR, merge, release, signing, sideloading, deployment, sudo, production-data, or LogK action.
+Prepare and open the reviewed Hermes-ops lifecycle-infrastructure pull request, but do not merge it without a separate operator instruction. Prepare one second small, reversible, non-security-critical JellySSH pilot with an offline deterministic test seam; do not dispatch that product implementation before its lifecycle prerequisites and specification are accepted. PR merge, release, signing, sideloading, deployment, sudo, production-data, secrets, and LogK actions remain separately controlled.
 
 ---
 
@@ -981,6 +987,7 @@ Execute **Phase 2 setup only**: materialize and test the minimum Skill Control P
 - JellySSH initialization example: [manifests/jellyssh-project-initialization.example.yaml](manifests/jellyssh-project-initialization.example.yaml)
 - Matt-to-Kanban bridge: [matt-kanban-development-bridge.md](matt-kanban-development-bridge.md)
 - Phase 1 completion evidence: [../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md](../../reports/jellyberry-kanban-orchestration-phase1-2026-08-09.md)
+- Phase 3 BUG-008 pilot closeout: [../../reports/jellyssh-phase3-bug008-pilot-2026-08-12.md](../../reports/jellyssh-phase3-bug008-pilot-2026-08-12.md)
 - Phase 1 revision plan: [../../plans/2026-08-09-phase1-skill-control-plane-revision.md](../../plans/2026-08-09-phase1-skill-control-plane-revision.md)
 - Memory hygiene: [../../runbooks/memory-hygiene-runbook.md](../../runbooks/memory-hygiene-runbook.md)
 - Hermes Projects, profiles, and sessions: [../hermes-desktop-projects-profiles-and-sessions.md](../hermes-desktop-projects-profiles-and-sessions.md)

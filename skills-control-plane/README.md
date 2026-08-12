@@ -9,7 +9,8 @@ This directory is the Git-backed authority for governed Hermes project setup and
 - `packs/` — reviewed, immutable optional capability packs.
 - `candidates/` — immutable, non-routable candidate bytes awaiting evidence-bound promotion.
 - `projects/<slug>/project.yaml` — exact desired skill/profile/model/workspace/expert policy.
-- `projects/<slug>/runtime.yaml` — observed runtime evidence and explicit blockers.
+- `projects/<slug>/runtime.yaml` — schema-bound, section-scoped runtime authority. JellySSH freezes setup/paths/profiles/toolchain/board/rollback sections at the Phase 2 bootstrap cut while allowing the separately declared `review_boundary` section to evolve only with exact-hash-reviewed control-plane changes. It is not a claim about today's task count, checkout HEADs, or MCP target.
+- `projects/<slug>/contracts/` or another reviewed path — short-lived, schema-validated work-item contracts; never a replacement for the approved product specification.
 - `projects/<slug>/overlays/` — project-only skills; never silently promoted globally.
 - `schemas/` — project, setup-request, plan, journal, lifecycle and runtime schemas.
 - `templates/` — non-secret setup inputs that must be completed before planning.
@@ -197,6 +198,31 @@ python3 skills-control-plane/scripts/projectctl.py status --output skills-contro
 python3 skills-control-plane/scripts/projectctl.py status --format json --output skills-control-plane/generated/jellyssh-status.json
 ```
 
+JellySSH `runtime.yaml` declares two non-overlapping evidence scopes. `bootstrap_baseline` assigns the Phase 2 cut only to setup, paths, profiles, repository auth, toolchain, board, rollback, skill materialization, and governance decisions. `reviewed_authority` assigns `review_boundary` to an evolving exact-hash-reviewed authority so later controller sources and BUG-008 evidence are not misdated as Phase 2 observations. `current_state_source` remains `live-projectctl-scan-and-work-item-preflight`. Bootstrap `scan`, `verify`, and `audit` compare live state with the immutable baseline sections and therefore truthfully report drift after a work cycle; they do not turn the old `task_count: 0` into a current observation. Validate one release gate through the additive lifecycle interface instead:
+
+```bash
+cp skills-control-plane/templates/jellyssh-work-item-lifecycle.example.json \
+  /absolute/reviewed/path/BUG-008-implementation-release.json
+
+python3 skills-control-plane/scripts/projectctl.py \
+  --project skills-control-plane/projects/jellyssh/project.yaml \
+  --json preflight \
+  --contract /absolute/reviewed/path/BUG-008-implementation-release.json \
+  --output skills-control-plane/generated/evidence/<evidence-name>.json
+```
+
+The contract schema rejects unknown fields and binds exact local/SSH checkout paths, transport, origin, commit, branch, detached state, cleanliness, replacement refs, board/card identities, parent links, assignee, workspace, status, the unassigned dependency hold lane, and conservative concurrency. Exact Git probes run with replacement objects disabled. Evidence is canonical JSON written atomically as a direct `.json` child of `generated/evidence`; the CLI reports both contract and evidence SHA-256 digests and exits non-zero on every block or write failure. Target replacement plus directory fsync is the publication commit point. Failures before replacement propagate without creating trusted target evidence; failures after replacement but before the commit point propagate and remove or invalidate the target. Stale-temp cleanup after that point is best-effort housekeeping and does not reverse a durable PASS.
+
+For an `implementation-release` gate, create an unassigned preflight parent and an unassigned dependent implementation child. Do not use `--initial-status blocked`. Before parent completion, the child must remain `todo`; run preflight and accept only PASS evidence. Completing the parent may promote the child to `ready`, but an embedded dispatcher pass must list it as skipped/unassigned and must not spawn it. The operator releases the exact child only by assigning `jellybase_jellyssh` after reviewing the PASS evidence. Dispatcher and claim paths still recheck unfinished parents independently.
+
+### Restricted Flutter test evidence
+
+`run_readonly_check("flutter-test")` uses Flutter's `--machine` JSON reporter. The unbounded event stream and stderr stay inside the disposable sandbox; only a versioned JSON summary of at most 4096 bytes crosses Docker, SSH, and MCP. The summary includes the check/reporter/protocol, real Flutter exit code, terminal `done` marker, success, pass/fail/skip/total counts, and at most eight diagnostics of 320 characters each.
+
+The reporter requires one initial complete `0.1.<digits>` protocol event, valid allowlisted Flutter progress events, unique test completions, at least one visible test, exactly one final `done` event, exit `0`, terminal success, and zero failures/errors. Malformed JSON/events, events after `done`, missing or contradictory terminal state, unknown results, duplicate completions, nonzero exit, failed tests, or inconsistent totals fail closed. The controller independently parses the compact object and rejects raw `PASS` text or any semantic/size drift. Existing exact-commit materialization, network-none, read-only root/input, bounded tmpfs/storage/PID/memory/swap/CPU, no-new-privileges, timeout, and sequential-check controls are unchanged.
+
+Retained proof for the frozen BUG-008 review target is `projects/jellyssh/evidence/flutter-test-compact-summary.json`; `runtime.yaml` pins its digest and the governed controller source hashes.
+
 ## Verification
 
 ```bash
@@ -225,7 +251,11 @@ Not part of this V1 manager:
 - mutable upstream tracking or automatic downloads;
 - a write-capable Desktop control surface;
 - automatic overlay conflict resolution;
-- JellySSH Phase 3 development cards;
+- automatic or general JellySSH Phase 3 rollout beyond separately approved manual lifecycle contracts;
 - LogK adapter rollout.
+
+The manual BUG-008 pilot exercised the additive lifecycle-preflight interface; it did not make arbitrary Phase 3 cards routable or remove operator assignment, PR, merge, release, or deployment gates.
+
+Repository unit tests run `scan(..., live_discovery=False)` to validate checked-in catalog, project/runtime schema, authority bindings, controller/evidence hashes, runtime skill bundles, quality evidence, and setup-state semantics without reading mutable host state. The CLI defaults to live discovery: run `projectctl scan` for current profile, checkout, MCP, board, network, and rollback drift; run `projectctl preflight` with an approved lifecycle contract before releasing an exact work item. A green unit suite is not runtime authorization.
 
 Generated JSON/Markdown may later feed a read-only Desktop view. Git remains authoritative.

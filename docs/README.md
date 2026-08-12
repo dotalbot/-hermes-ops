@@ -37,6 +37,7 @@ Good examples:
 - `docs/reports/dashboard-link-no-agent-validation.md`
 - `docs/reports/recurring-chat-checks-no-agent-conversion-plan.md`
 - `docs/reports/backup-metadata-sources.md`
+- `docs/reports/jellyssh-phase3-bug008-pilot-2026-08-12.md`
 - `docs/plans/backup-freshness-check.md`
 - `docs/runbooks/backup-freshness-check.md`
 - `docs/plans/dashboard-link-no-agent-watchdog.md`

@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "project": "jellyssh",
+  "work_item": "BUG-008",
+  "phase": "implementation-release",
+  "repository": {
+    "remote": "git@github.com:dotalbot/jellyssh.git",
+    "base_commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+    "specification_commit": "f6ba58ddeb204437e5a1ec392bb47d892839ef16",
+    "branch": "fix/bug-008-zero-byte-sftp-transfers"
+  },
+  "checkouts": [
+    {
+      "role": "coordinator",
+      "runtime_path": "coordinator_checkout",
+      "path": "/home/jellybot/dev_projects/jellyssh",
+      "transport": "local",
+      "commit": "f6ba58ddeb204437e5a1ec392bb47d892839ef16",
+      "branch": "fix/bug-008-zero-byte-sftp-transfers",
+      "detached": false,
+      "clean": true
+    },
+    {
+      "role": "coordinator-review",
+      "runtime_path": "coordinator_review_checkout",
+      "path": "/home/jellybot/dev_projects/jellyssh-review",
+      "transport": "local",
+      "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+      "branch": "main",
+      "detached": false,
+      "clean": true
+    },
+    {
+      "role": "implementation",
+      "runtime_path": "implementation_checkout",
+      "path": "/home/jellydev/dev_projects/jellyssh",
+      "transport": "ssh",
+      "commit": "f6ba58ddeb204437e5a1ec392bb47d892839ef16",
+      "branch": "fix/bug-008-zero-byte-sftp-transfers",
+      "detached": false,
+      "clean": true
+    },
+    {
+      "role": "reviewer",
+      "runtime_path": "reviewer_checkout",
+      "path": "/home/jellydev/dev_projects/jellyssh-review",
+      "transport": "ssh",
+      "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+      "branch": "main",
+      "detached": false,
+      "clean": true
+    }
+  ],
+  "board": {
+    "slug": "jellyssh",
+    "preflight_task_id": "t_11111111",
+    "implementation_task_id": "t_22222222",
+    "preflight": {
+      "assignee": null,
+      "workspace_kind": "dir",
+      "workspace_path": "/home/jellybot/dev_projects/hermes-ops",
+      "permitted_statuses": [
+        "ready",
+        "running"
+      ]
+    },
+    "implementation": {
+      "assignee": null,
+      "workspace_kind": "dir",
+      "workspace_path": "/var/tmp/hermes-jellyssh",
+      "permitted_statuses": [
+        "todo"
+      ]
+    }
+  },
+  "concurrency": {
+    "max_spawn": 1,
+    "max_in_progress": 1
+  }
+}
