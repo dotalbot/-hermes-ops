@@ -9,7 +9,7 @@ This directory is the Git-backed authority for governed Hermes project setup and
 - `packs/` — reviewed, immutable optional capability packs.
 - `candidates/` — immutable, non-routable candidate bytes awaiting evidence-bound promotion.
 - `projects/<slug>/project.yaml` — exact desired skill/profile/model/workspace/expert policy.
-- `projects/<slug>/runtime.yaml` — observed runtime evidence and explicit blockers.
+- `projects/<slug>/runtime.yaml` — schema-bound, section-scoped runtime authority. JellySSH freezes setup/paths/profiles/toolchain/board/rollback sections at the Phase 2 bootstrap cut while allowing the separately declared `review_boundary` section to evolve only with exact-hash-reviewed control-plane changes. It is not a claim about today's task count, checkout HEADs, or MCP target.
 - `projects/<slug>/contracts/` or another reviewed path — short-lived, schema-validated work-item contracts; never a replacement for the approved product specification.
 - `projects/<slug>/overlays/` — project-only skills; never silently promoted globally.
 - `schemas/` — project, setup-request, plan, journal, lifecycle and runtime schemas.
@@ -198,7 +198,7 @@ python3 skills-control-plane/scripts/projectctl.py status --output skills-contro
 python3 skills-control-plane/scripts/projectctl.py status --format json --output skills-control-plane/generated/jellyssh-status.json
 ```
 
-Bootstrap `scan`, `verify`, and `audit` deliberately retain the immutable Phase-2 checkout and empty-board checks. Once a work cycle changes those live facts, validate one release gate through the additive lifecycle interface instead:
+JellySSH `runtime.yaml` declares two non-overlapping evidence scopes. `bootstrap_baseline` assigns the Phase 2 cut only to setup, paths, profiles, repository auth, toolchain, board, rollback, skill materialization, and governance decisions. `reviewed_authority` assigns `review_boundary` to an evolving exact-hash-reviewed authority so later controller sources and BUG-008 evidence are not misdated as Phase 2 observations. `current_state_source` remains `live-projectctl-scan-and-work-item-preflight`. Bootstrap `scan`, `verify`, and `audit` compare live state with the immutable baseline sections and therefore truthfully report drift after a work cycle; they do not turn the old `task_count: 0` into a current observation. Validate one release gate through the additive lifecycle interface instead:
 
 ```bash
 cp skills-control-plane/templates/jellyssh-work-item-lifecycle.example.json \
@@ -251,7 +251,11 @@ Not part of this V1 manager:
 - mutable upstream tracking or automatic downloads;
 - a write-capable Desktop control surface;
 - automatic overlay conflict resolution;
-- JellySSH Phase 3 development cards;
+- automatic or general JellySSH Phase 3 rollout beyond separately approved manual lifecycle contracts;
 - LogK adapter rollout.
+
+The manual BUG-008 pilot exercised the additive lifecycle-preflight interface; it did not make arbitrary Phase 3 cards routable or remove operator assignment, PR, merge, release, or deployment gates.
+
+Repository unit tests run `scan(..., live_discovery=False)` to validate checked-in catalog, project/runtime schema, authority bindings, controller/evidence hashes, runtime skill bundles, quality evidence, and setup-state semantics without reading mutable host state. The CLI defaults to live discovery: run `projectctl scan` for current profile, checkout, MCP, board, network, and rollback drift; run `projectctl preflight` with an approved lifecycle contract before releasing an exact work item. A green unit suite is not runtime authorization.
 
 Generated JSON/Markdown may later feed a read-only Desktop view. Git remains authoritative.

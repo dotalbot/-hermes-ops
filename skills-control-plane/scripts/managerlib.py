@@ -1396,6 +1396,8 @@ def fleet_status(control_root: Path) -> dict[str, Any]:
                 "display_name": str(project.get("display_name", directory.name)),
                 "state": state,
                 "routing_state": runtime_state,
+                "runtime_evidence_scopes": runtime.get("evidence_scopes", {}),
+                "current_state_source": runtime.get("current_state_source", "runtime-manifest"),
                 "core": f"{core.get('name', 'none')}@{core.get('version', 'none')}" if core else "none",
                 "packs": sorted(f"{item.get('name')}@{item.get('version')}" for item in packs if isinstance(item, dict)),
                 "overlays": sorted(str(item.get("name")) for item in overlays if isinstance(item, dict)),
@@ -1474,6 +1476,9 @@ def render_fleet_markdown(report: dict[str, Any]) -> str:
         lines.extend([
             f"- **{row['display_name']}** (`{row['slug']}`) — **{row['state']}**",
             f"  - Routing: `{row.get('routing_state', 'unknown')}`",
+            f"  - Bootstrap baseline: `{row.get('runtime_evidence_scopes', {}).get('bootstrap_baseline', {}).get('cut', 'unclassified')}`",
+            f"  - Reviewed authority: `{row.get('runtime_evidence_scopes', {}).get('reviewed_authority', {}).get('update_policy', 'unclassified')}`",
+            f"  - Current state source: `{row.get('current_state_source', 'runtime-manifest')}`",
             f"  - Core: `{row.get('core', 'unknown')}`",
             f"  - Packs: {', '.join(f'`{item}`' for item in row.get('packs', [])) or 'none'}",
             f"  - Overlays: {', '.join(f'`{item}`' for item in row.get('overlays', [])) or 'none'}",

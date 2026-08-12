@@ -1,5 +1,23 @@
 schema_version: 1
 project: jellyssh
+evidence_scopes:
+  bootstrap_baseline:
+    cut: '2026-08-09T12:08:00+01:00'
+    sections:
+    - state
+    - paths
+    - profiles
+    - repository_auth
+    - toolchain
+    - board
+    - rollback
+    - skill_materialization
+    - governance_decisions
+  reviewed_authority:
+    update_policy: exact-hash-reviewed-with-control-plane-changes
+    sections:
+    - review_boundary
+current_state_source: live-projectctl-scan-and-work-item-preflight
 state: setup-verified-routing-blocked
 paths:
   coordinator_checkout: /home/jellybot/dev_projects/jellyssh
@@ -71,7 +89,7 @@ review_boundary:
     reviewctl.py: sha256:b12c27fa92fc9a52237323b4bf9aa40b4e9c2a1e204234833d02a1521273bfef
     review_boundary.py: sha256:611df8c1fccd1edde7aa7b16308a9003950425b45af062c09cb800fbabc2752e
     jellyssh_review_mcp.py: sha256:a560a09bad07114bc2d084c5aabe8b628893f12b7f5976530d742c8ee7c36ed2
-    projectctl.py: sha256:e3b8d836b16a956b5bd99fcdc79b9ad3a4e26375456b9b8dbb75831b86a5e269
+    projectctl.py: sha256:4f2768943dfaed67bb0faefe16b251752801f117f9b17930b0d25ecee388d274
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
   conditional_ui_routing_state: verified
   conditional_ui_evidence: skills-control-plane/projects/jellyssh/evidence/ui-controller-smoke.json

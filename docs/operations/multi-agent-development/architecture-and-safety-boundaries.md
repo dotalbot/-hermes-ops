@@ -27,7 +27,7 @@ Jellyberry owns:
 - orchestration and review coordination;
 - the local SSH configuration used to reach Jellybase.
 
-The current generic remote implementation baseline is `jellybase_hermes`. It is not a silent fallback for project work. Use the project-specific profile named by the approved routing manifest; the JellySSH profiles in V3 remain proposed until Phase 2 is separately authorized and completed.
+The current generic remote implementation baseline is `jellybase_hermes`. It is not a silent fallback for project work. Use the project-specific profile named by the approved routing manifest. Phase 2 installed and verified `jellybase_jellyssh` and `jellybase_jellyssh_reviewer`; each product ticket still requires an exact lifecycle preflight and explicit assignment rather than fallback routing.
 
 ### 4. Kanban: queue and audit trail
 

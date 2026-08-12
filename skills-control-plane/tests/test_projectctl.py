@@ -34,11 +34,39 @@ class ControlPlaneTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def test_current_catalog_and_project_scan_pass(self) -> None:
-        result = projectctl.scan(self.project, self.root)
+    def test_current_catalog_and_project_static_scan_pass(self) -> None:
+        # Unit tests copy repository authority into a temporary control root.
+        # Keep checked-in runtime schema, authority, evidence and bundle checks;
+        # skip only mutable host/profile/checkout/MCP/board discovery.
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
         self.assertTrue(result["ok"], result["errors"])
         self.assertEqual(result["project"], "jellyssh")
         self.assertGreaterEqual(len(result["skills"]), 13)
+
+    def test_static_scan_detects_runtime_authority_drift(self) -> None:
+        runtime_path = self.project.parent / "runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        runtime["review_boundary"]["project_manifest_sha256"] = "sha256:" + "1" * 64
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any("project authority manifest hash drift" in error for error in result["errors"]),
+            result["errors"],
+        )
+
+    def test_runtime_evidence_scopes_are_required(self) -> None:
+        runtime_path = self.project.parent / "runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        del runtime["evidence_scopes"]
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("runtime schema" in error and "evidence_scopes" in error for error in result["errors"]))
 
     def test_plan_fails_closed_on_auth_and_toolchain(self) -> None:
         result = projectctl.plan(self.project, self.root)
@@ -247,6 +275,47 @@ class ControlPlaneTests(unittest.TestCase):
         runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
 
         result = projectctl.scan(self.project, self.root)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("compact Flutter test evidence contract drift", result["errors"])
+
+    def test_compact_flutter_evidence_incomplete_protocol_is_rejected(self) -> None:
+        evidence_path = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        evidence["summary"]["protocol_version"] = "0.1."
+        canonical = json.dumps(evidence["summary"], sort_keys=True, separators=(",", ":")) + "\n"
+        evidence["output_bytes"] = len(canonical.encode("utf-8"))
+        evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        runtime_path = self.root / "projects/jellyssh/runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        runtime["review_boundary"]["flutter_test_compact_evidence_sha256"] = (
+            "sha256:" + hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+        )
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("compact Flutter test evidence contract drift", result["errors"])
+
+    def test_compact_flutter_evidence_over_byte_bound_is_rejected(self) -> None:
+        evidence_path = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        evidence["summary"]["diagnostics"] = ["😀" * 320 for _ in range(8)]
+        canonical = json.dumps(
+            evidence["summary"], sort_keys=True, separators=(",", ":")
+        ) + "\n"
+        self.assertGreater(len(canonical.encode("utf-8")), evidence["output_bound_bytes"])
+        evidence["output_bytes"] = len(canonical.encode("utf-8"))
+        evidence_path.write_text(json.dumps(evidence, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        runtime_path = self.root / "projects/jellyssh/runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        runtime["review_boundary"]["flutter_test_compact_evidence_sha256"] = (
+            "sha256:" + hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+        )
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
 
         self.assertFalse(result["ok"])
         self.assertIn("compact Flutter test evidence contract drift", result["errors"])

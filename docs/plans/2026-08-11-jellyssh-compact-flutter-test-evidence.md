@@ -2,7 +2,7 @@
 
 > **For Hermes:** Implement this plan directly with one red/green slice per contract case, then run independent review.
 
-> **Status (2026-08-11):** implemented and verified; awaiting affected-axis review.
+> **Status (2026-08-12):** implemented, verified, affected-axis rereview passed, and exercised by the accepted BUG-008 pilot.
 
 **Goal:** Make the restricted JellySSH `flutter-test` check return bounded, machine-readable, fail-closed evidence that survives the MCP bridge while preserving the existing sandbox and exact-commit controls.
 
@@ -79,7 +79,7 @@ Non-goals:
 ## Completion evidence
 
 - Focused RED/GREEN reporter and controller tests pass, including malformed JSON, incomplete protocol versions, missing/duplicate/contradictory terminal records, nonzero exit, failed/hidden/incomplete tests, unknown event types, malformed progress records, and Unicode diagnostic byte bounds.
-- `101` relevant control-plane tests (the prior `100` plus the incomplete-protocol regression) and all `8` repository tests pass; the one excluded live-catalog test is the pre-existing fail-closed JellySSH mutable-intake/board-state assertion.
+- `106` control-plane tests and all `8` repository tests pass. Repository tests validate checked-in schema, authority, hashes, and retained evidence hermetically; live mutable profile, checkout, MCP, board, network, and rollback drift remains an explicit `projectctl scan`/per-ticket preflight gate.
 - `python3 -m py_compile skills-control-plane/scripts/*.py`, `git diff --check`, and `managerctl.py verify` pass.
 - The actual MCP `run_readonly_check("flutter-test")` against frozen target `da96d24bf57daf47ee5f8a238e8c5f940f3cae3d` returns an `854`-byte summary with `716` passed, zero failed/skipped, `terminal=done`, and `success=true`.
 - Independent review found hidden/masked/incomplete failure acceptance, unknown-event acceptance, Unicode byte expansion, and incomplete protocol acceptance; all findings were remediated and regression-tested.

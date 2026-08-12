@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import stat
 import sqlite3
@@ -696,7 +697,7 @@ def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> lis
         or summary.get("check") != "flutter-test"
         or summary.get("reporter") != "json"
         or not isinstance(summary.get("protocol_version"), str)
-        or not summary["protocol_version"].startswith("0.1.")
+        or not re.fullmatch(r"0\.1\.\d+", summary["protocol_version"])
         or type(summary.get("exit_code")) is not int
         or summary["exit_code"] != 0
         or summary.get("success") is not True
@@ -720,7 +721,11 @@ def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> lis
     ):
         return [error]
     canonical_output = json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n"
-    if evidence.get("output_bytes") != len(canonical_output.encode("utf-8")):
+    canonical_output_bytes = len(canonical_output.encode("utf-8"))
+    if (
+        evidence.get("output_bytes") != canonical_output_bytes
+        or canonical_output_bytes > evidence["output_bound_bytes"]
+    ):
         return [error]
 
     boards = evidence.get("board_invariance")
@@ -776,12 +781,47 @@ def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> lis
     return []
 
 
+def _validate_quality_evidence(
+    runtime: dict[str, Any],
+    project: dict[str, Any],
+    control_root: Path,
+) -> list[str]:
+    errors: list[str] = []
+    toolchain_data = runtime.get("toolchain", {})
+    if not isinstance(toolchain_data, dict):
+        return errors
+    try:
+        quality_rel = Path(str(toolchain_data.get("quality_gate_evidence", "")))
+        if quality_rel.is_absolute() or ".." in quality_rel.parts:
+            raise ControlPlaneError("quality evidence path is unsafe")
+        quality_path = (control_root.parent / quality_rel).resolve()
+        quality_path.relative_to(control_root.parent.resolve())
+        if file_sha256(quality_path) != toolchain_data.get("quality_gate_evidence_sha256"):
+            errors.append("Flutter quality evidence hash drift")
+        quality = json.loads(quality_path.read_text(encoding="utf-8"))
+        restricted = quality.get("restricted_controller", {})
+        if (
+            quality.get("project") != "jellyssh"
+            or quality.get("expected_commit") != project.get("authority", {}).get("commit")
+            or len(quality.get("findings") or []) != 4
+            or restricted.get("sandbox_self_check") != "PASS"
+            or restricted.get("dart_format") != "PASS-135-files-0-changed"
+            or restricted.get("flutter_analyze") != "BLOCK"
+            or restricted.get("flutter_test") != "BLOCK"
+        ):
+            errors.append("Flutter quality evidence contract drift")
+    except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"Flutter quality evidence invalid: {type(exc).__name__}")
+    return errors
+
+
 def validate_runtime(
     runtime_path: Path,
     project: dict[str, Any],
     control_root: Path = CONTROL_ROOT,
     declared_skills: dict[str, dict[str, Any]] | None = None,
     lifecycle_contract: dict[str, Any] | None = None,
+    live_discovery: bool = True,
 ) -> list[str]:
     errors: list[str] = []
     declared_skills = declared_skills or {}
@@ -933,6 +973,44 @@ def validate_runtime(
             errors.append(f"conditional UI review evidence invalid: {type(exc).__name__}")
 
     profile_specs = runtime.get("profiles")
+    if not live_discovery:
+        if not isinstance(profile_specs, dict):
+            errors.append(f"{runtime_path}: profiles must be a mapping")
+        else:
+            for role in ("implementation", "reviewer"):
+                observed = profile_specs.get(role)
+                declared = project.get("profiles", {}).get(role, {})
+                if not isinstance(observed, dict):
+                    errors.append(f"{runtime_path}: missing runtime profile {role}")
+                    continue
+                if observed.get("name") != declared.get("name"):
+                    errors.append(f"{runtime_path}: {role} profile name mismatch")
+                expected_skills = set(observed.get("skills") or [])
+                bundle_name = str(declared.get("bundle", ""))
+                authoritative_skills = set(
+                    project.get("skill_layers", {}).get("bundles", {}).get(bundle_name) or []
+                )
+                if expected_skills != authoritative_skills:
+                    errors.append(
+                        f"{role} runtime skill set does not match authoritative bundle {bundle_name}: "
+                        f"runtime={sorted(expected_skills)}, bundle={sorted(authoritative_skills)}"
+                    )
+        errors.extend(_validate_quality_evidence(runtime, project, control_root))
+        if runtime.get("state") == "setup-verified-routing-blocked":
+            profile_states = {
+                role: value.get("state") if isinstance(value, dict) else None
+                for role, value in (profile_specs or {}).items()
+            } if isinstance(profile_specs, dict) else {}
+            if (
+                not isinstance(boundary, dict)
+                or boundary.get("routing_state") != "verified"
+                or profile_states.get("implementation") != "verified"
+                or profile_states.get("reviewer") != "verified"
+                or runtime.get("board", {}).get("state") != "verified-empty"
+            ):
+                errors.append("setup-verified state lacks verified profiles, reviewer route, or empty board evidence")
+        return errors
+
     if not isinstance(profile_specs, dict):
         errors.append(f"{runtime_path}: profiles must be a mapping")
     else:
@@ -1232,30 +1310,7 @@ def validate_runtime(
             errors.append("live Hindsight discovery did not find jellyssh-main")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         errors.append(f"live Hindsight bank discovery failed: {type(exc).__name__}")
-    toolchain_data = runtime.get("toolchain", {})
-    if isinstance(toolchain_data, dict):
-        try:
-            quality_rel = Path(str(toolchain_data.get("quality_gate_evidence", "")))
-            if quality_rel.is_absolute() or ".." in quality_rel.parts:
-                raise ControlPlaneError("quality evidence path is unsafe")
-            quality_path = (control_root.parent / quality_rel).resolve()
-            quality_path.relative_to(control_root.parent.resolve())
-            if file_sha256(quality_path) != toolchain_data.get("quality_gate_evidence_sha256"):
-                errors.append("Flutter quality evidence hash drift")
-            quality = json.loads(quality_path.read_text(encoding="utf-8"))
-            restricted = quality.get("restricted_controller", {})
-            if (
-                quality.get("project") != "jellyssh"
-                or quality.get("expected_commit") != project.get("authority", {}).get("commit")
-                or len(quality.get("findings") or []) != 4
-                or restricted.get("sandbox_self_check") != "PASS"
-                or restricted.get("dart_format") != "PASS-135-files-0-changed"
-                or restricted.get("flutter_analyze") != "BLOCK"
-                or restricted.get("flutter_test") != "BLOCK"
-            ):
-                errors.append("Flutter quality evidence contract drift")
-        except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
-            errors.append(f"Flutter quality evidence invalid: {type(exc).__name__}")
+    errors.extend(_validate_quality_evidence(runtime, project, control_root))
     board = runtime.get("board", {})
     board_root = Path.home() / ".hermes" / "kanban" / "boards" / str(board.get("slug", ""))
     if board.get("state") == "verified-empty" and lifecycle_contract is None:
@@ -1316,6 +1371,7 @@ def scan(
     project_path: Path = DEFAULT_PROJECT,
     control_root: Path = CONTROL_ROOT,
     lifecycle_contract: dict[str, Any] | None = None,
+    live_discovery: bool = True,
 ) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -1507,6 +1563,7 @@ def scan(
                 control_root,
                 declared_skills,
                 lifecycle_contract=lifecycle_contract,
+                live_discovery=live_discovery,
             )
         )
     except ControlPlaneError as exc:

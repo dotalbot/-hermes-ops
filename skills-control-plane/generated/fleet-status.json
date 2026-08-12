@@ -4,6 +4,7 @@
   "projects": [
     {
       "core": "core-development@0.1.0",
+      "current_state_source": "live-projectctl-scan-and-work-item-preflight",
       "display_name": "JellySSH",
       "manifest_sha256": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
       "overlays": [
@@ -17,7 +18,29 @@
         "flutter-mobile@0.1.0"
       ],
       "routing_state": "setup-verified-routing-blocked",
-      "runtime_sha256": "sha256:84e22aeef1ef5b113e377c81b4f73d720345a9905d6ee5626a89042a7c33d825",
+      "runtime_evidence_scopes": {
+        "bootstrap_baseline": {
+          "cut": "2026-08-09T12:08:00+01:00",
+          "sections": [
+            "state",
+            "paths",
+            "profiles",
+            "repository_auth",
+            "toolchain",
+            "board",
+            "rollback",
+            "skill_materialization",
+            "governance_decisions"
+          ]
+        },
+        "reviewed_authority": {
+          "sections": [
+            "review_boundary"
+          ],
+          "update_policy": "exact-hash-reviewed-with-control-plane-changes"
+        }
+      },
+      "runtime_sha256": "sha256:a324f092f63e29d1b0a1078eb3b9c230b89595d2f16f48d94130260691c4484f",
       "slug": "jellyssh",
       "state": "RED"
     }

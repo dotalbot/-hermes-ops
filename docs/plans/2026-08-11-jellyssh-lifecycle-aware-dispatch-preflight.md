@@ -1,6 +1,6 @@
 # JellySSH lifecycle-aware dispatch preflight
 
-**Status:** Remediation round 3 implemented — exact-commit independent review pending
+**Status:** Implemented, independently reviewed, and exercised by the accepted BUG-008 pilot; infrastructure PR pending
 **Date:** 2026-08-11
 **Repository:** `dotalbot/-hermes-ops`
 **Base:** `0523e6d414a515d3009d12e5e6abc32d96aa3451`
@@ -106,10 +106,11 @@ Before merge, delete the feature branch and generated local evidence. After merg
 
 ## Acceptance
 
-- Independent review finds no blocking issue in the exact process commit.
+- [x] Independent review found no blocking issue after the final compact-protocol remediation. The affected-axis rereview targeted `d4295eb80b37533f960a2855e783e3fc3d67f45b` and passed.
 - [x] A negative BUG-008 contract fails before checkout/card alignment. Evidence: `skills-control-plane/generated/evidence/bug-008-pre-alignment.json` (`sha256:9961d5a6aab4c37be61c2f3b71a8225ea16eb444d488c21f2e391491d8c61c63`), contract `sha256:0f6960f3bf2f331694c18cea875efbaab3afe666ed6cb3788ec00b720081163a`, verdict `BLOCK`; the implementation checkout/ref, reviewer MCP target, and both undeclared cards were correctly rejected.
 - [x] A disposable direct-library Kanban gate uses an asserted temporary database and proves unfinished-parent claim rejection, parent-completion promotion, unassigned dispatcher skipping, and dispatchability only after audited `jellybase_jellyssh` assignment; retained read-only live-board proof is `skills-control-plane/generated/evidence/disposable-kanban-gate-live-board-proof.json` (`sha256:a227e86afb7a525dc02c5b33cbe8e409e01562b1b80524ad70c89c4180b2c362`), with equal before/after CHI and JellySSH task-ID counts and set digests.
-- The aligned BUG-008 contract passes and produces digest-addressed evidence.
-- The dependent implementation card cannot dispatch before parent completion, remains unassigned/nonspawnable after parent completion, and becomes spawnable only after the operator's audited assignment.
+- [x] The aligned BUG-008 contract passed and produced the time-bound historical artifact `skills-control-plane/generated/evidence/bug-008-implementation-release.json` (`sha256:815ce3a0d8363a9bd8b1425562ad8fa4f760d8fad071f01ad2594042d50540c6`). It records controller/runtime source digests from commit `6d0424b89ea9a7b5cf774a9397fa38414d0a760c`; later compact-evidence commits intentionally changed those sources, so this artifact is preserved rather than regenerated.
+- [x] The dependent implementation card remained nonspawnable before the preflight parent completed, remained unassigned after PASS, and became spawnable only after the operator's audited assignment.
+- [x] BUG-008 completed implementation, exact-commit review, remediation, affected-axis rereview, acceptance, pull request, operator-authorized merge, and post-merge reconciliation. Product PR `dotalbot/jellyssh#2` merged as `eaa2974bf61746c53c5ba9cada9fbb35414e2caf`; its tree exactly matches reviewed head `64c578a169425af01226a40ef7247add24349248`.
 
-The remaining acceptance items belong to the later BUG-008 application-dispatch stage. This prerequisite implementation did not create, release, dispatch, or mutate JellySSH cards or checkouts.
+The prerequisite commits themselves did not create or dispatch JellySSH product work. The later operator-authorized application stage exercised the interface successfully and is recorded in `docs/reports/jellyssh-phase3-bug008-pilot-2026-08-12.md`.

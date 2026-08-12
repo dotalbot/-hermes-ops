@@ -4,6 +4,8 @@
 >
 > **Evidence cut:** 2026-08-09 12:08 BST
 >
+> **Historical snapshot:** This report preserves the Phase 2 setup boundary at its evidence cut. The later operator-authorized BUG-008 Phase 3 pilot completed and is recorded in `jellyssh-phase3-bug008-pilot-2026-08-12.md`; statements below that Phase 3 was unauthorized or no development cards existed are historical, not current runtime claims.
+>
 > **Branch:** `feat/jellyssh-phase2-routing`
 >
 > **Accepted Phase 1 base:** `c3daa570e7e1d3a8b15f8667c6803361130b0504`

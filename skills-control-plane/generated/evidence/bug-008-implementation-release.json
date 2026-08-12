@@ -1,0 +1,147 @@
+{
+  "checks": [
+    {
+      "errors": [],
+      "name": "contract",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "control-plane",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:coordinator",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:coordinator-review",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:implementation",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:reviewer",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "board",
+      "ok": true
+    }
+  ],
+  "contract_sha256": "sha256:04cdd787cb34d830fa57fca5b3f7ddeab650efa14dae3c91a57890d43a66eab5",
+  "observations": {
+    "board": {
+      "default_workdir": "/var/tmp/hermes-jellyssh",
+      "slug": "jellyssh",
+      "tasks": {
+        "t_b2675906": {
+          "active_claim": false,
+          "assignee": null,
+          "events": [
+            {
+              "created_at": 1786453407,
+              "id": 115,
+              "initial_status": "todo",
+              "kind": "created"
+            }
+          ],
+          "id": "t_b2675906",
+          "parents": [
+            "t_e499e01d"
+          ],
+          "status": "todo",
+          "workspace_kind": "dir",
+          "workspace_path": "/var/tmp/hermes-jellyssh"
+        },
+        "t_e499e01d": {
+          "active_claim": false,
+          "assignee": null,
+          "events": [
+            {
+              "created_at": 1786453392,
+              "id": 114,
+              "initial_status": "ready",
+              "kind": "created"
+            }
+          ],
+          "id": "t_e499e01d",
+          "parents": [],
+          "status": "ready",
+          "workspace_kind": "dir",
+          "workspace_path": "/home/jellybot/dev_projects/hermes-ops"
+        }
+      }
+    },
+    "checkouts": [
+      {
+        "branch": "fix/bug-008-zero-byte-sftp-transfers",
+        "clean": true,
+        "commit": "f6ba58ddeb204437e5a1ec392bb47d892839ef16",
+        "detached": false,
+        "path": "/home/jellybot/dev_projects/jellyssh",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "coordinator",
+        "runtime_path": "coordinator_checkout",
+        "transport": "local"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+        "detached": false,
+        "path": "/home/jellybot/dev_projects/jellyssh-review",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "coordinator-review",
+        "runtime_path": "coordinator_review_checkout",
+        "transport": "local"
+      },
+      {
+        "branch": "fix/bug-008-zero-byte-sftp-transfers",
+        "clean": true,
+        "commit": "f6ba58ddeb204437e5a1ec392bb47d892839ef16",
+        "detached": false,
+        "path": "/home/jellydev/dev_projects/jellyssh",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "implementation",
+        "runtime_path": "implementation_checkout",
+        "transport": "ssh"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "e5afc55d43d122c1e03f64667177c12d98c91412",
+        "detached": false,
+        "path": "/home/jellydev/dev_projects/jellyssh-review",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "reviewer",
+        "runtime_path": "reviewer_checkout",
+        "transport": "ssh"
+      }
+    ]
+  },
+  "observed_at": "2026-08-11T13:06:17Z",
+  "phase": "implementation-release",
+  "project": "jellyssh",
+  "schema_version": 1,
+  "source_digests": {
+    "catalog": "sha256:a9adde9a1339133bc478a50375b1dd1ab833ae5ecac5a1bc3b0f149286346f39",
+    "lifecycle_schema": "sha256:345a10164d26be303c3f9ac67daca50805e9c0ad7919cf0a4ade0ebf33c83541",
+    "project_manifest": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
+    "projectctl": "sha256:bd85daabe35b0dcbd74527ee0bf771a44d8c6f7948b1ac273d1c29ad9c666341",
+    "runtime_manifest": "sha256:7f7d6faa245fa4641ef244cbc42a267b83b50bfbe2b019402ecf6c45a49f13dc"
+  },
+  "verdict": "PASS",
+  "work_item": "BUG-008"
+}

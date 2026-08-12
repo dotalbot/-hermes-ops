@@ -633,6 +633,8 @@ class ManagerTests(unittest.TestCase):
         )
         fleet = managerlib.fleet_status(self.control)
         self.assertEqual(fleet["projects"][0]["slug"], "example")
+        self.assertEqual(fleet["projects"][0]["runtime_evidence_scopes"], {})
+        self.assertEqual(fleet["projects"][0]["current_state_source"], "runtime-manifest")
         self.assertEqual(fleet, managerlib.fleet_status(self.control))
         markdown = managerlib.render_fleet_markdown(fleet)
         self.assertIn("Example", markdown)

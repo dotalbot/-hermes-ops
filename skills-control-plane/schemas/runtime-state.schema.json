@@ -1,12 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.invalid/hermes/skills-control-plane/runtime-state.schema.json",
-  "title": "Skill Control Plane runtime evidence",
+  "title": "JellySSH section-scoped runtime authority",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "project",
+    "evidence_scopes",
+    "current_state_source",
     "state",
     "paths",
     "profiles",
@@ -24,6 +26,55 @@
     },
     "project": {
       "const": "jellyssh"
+    },
+    "evidence_scopes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bootstrap_baseline",
+        "reviewed_authority"
+      ],
+      "properties": {
+        "bootstrap_baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cut", "sections"],
+          "properties": {
+            "cut": {
+              "const": "2026-08-09T12:08:00+01:00"
+            },
+            "sections": {
+              "const": [
+                "state",
+                "paths",
+                "profiles",
+                "repository_auth",
+                "toolchain",
+                "board",
+                "rollback",
+                "skill_materialization",
+                "governance_decisions"
+              ]
+            }
+          }
+        },
+        "reviewed_authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["update_policy", "sections"],
+          "properties": {
+            "update_policy": {
+              "const": "exact-hash-reviewed-with-control-plane-changes"
+            },
+            "sections": {
+              "const": ["review_boundary"]
+            }
+          }
+        }
+      }
+    },
+    "current_state_source": {
+      "const": "live-projectctl-scan-and-work-item-preflight"
     },
     "state": {
       "enum": [
