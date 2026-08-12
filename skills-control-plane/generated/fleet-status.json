@@ -40,7 +40,7 @@
           "update_policy": "exact-hash-reviewed-with-control-plane-changes"
         }
       },
-      "runtime_sha256": "sha256:02aa196d6a96f5cda602f0e90696852773e13462f154054e9c5a55260cae52d2",
+      "runtime_sha256": "sha256:c7dfca81a27b4a0a811abb5827e16f9dd6cd9ec4b95af203b1d674ce7f1f9bdd",
       "slug": "jellyssh",
       "state": "RED"
     }

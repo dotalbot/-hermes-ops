@@ -1242,18 +1242,22 @@ def validate_runtime(
                     errors.append("reviewer inert bootstrap workspace binding drift")
                 reviewer_expected_commit = project.get("authority", {}).get("commit")
                 reviewer_base_commit = reviewer_expected_commit
+                reviewer_specification_commit = reviewer_expected_commit
                 if lifecycle_contract is not None:
                     reviewer_expected_commit = lifecycle_by_runtime.get("reviewer_checkout", {}).get("commit")
                     reviewer_base_commit = lifecycle_contract.get("repository", {}).get("base_commit")
+                    reviewer_specification_commit = lifecycle_contract.get("repository", {}).get("specification_commit")
                 if (
                     server_env.get("JELLYSSH_REVIEW_ROOT") != runtime_paths.get("reviewer_checkout")
                     or server_env.get("JELLYSSH_REVIEW_SSH_TARGET") != "jellydev@jellybase-lan"
                     or server_env.get("JELLYSSH_EXPECTED_COMMIT") != reviewer_expected_commit
                     or server_env.get("JELLYSSH_REVIEW_BASE_COMMIT") != reviewer_base_commit
+                    or server_env.get("JELLYSSH_REVIEW_SPECIFICATION_COMMIT") != reviewer_specification_commit
                     or set(server_env) != {
                         "JELLYSSH_REVIEW_ROOT",
                         "JELLYSSH_EXPECTED_COMMIT",
                         "JELLYSSH_REVIEW_BASE_COMMIT",
+                        "JELLYSSH_REVIEW_SPECIFICATION_COMMIT",
                         "JELLYSSH_REVIEW_SSH_TARGET",
                     }
                 ):

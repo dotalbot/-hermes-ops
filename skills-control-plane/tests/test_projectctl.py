@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -506,6 +508,102 @@ class ControlPlaneTests(unittest.TestCase):
 
 
 class ReviewControlTests(unittest.TestCase):
+    def test_review_spec_requires_exact_specification_commit(self) -> None:
+        valid = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "c" * 40,
+            "base_commit": "a" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
+            "review_type": "final",
+            "paths": ["docs/spec.md"],
+            "focus": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "review.json"
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            self.assertEqual(reviewctl.load_spec(path), valid)
+            for mutation in (
+                {key: value for key, value in valid.items() if key != "specification_commit"},
+                {key: value for key, value in valid.items() if key != "specification_path"},
+                {**valid, "specification_commit": "not-a-sha"},
+                {**valid, "specification_path": "../spec.md"},
+                {**valid, "specification_path": "docs/other.md"},
+                {**valid, "additional_ref": "d" * 40},
+            ):
+                path.write_text(json.dumps(mutation), encoding="utf-8")
+                with self.assertRaises(reviewctl.ReviewControlError):
+                    reviewctl.load_spec(path)
+
+    def test_repository_binding_admits_only_base_specification_and_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            root.mkdir()
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Review Test"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "review@example.invalid"], check=True)
+            commits = []
+            for index in range(4):
+                (root / "spec.md").write_text(f"version {index}\n", encoding="utf-8")
+                subprocess.run(["git", "-C", str(root), "add", "spec.md"], check=True)
+                subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", f"commit {index}"], check=True)
+                commits.append(
+                    subprocess.run(
+                        ["git", "-C", str(root), "rev-parse", "HEAD"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout.strip()
+                )
+            config = {
+                "mcp_servers": {
+                    "jellyssh_review": {
+                        "env": {
+                            "JELLYSSH_REVIEW_ROOT": str(root),
+                        }
+                    }
+                }
+            }
+            repository = reviewctl._repository_from_config(
+                config,
+                commits[2],
+                commits[0],
+                commits[1],
+            )
+            for ref in commits[:3]:
+                self.assertTrue(repository.git_show(ref, "spec.md").startswith("version "))
+            subprocess.run(["git", "-C", str(root), "branch", "approved-target-alias", commits[2]], check=True)
+            subprocess.run(["git", "-C", str(root), "tag", "approved-spec-alias", commits[1]], check=True)
+            for alias in ("approved-target-alias", "approved-spec-alias"):
+                with self.assertRaises(ReviewBoundaryError):
+                    repository._validate_ref(alias)
+            with self.assertRaises(ReviewBoundaryError):
+                repository._validate_ref("HEAD")
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", commits[2]], check=True)
+            self.assertEqual(repository._validate_ref("HEAD"), commits[2])
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", commits[1]], check=True)
+            with self.assertRaises(ReviewBoundaryError):
+                repository._validate_ref("HEAD")
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", commits[2]], check=True)
+            with self.assertRaises(ReviewBoundaryError):
+                repository.git_show(commits[3], "spec.md")
+            with self.assertRaises(ReviewBoundaryError):
+                reviewctl._repository_from_config(
+                    config,
+                    commits[1],
+                    commits[0],
+                    commits[2],
+                )
+            with self.assertRaises(ReviewBoundaryError):
+                ReviewRepository(
+                    root,
+                    commits[2],
+                    allowed_refs=set(commits),
+                    base_commit=commits[0],
+                    specification_commit=commits[1],
+                )
+
     def test_final_review_requires_sandbox_and_quality_checks(self) -> None:
         self.assertEqual(
             reviewctl._required_checks("final"),
@@ -527,6 +625,8 @@ class ReviewControlTests(unittest.TestCase):
             "project": "jellyssh",
             "expected_commit": "a" * 40,
             "base_commit": "b" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
             "review_type": "code",
             "paths": [],
             "focus": [],
@@ -535,12 +635,16 @@ class ReviewControlTests(unittest.TestCase):
             "verdict": "PASS",
             "project": "jellyssh",
             "expected_commit": "a" * 40,
+            "base_commit": "b" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
+            "approved_specification_sha256": "sha256:" + "1" * 64,
             "review_type": "code",
             "findings": [{"severity": "high", "path": "lib/a.dart", "line": 1, "summary": "problem"}],
-            "checks": [],
+            "checks": ["controller:PASS"],
         }
         with self.assertRaises(reviewctl.ReviewControlError):
-            reviewctl.parse_result(json.dumps(result), spec)
+            reviewctl.parse_result(json.dumps(result), spec, "sha256:" + "1" * 64)
 
     def test_prompt_explicitly_denies_kanban_and_writes(self) -> None:
         spec = {
@@ -548,21 +652,124 @@ class ReviewControlTests(unittest.TestCase):
             "project": "jellyssh",
             "expected_commit": "a" * 40,
             "base_commit": "b" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
             "review_type": "final",
             "paths": [],
             "focus": [],
         }
-        prompt = reviewctl.build_prompt(spec, {"controller": "test"})
+        evidence = {
+            "controller": "test",
+            "approved_specification": {"sha256": "sha256:" + "1" * 64, "content": "approved"},
+        }
+        prompt = reviewctl.build_prompt(spec, evidence)
         self.assertIn("Do not claim to edit", prompt)
         self.assertIn("update Kanban", prompt)
         self.assertIn("authoritative-procedure", prompt)
         self.assertIn("jellyssh-controller-evidence-review", prompt)
+        self.assertIn(spec["specification_commit"], prompt)
+        self.assertIn(spec["specification_path"], prompt)
+        self.assertIn(evidence["approved_specification"]["sha256"], prompt)
+        other_prompt = reviewctl.build_prompt(
+            {**spec, "specification_commit": "c" * 40},
+            evidence,
+        )
+        self.assertNotEqual(prompt, other_prompt)
+
+    def test_mcp_facade_requires_full_base_specification_and_target_shas(self) -> None:
+        script = SCRIPTS / "jellyssh_review_mcp.py"
+        base_env = {
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+            "JELLYSSH_REVIEW_ROOT": str(CONTROL_ROOT),
+            "JELLYSSH_EXPECTED_COMMIT": "a" * 40,
+            "JELLYSSH_REVIEW_BASE_COMMIT": "b" * 40,
+            "JELLYSSH_REVIEW_SPECIFICATION_COMMIT": "c" * 40,
+        }
+        for key in (
+            "JELLYSSH_EXPECTED_COMMIT",
+            "JELLYSSH_REVIEW_BASE_COMMIT",
+            "JELLYSSH_REVIEW_SPECIFICATION_COMMIT",
+        ):
+            env = dict(base_env)
+            env.pop(key)
+            proc = subprocess.run(
+                ["/home/jellybot/.hermes/hermes-agent/venv/bin/python", str(script)],
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=2,
+            )
+            self.assertNotEqual(proc.returncode, 0, key)
+            self.assertIn(key, proc.stderr)
+
+    def test_result_contract_binds_base_and_authenticated_specification_identity(self) -> None:
+        spec = {
+            "project": "jellyssh",
+            "expected_commit": "a" * 40,
+            "base_commit": "b" * 40,
+            "specification_commit": "c" * 40,
+            "specification_path": "docs/spec.md",
+            "review_type": "code",
+        }
+        approved_digest = "sha256:" + "1" * 64
+        result = {
+            "verdict": "PASS",
+            **{key: spec[key] for key in ("project", "expected_commit", "base_commit", "specification_commit", "specification_path", "review_type")},
+            "approved_specification_sha256": approved_digest,
+            "findings": [],
+            "checks": ["controller:PASS"],
+        }
+        self.assertEqual(reviewctl.parse_result(json.dumps(result), spec, approved_digest)["verdict"], "PASS")
+        for key, replacement in (
+            ("base_commit", "d" * 40),
+            ("specification_commit", "d" * 40),
+            ("specification_path", "docs/other.md"),
+            ("approved_specification_sha256", "sha256:" + "2" * 64),
+        ):
+            mutated = {**result, key: replacement}
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.parse_result(json.dumps(mutated), spec, approved_digest)
+        missing_path = dict(result)
+        del missing_path["specification_path"]
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl.parse_result(json.dumps(missing_path), spec, approved_digest)
+
+    def test_approved_specification_evidence_uses_exact_ref_path_and_bytes(self) -> None:
+        approved = "approved immutable specification\n"
+        target_mutated = approved + "implementation evidence appended\n"
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        async def call(name: str, arguments: dict[str, object]) -> tuple[bool, str]:
+            calls.append((name, arguments))
+            return True, approved
+
+        spec = {
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/bugs/BUG-009.md",
+        }
+        evidence = asyncio.run(reviewctl._approved_specification_evidence(spec, call))
+        self.assertEqual(
+            calls,
+            [("review_git_show", {"ref": "b" * 40, "relative_path": "docs/bugs/BUG-009.md"})],
+        )
+        self.assertEqual(evidence["content"], approved)
+        self.assertEqual(evidence["sha256"], "sha256:" + hashlib.sha256(approved.encode()).hexdigest())
+        self.assertNotEqual(evidence["sha256"], "sha256:" + hashlib.sha256(target_mutated.encode()).hexdigest())
+
+        async def empty_call(name: str, arguments: dict[str, object]) -> tuple[bool, str]:
+            return True, ""
+
+        with self.assertRaises(reviewctl.ReviewControlError):
+            asyncio.run(reviewctl._approved_specification_evidence(spec, empty_call))
 
     def test_review_procedure_hash_drift_blocks_prompt(self) -> None:
         spec = {
             "review_type": "final",
             "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "base_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_path": "app/spec.md",
             "paths": ["app"],
             "focus": [],
         }
@@ -577,6 +784,8 @@ class ReviewControlTests(unittest.TestCase):
             "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "review_type": "final",
             "base_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_path": "app/spec.md",
             "paths": ["app"],
             "focus": [],
         }
@@ -584,8 +793,12 @@ class ReviewControlTests(unittest.TestCase):
         name = project["skill_layers"]["bundles"]["final-review"][0]
         overlay = next(item for item in project["skill_layers"]["project_overlays"] if item["name"] == name)
         captured = b"# exact captured procedure bytes\n"
+        evidence = {
+            "controller": "test",
+            "approved_specification": {"sha256": "sha256:" + "1" * 64, "content": "approved"},
+        }
         with mock.patch.object(reviewctl, "tree_snapshot", return_value=(overlay["bundle_sha256"], {"SKILL.md": captured})):
-            prompt = reviewctl.build_prompt(spec, {"controller": "test"})
+            prompt = reviewctl.build_prompt(spec, evidence)
         self.assertIn(captured.decode("utf-8"), prompt)
 
     def test_mobile_ux_uses_exact_conditional_gemini_model(self) -> None:
@@ -884,7 +1097,13 @@ class ReviewBoundaryTests(unittest.TestCase):
             yaml.safe_dump({"mcp_servers": {"jellyssh_review": {"env": {"JELLYSSH_REVIEW_ROOT": str(self.root)}}}}),
             encoding="utf-8",
         )
-        spec = {"expected_commit": self.head, "base_commit": self.head, "paths": ["lib"]}
+        spec = {
+            "expected_commit": self.head,
+            "base_commit": self.head,
+            "specification_commit": self.head,
+            "specification_path": "lib/spec.md",
+            "paths": ["lib"],
+        }
         result = {"findings": [{"path": "outside/file.txt"}]}
         with self.assertRaises(reviewctl.ReviewControlError):
             config = yaml.safe_load((profile / "config.yaml").read_text(encoding="utf-8"))

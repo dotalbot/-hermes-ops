@@ -351,6 +351,7 @@ class ReviewRepository:
         ssh_target: str | None = None,
         allowed_refs: Iterable[str] | None = None,
         base_commit: str | None = None,
+        specification_commit: str | None = None,
     ):
         raw_root = Path(str(root)).expanduser()
         if not raw_root.is_absolute() or ".." in raw_root.parts:
@@ -375,9 +376,28 @@ class ReviewRepository:
         self.base_commit = (base_commit or "").strip()
         if self.base_commit and self.base_commit not in self.allowed_refs:
             raise ReviewBoundaryError("base commit must be one of the exact allowed refs")
+        self.specification_commit = (specification_commit or "").strip()
+        if self.specification_commit:
+            if not re.fullmatch(r"[0-9a-f]{40}", self.specification_commit):
+                raise ReviewBoundaryError("specification commit must be a full lowercase SHA-1")
+            if not self.base_commit:
+                raise ReviewBoundaryError("specification commit requires an exact base commit")
+            exact_review_refs = {
+                self.base_commit,
+                self.specification_commit,
+                self.expected_commit,
+            }
+            if self.allowed_refs != exact_review_refs:
+                raise ReviewBoundaryError("review refs must be exactly base, specification, and target")
         top = self._git(["rev-parse", "--show-toplevel"]).strip()
         if top != str(self.root):
             raise ReviewBoundaryError("review root must be the Git repository root")
+        if self.specification_commit:
+            try:
+                self._git(["merge-base", "--is-ancestor", self.base_commit, self.specification_commit])
+                self._git(["merge-base", "--is-ancestor", self.specification_commit, self.expected_commit])
+            except ReviewBoundaryError as exc:
+                raise ReviewBoundaryError("review commit chain must be base <= specification <= target") from exc
 
     @staticmethod
     def _bounded(raw: bytes, limit: int) -> str:
@@ -504,14 +524,16 @@ class ReviewRepository:
         return self._bounded(self._git_bytes(args, timeout), _MAX_GIT_BYTES)
 
     def _validate_ref(self, ref: str) -> str:
-        if not _REF_RE.fullmatch(ref):
-            raise ReviewBoundaryError("invalid Git ref")
+        if ref != "HEAD" and not re.fullmatch(r"[0-9a-f]{40}", ref):
+            raise ReviewBoundaryError("Git ref must be HEAD or a full lowercase SHA-1")
         if ref == "HEAD":
             resolved = self._git(["rev-parse", "HEAD"]).strip()
+            if resolved != self.expected_commit:
+                raise ReviewBoundaryError("HEAD does not resolve to the exact review target")
         else:
             resolved = self._git(["rev-parse", "--verify", ref + "^{commit}"]).strip()
         if resolved not in self.allowed_refs:
-            raise ReviewBoundaryError("ref is outside the exact review base/target set")
+            raise ReviewBoundaryError("ref is outside the exact review authority set")
         return resolved
 
     @staticmethod

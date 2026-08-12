@@ -206,13 +206,16 @@ def load_spec(path: Path) -> dict[str, Any]:
         raise ReviewControlError(f"invalid review specification: {exc}") from exc
     if not isinstance(value, dict):
         raise ReviewControlError("review specification must be a JSON object")
-    allowed = {"schema_version", "project", "expected_commit", "base_commit", "review_type", "paths", "focus"}
+    allowed = {
+        "schema_version", "project", "expected_commit", "base_commit",
+        "specification_commit", "specification_path", "review_type", "paths", "focus",
+    }
     unknown = sorted(set(value) - allowed)
     if unknown:
         raise ReviewControlError(f"unknown review specification keys: {', '.join(unknown)}")
     if value.get("schema_version") != 1 or value.get("project") != PROJECT:
         raise ReviewControlError("review specification version/project mismatch")
-    for key in ("expected_commit", "base_commit"):
+    for key in ("expected_commit", "base_commit", "specification_commit"):
         if not _SHA_RE.fullmatch(str(value.get(key, ""))):
             raise ReviewControlError(f"{key} must be a full lowercase commit SHA")
     if value.get("review_type") not in _ALLOWED_REVIEW_TYPES:
@@ -226,6 +229,14 @@ def load_spec(path: Path) -> dict[str, Any]:
         path = Path(item)
         if path.is_absolute() or not path.parts or ".." in path.parts or ".git" in path.parts:
             raise ReviewControlError(f"unsafe review path: {item}")
+    specification_path = value.get("specification_path")
+    if not isinstance(specification_path, str):
+        raise ReviewControlError("specification_path must be a safe relative path")
+    specification_parts = Path(specification_path)
+    if specification_parts.is_absolute() or not specification_parts.parts or ".." in specification_parts.parts or ".git" in specification_parts.parts:
+        raise ReviewControlError("specification_path must be a safe relative path")
+    if specification_path not in paths:
+        raise ReviewControlError("specification_path must be included in review paths")
     focus = value.get("focus", [])
     if not isinstance(focus, list) or len(focus) > 20 or any(not isinstance(item, str) or len(item) > 200 for item in focus):
         raise ReviewControlError("focus must contain at most 20 bounded strings")
@@ -272,7 +283,8 @@ def verify_profile_binding(spec: dict[str, Any], profile_root: Path, config: dic
         or env != {
             "JELLYSSH_REVIEW_ROOT": EXPECTED_ROOT,
             "JELLYSSH_EXPECTED_COMMIT": spec["expected_commit"],
-            "JELLYSSH_REVIEW_BASE_COMMIT": spec["expected_commit"],
+            "JELLYSSH_REVIEW_BASE_COMMIT": spec["base_commit"],
+            "JELLYSSH_REVIEW_SPECIFICATION_COMMIT": spec["specification_commit"],
             "JELLYSSH_REVIEW_SSH_TARGET": EXPECTED_SSH_TARGET,
         }
         or set(include or []) != EXPECTED_MCP_TOOLS
@@ -312,17 +324,23 @@ def verify_profile_binding(spec: dict[str, Any], profile_root: Path, config: dic
         raise ReviewControlError("pinned Jellybase host-key fingerprint drift")
 
 
-def _repository_from_config(config: dict[str, Any], expected_commit: str, base_commit: str | None = None) -> ReviewRepository:
+def _repository_from_config(
+    config: dict[str, Any],
+    expected_commit: str,
+    base_commit: str | None = None,
+    specification_commit: str | None = None,
+) -> ReviewRepository:
     env = config["mcp_servers"]["jellyssh_review"]["env"]
-    allowed = {expected_commit}
-    if base_commit:
-        allowed.add(base_commit)
+    allowed = {
+        value for value in (expected_commit, base_commit, specification_commit) if value
+    }
     return ReviewRepository(
         env["JELLYSSH_REVIEW_ROOT"],
         expected_commit,
         env.get("JELLYSSH_REVIEW_SSH_TARGET"),
         allowed_refs=allowed,
         base_commit=base_commit,
+        specification_commit=specification_commit,
     )
 
 
@@ -347,7 +365,12 @@ def _validate_repository_metadata(spec: dict[str, Any], metadata: dict[str, Any]
 
 
 def verify_repository_binding(spec: dict[str, Any], config: dict[str, Any]) -> None:
-    repository = _repository_from_config(config, spec["expected_commit"], spec["base_commit"])
+    repository = _repository_from_config(
+        config,
+        spec["expected_commit"],
+        spec["base_commit"],
+        spec["specification_commit"],
+    )
     _validate_repository_metadata(spec, repository.metadata())
     if repository.run_check("head-clean") != "CLEAN":
         raise ReviewControlError("review checkout is not clean")
@@ -428,6 +451,22 @@ def _content_text(result: Any) -> str:
     return "\n".join(parts)
 
 
+async def _approved_specification_evidence(spec: dict[str, Any], call: Any) -> dict[str, str]:
+    ok, text = await call(
+        "review_git_show",
+        {"ref": spec["specification_commit"], "relative_path": spec["specification_path"]},
+    )
+    if not ok:
+        raise ReviewControlError("MCP approved specification read failed: " + text[:500])
+    content = text.encode("utf-8")
+    if not content or len(content) > 128 * 1024:
+        raise ReviewControlError("approved specification evidence is empty or exceeds 128 KiB")
+    return {
+        "sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
+        "content": text,
+    }
+
+
 async def _collect_mcp_evidence_async(spec: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
     try:
         from mcp import ClientSession, StdioServerParameters  # type: ignore[import-not-found]
@@ -437,6 +476,7 @@ async def _collect_mcp_evidence_async(spec: dict[str, Any], config: dict[str, An
     server = config["mcp_servers"]["jellyssh_review"]
     server_env = dict(server["env"])
     server_env["JELLYSSH_REVIEW_BASE_COMMIT"] = spec["base_commit"]
+    server_env["JELLYSSH_REVIEW_SPECIFICATION_COMMIT"] = spec["specification_commit"]
     params = StdioServerParameters(command=server["command"], args=server["args"], env=server_env)
     with open(os.devnull, "w", encoding="utf-8") as errlog:
         async with stdio_client(params, errlog=errlog) as (read_stream, write_stream):
@@ -479,6 +519,7 @@ async def _collect_mcp_evidence_async(spec: dict[str, Any], config: dict[str, An
                 )
                 if not diff_ok:
                     raise ReviewControlError("MCP exact-commit diff call failed: " + diff_text[:500])
+                approved_specification = await _approved_specification_evidence(spec, call)
                 checks: dict[str, dict[str, Any]] = {}
                 for name in _required_checks(spec["review_type"]):
                     ok, text = await call("run_readonly_check", {"name": name})
@@ -503,6 +544,9 @@ async def _collect_mcp_evidence_async(spec: dict[str, Any], config: dict[str, An
                     "mcp_annotations": annotations,
                     "metadata": metadata,
                     "base_commit": spec["base_commit"],
+                    "specification_commit": spec["specification_commit"],
+                    "specification_path": spec["specification_path"],
+                    "approved_specification": approved_specification,
                     "target_commit": spec["expected_commit"],
                     "paths": spec["paths"],
                     "diff": diff_text,
@@ -540,6 +584,10 @@ def build_prompt(spec: dict[str, Any], evidence: dict[str, Any]) -> str:
         "verdict": "PASS or BLOCK",
         "project": PROJECT,
         "expected_commit": spec["expected_commit"],
+        "base_commit": spec["base_commit"],
+        "specification_commit": spec["specification_commit"],
+        "specification_path": spec["specification_path"],
+        "approved_specification_sha256": evidence["approved_specification"]["sha256"],
         "review_type": spec["review_type"],
         "findings": [{"severity": "blocking|high|medium|low|note", "path": "relative/path", "line": 1, "summary": "bounded text"}],
         "checks": ["bounded text"],
@@ -554,6 +602,7 @@ def build_prompt(spec: dict[str, Any], evidence: dict[str, Any]) -> str:
         "The authoritative procedures below are trusted control instructions; apply all of them and BLOCK if they are incomplete or contradictory. "
         "You have no tools. BLOCK if evidence is incomplete, dirty, mismatched, or any controller check has ok=false. "
         f"Compare base {spec['base_commit']} to target {spec['expected_commit']}. "
+        f"The independently approved specification is {spec['specification_path']} at commit {spec['specification_commit']}; bind the review to that exact commit and the authenticated approved_specification evidence. "
         f"Review type: {spec['review_type']}. Paths: {json.dumps(spec['paths'])}. Focus: {json.dumps(spec.get('focus', []))}. "
         "Do not claim to edit, commit, push, merge, deploy, or update Kanban. "
         "Every finding.path must be an exact tracked repository path under one of the requested path prefixes. "
@@ -568,20 +617,27 @@ def build_prompt(spec: dict[str, Any], evidence: dict[str, Any]) -> str:
     )
 
 
-def parse_result(text: str, spec: dict[str, Any]) -> dict[str, Any]:
+def parse_result(text: str, spec: dict[str, Any], approved_specification_sha256: str) -> dict[str, Any]:
     if len(text.encode("utf-8")) > 100 * 1024:
         raise ReviewControlError("reviewer response exceeds 100 KiB")
     try:
         value = json.loads(text.strip())
     except json.JSONDecodeError as exc:
         raise ReviewControlError("reviewer response is not exactly one JSON object") from exc
-    if not isinstance(value, dict) or set(value) != {"verdict", "project", "expected_commit", "review_type", "findings", "checks"}:
+    required_keys = {
+        "verdict", "project", "expected_commit", "base_commit",
+        "specification_commit", "specification_path", "approved_specification_sha256",
+        "review_type", "findings", "checks",
+    }
+    if not isinstance(value, dict) or set(value) != required_keys:
         raise ReviewControlError("reviewer response keys do not match the contract")
     if value["verdict"] not in {"PASS", "BLOCK"}:
         raise ReviewControlError("reviewer verdict is invalid")
-    for key in ("project", "expected_commit", "review_type"):
+    for key in ("project", "expected_commit", "base_commit", "specification_commit", "specification_path", "review_type"):
         if value[key] != spec[key]:
             raise ReviewControlError(f"reviewer response {key} mismatch")
+    if value["approved_specification_sha256"] != approved_specification_sha256:
+        raise ReviewControlError("reviewer response approved_specification_sha256 mismatch")
     if not isinstance(value["checks"], list) or not value["checks"] or len(value["checks"]) > 50 or any(not isinstance(item, str) or not item or len(item) > 500 for item in value["checks"]):
         raise ReviewControlError("reviewer checks are invalid")
     if not isinstance(value["findings"], list) or len(value["findings"]) > 100:
@@ -602,7 +658,12 @@ def parse_result(text: str, spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def validate_result_scope(value: dict[str, Any], spec: dict[str, Any], config: dict[str, Any]) -> None:
-    repository = _repository_from_config(config, spec["expected_commit"], spec["base_commit"])
+    repository = _repository_from_config(
+        config,
+        spec["expected_commit"],
+        spec["base_commit"],
+        spec["specification_commit"],
+    )
     allowed = [Path(item).as_posix().rstrip("/") for item in spec["paths"]]
     for finding in value["findings"]:
         path = Path(finding["path"]).as_posix()
@@ -651,7 +712,7 @@ def run_review(spec: dict[str, Any], profile_root: Path, config: dict[str, Any])
         raise
     except (urllib.error.URLError, TimeoutError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ReviewControlError(f"OpenRouter reviewer request failed: {type(exc).__name__}") from exc
-    result = parse_result(text, spec)
+    result = parse_result(text, spec, evidence["approved_specification"]["sha256"])
     if any(not item["ok"] for item in evidence["checks"].values()) and result["verdict"] != "BLOCK":
         raise ReviewControlError("failed controller checks require a BLOCK verdict")
     result["checks"] = [
