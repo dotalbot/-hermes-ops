@@ -94,6 +94,15 @@ completed=set()
 event_count=0
 
 try:
+ check_name=sys.argv[4]
+except IndexError:
+ check_name="invalid"
+ structural_error=True
+if check_name not in {"flutter-test","sftp-browser-test"}:
+ check_name="invalid"
+ structural_error=True
+
+try:
  exit_code=int(sys.argv[2])
 except (IndexError,ValueError):
  exit_code=-1
@@ -304,7 +313,7 @@ success=(
 )
 summary={
  "schema_version":1,
- "check":"flutter-test",
+ "check":check_name,
  "reporter":"json",
  "protocol_version":protocol_version,
  "exit_code":exit_code,
@@ -325,6 +334,7 @@ _ALLOWED_CHECKS = {
     "submodule-status",
     "flutter-analyze",
     "flutter-test",
+    "sftp-browser-test",
     "dart-format-check",
 }
 
@@ -714,6 +724,13 @@ class ReviewRepository:
         check_command = {
             "flutter-analyze": [*flutter_tool, "analyze", "--no-pub"],
             "flutter-test": [*flutter_tool, "test", "--machine", "--no-pub"],
+            "sftp-browser-test": [
+                *flutter_tool,
+                "test",
+                "--machine",
+                "--no-pub",
+                "test/screens/sftp/sftp_browser_screen_test.dart",
+            ],
             "dart-format-check": [
                 "/opt/flutter/bin/cache/dart-sdk/bin/dart",
                 "format",
@@ -732,7 +749,7 @@ class ReviewRepository:
             "cp -a /review-input/tools /workspace/tools; "
             "cd /workspace/repo/app; "
         )
-        if name == "flutter-test":
+        if name in {"flutter-test", "sftp-browser-test"}:
             machine_output = "/workspace/flutter-test.machine.jsonl"
             diagnostic_output = "/workspace/flutter-test.stderr"
             sandbox_command = (
@@ -741,7 +758,8 @@ class ReviewRepository:
                 + f"{inner} >{shlex.quote(machine_output)} 2>{shlex.quote(diagnostic_output)}; "
                 + "flutter_exit=$?; set -e; "
                 + f"exec /usr/bin/python3 -c {shlex.quote(_FLUTTER_TEST_SUMMARY_CODE)} "
-                + f"{shlex.quote(machine_output)} \"$flutter_exit\" {shlex.quote(diagnostic_output)}"
+                + f"{shlex.quote(machine_output)} \"$flutter_exit\" "
+                + f"{shlex.quote(diagnostic_output)} {shlex.quote(name)}"
             )
         else:
             sandbox_command = sandbox_prefix + f"exec {inner}"
@@ -785,7 +803,7 @@ timeout --signal=TERM --kill-after=10 300 docker run --rm --pull=never --name "$
 """
         command = ["/bin/bash", "-c", script]
         output = self._run(command, timeout=330)
-        limit = 4096 if name == "flutter-test" else _MAX_GIT_BYTES
+        limit = 4096 if name in {"flutter-test", "sftp-browser-test"} else _MAX_GIT_BYTES
         return self._bounded(output, limit) or "PASS"
 
     def _run_sandbox_self_check(self) -> str:
@@ -817,7 +835,12 @@ printf 'SANDBOX_SELF_CHECK=PASS\n'
             raise ReviewBoundaryError("check is not allowlisted")
         if name == "sandbox-self-check":
             return self._run_sandbox_self_check()
-        if name in {"flutter-analyze", "flutter-test", "dart-format-check"}:
+        if name in {
+            "flutter-analyze",
+            "flutter-test",
+            "sftp-browser-test",
+            "dart-format-check",
+        }:
             return self._run_sandboxed_flutter_check(name)
         if name == "diff-check" and not self.base_commit:
             raise ReviewBoundaryError("diff-check requires an exact base commit")

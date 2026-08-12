@@ -57,6 +57,177 @@ class ControlPlaneTests(unittest.TestCase):
             result["errors"],
         )
 
+    def test_static_scan_detects_current_controller_source_drift(self) -> None:
+        boundary = self.root / "scripts/review_boundary.py"
+        boundary.write_text(boundary.read_text(encoding="utf-8") + "\n# drift\n", encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "controller implementation hash drift: review_boundary.py",
+            result["errors"],
+        )
+
+    def test_static_scan_rejects_controller_source_changed_during_validation(self) -> None:
+        boundary = self.root / "scripts/review_boundary.py"
+        original_file_sha256 = projectctl.file_sha256
+        changed = False
+
+        def racing_file_sha256(path: Path) -> str:
+            nonlocal changed
+            digest = original_file_sha256(path)
+            if path == boundary and not changed:
+                boundary.write_text(
+                    boundary.read_text(encoding="utf-8") + "\n# concurrent drift\n",
+                    encoding="utf-8",
+                )
+                changed = True
+            return digest
+
+        with mock.patch.object(projectctl, "file_sha256", side_effect=racing_file_sha256):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "authority changed during validation: controller implementation review_boundary.py",
+            result["errors"],
+        )
+
+    def test_static_scan_rejects_compact_evidence_changed_during_validation(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        original_file_sha256 = projectctl.file_sha256
+        changed = False
+
+        def racing_file_sha256(path: Path) -> str:
+            nonlocal changed
+            digest = original_file_sha256(path)
+            if path == evidence and not changed:
+                evidence.write_text(
+                    evidence.read_text(encoding="utf-8") + "\n",
+                    encoding="utf-8",
+                )
+                changed = True
+            return digest
+
+        with mock.patch.object(projectctl, "file_sha256", side_effect=racing_file_sha256):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "authority changed during validation: compact Flutter test evidence",
+            result["errors"],
+        )
+
+    def test_static_scan_never_consumes_transient_unpinned_compact_evidence(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        original_bytes = evidence.read_bytes()
+        transient = json.loads(original_bytes.decode("utf-8"))
+        transient["generated_at"] = "transient-unpinned-value"
+        transient_bytes = (json.dumps(transient, indent=2) + "\n").encode("utf-8")
+        original_read_bytes = Path.read_bytes
+        original_validate = projectctl._validate_compact_flutter_evidence
+        injected = False
+        observed_generated_at: list[object] = []
+
+        def racing_read_bytes(path: Path) -> bytes:
+            nonlocal injected
+            content = original_read_bytes(path)
+            if path == evidence and not injected:
+                path.write_bytes(transient_bytes)
+                injected = True
+            return content
+
+        def observing_validate(value: object, producer_hashes: object) -> list[str]:
+            if isinstance(value, dict):
+                observed_generated_at.append(value.get("generated_at"))
+            evidence.write_bytes(original_bytes)
+            return original_validate(value, producer_hashes)
+
+        with (
+            mock.patch.object(Path, "read_bytes", racing_read_bytes),
+            mock.patch.object(
+                projectctl,
+                "_validate_compact_flutter_evidence",
+                side_effect=observing_validate,
+            ),
+        ):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        original = json.loads(original_bytes.decode("utf-8"))
+        self.assertTrue(injected)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(observed_generated_at, [original["generated_at"]])
+        self.assertNotEqual(observed_generated_at, [transient["generated_at"]])
+        self.assertEqual(evidence.read_bytes(), original_bytes)
+
+    def test_static_scan_never_consumes_transient_unpinned_quality_evidence(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-quality-gate.json"
+        original_bytes = evidence.read_bytes()
+        transient = json.loads(original_bytes.decode("utf-8"))
+        transient["project"] = "transient-unpinned-project"
+        transient_bytes = (json.dumps(transient, indent=2) + "\n").encode("utf-8")
+        original_read_bytes = Path.read_bytes
+        original_load_pinned_json = projectctl._load_pinned_json
+        injected = False
+        observed_projects: list[object] = []
+
+        def racing_read_bytes(path: Path) -> bytes:
+            nonlocal injected
+            content = original_read_bytes(path)
+            if path == evidence and not injected:
+                path.write_bytes(transient_bytes)
+                injected = True
+            return content
+
+        def observing_load(path: Path, expected: object, error: str) -> dict[str, object]:
+            value = original_load_pinned_json(path, expected, error)
+            if path == evidence:
+                observed_projects.append(value.get("project"))
+                evidence.write_bytes(original_bytes)
+            return value
+
+        with (
+            mock.patch.object(Path, "read_bytes", racing_read_bytes),
+            mock.patch.object(projectctl, "_load_pinned_json", side_effect=observing_load),
+        ):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        original = json.loads(original_bytes.decode("utf-8"))
+        self.assertTrue(injected)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(observed_projects, [original["project"]])
+        self.assertNotEqual(observed_projects, [transient["project"]])
+        self.assertEqual(evidence.read_bytes(), original_bytes)
+
+    def test_static_scan_rejects_quality_evidence_changed_during_validation(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-quality-gate.json"
+        original_file_sha256 = projectctl.file_sha256
+        changed = False
+
+        def racing_file_sha256(path: Path) -> str:
+            nonlocal changed
+            digest = original_file_sha256(path)
+            if path == evidence and not changed:
+                evidence.write_text(
+                    evidence.read_text(encoding="utf-8") + "\n",
+                    encoding="utf-8",
+                )
+                changed = True
+            return digest
+
+        with mock.patch.object(projectctl, "file_sha256", side_effect=racing_file_sha256):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "authority changed during validation: Flutter quality evidence",
+            result["errors"],
+        )
+
     def test_runtime_evidence_scopes_are_required(self) -> None:
         runtime_path = self.project.parent / "runtime.yaml"
         runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
@@ -279,6 +450,19 @@ class ControlPlaneTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("compact Flutter test evidence contract drift", result["errors"])
 
+    def test_compact_flutter_evidence_producer_hash_drift_is_rejected(self) -> None:
+        runtime_path = self.root / "projects/jellyssh/runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        runtime["review_boundary"]["flutter_test_compact_producer_sha256"][
+            "review_boundary.py"
+        ] = "sha256:" + "1" * 64
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("compact Flutter test evidence contract drift", result["errors"])
+
     def test_compact_flutter_evidence_incomplete_protocol_is_rejected(self) -> None:
         evidence_path = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
         evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
@@ -332,6 +516,7 @@ class ReviewControlTests(unittest.TestCase):
                 "submodule-status",
                 "dart-format-check",
                 "flutter-analyze",
+                "sftp-browser-test",
                 "flutter-test",
             ],
         )
@@ -451,6 +636,34 @@ class ReviewControlTests(unittest.TestCase):
                 reviewctl._validate_check_output("flutter-test", True, output)
         with self.assertRaises(reviewctl.ReviewControlError):
             reviewctl._validate_check_output("flutter-test", False, json.dumps(valid))
+
+    def test_focused_sftp_check_requires_exact_compact_identity(self) -> None:
+        valid = {
+            "schema_version": 1,
+            "check": "sftp-browser-test",
+            "reporter": "json",
+            "protocol_version": "0.1.1",
+            "exit_code": 0,
+            "success": True,
+            "terminal": "done",
+            "passed": 19,
+            "failed": 0,
+            "skipped": 0,
+            "total": 19,
+            "diagnostics": [],
+        }
+
+        reviewctl._validate_check_output("sftp-browser-test", True, json.dumps(valid))
+
+        for identity in ("flutter-test", "caller-supplied-test"):
+            with self.subTest(identity=identity), self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl._validate_check_output(
+                    "sftp-browser-test",
+                    True,
+                    json.dumps({**valid, "check": identity}),
+                )
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl._validate_check_output("sftp-browser-test", False, json.dumps(valid))
 
 
 class ReviewBoundaryTests(unittest.TestCase):

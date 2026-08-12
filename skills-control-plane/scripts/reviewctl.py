@@ -368,7 +368,7 @@ def _validate_check_output(name: str, ok: bool, text: str) -> None:
             raise ReviewControlError("submodule status is uninitialized or mismatched")
     if name == "dart-format-check" and (not ok or not re.search(r"Formatted \d+ files \(0 changed\)", text)):
         raise ReviewControlError("Dart format check output drift")
-    if name == "flutter-test":
+    if name in {"flutter-test", "sftp-browser-test"}:
         if not ok or len(text.encode("utf-8")) > 4096:
             raise ReviewControlError("Flutter test compact output failed or exceeded its bound")
         try:
@@ -386,7 +386,7 @@ def _validate_check_output(name: str, ok: bool, text: str) -> None:
         diagnostics = summary["diagnostics"]
         if (
             summary["schema_version"] != 1
-            or summary["check"] != "flutter-test"
+            or summary["check"] != name
             or summary["reporter"] != "json"
             or not isinstance(summary["protocol_version"], str)
             or not re.fullmatch(r"0\.1\.\d+", summary["protocol_version"])
@@ -408,7 +408,10 @@ def _validate_check_output(name: str, ok: bool, text: str) -> None:
 def _required_checks(review_type: str) -> list[str]:
     checks = ["sandbox-self-check", "head-clean", "diff-check", "submodule-status"]
     if review_type in {"code", "database-data", "mobile-ux", "final"}:
-        checks.extend(["dart-format-check", "flutter-analyze", "flutter-test"])
+        checks.extend(["dart-format-check", "flutter-analyze"])
+        if review_type == "final":
+            checks.append("sftp-browser-test")
+        checks.append("flutter-test")
     return checks
 
 

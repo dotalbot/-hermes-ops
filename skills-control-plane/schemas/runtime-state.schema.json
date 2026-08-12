@@ -152,6 +152,7 @@
         "controller_verdict",
         "flutter_test_compact_evidence",
         "flutter_test_compact_evidence_sha256",
+        "flutter_test_compact_producer_sha256",
         "exposed_tools",
         "forbidden_toolsets",
         "sampling_enabled",
@@ -256,6 +257,19 @@
         },
         "flutter_test_compact_evidence_sha256": {
           "$ref": "#/$defs/nonZeroSha256"
+        },
+        "flutter_test_compact_producer_sha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["review_boundary.py", "reviewctl.py"],
+          "properties": {
+            "review_boundary.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "reviewctl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            }
+          }
         },
         "sandbox_image_digest": {
           "const": "sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4"
