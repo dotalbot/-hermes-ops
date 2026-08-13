@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.invalid/schemas/claude-worker-result.schema.json",
+  "title": "Governed Claude worker result",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "adapter_version",
+    "attempt_id",
+    "mode",
+    "request_sha256",
+    "started_at",
+    "finished_at",
+    "route",
+    "verdict",
+    "blockers",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "adapter_version": {"const": "0.1.0"},
+    "attempt_id": {"type": "string"},
+    "mode": {"enum": ["implementation", "review"]},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ssh_target", "identity", "repository"],
+      "properties": {
+        "ssh_target": {"const": "agent-claude"},
+        "identity": {"const": "jellyclaude@jellybase"},
+        "repository": {"const": "/home/jellyclaude/dev_projects/jellyssh"}
+      }
+    },
+    "verdict": {"enum": ["PASS", "BLOCK", "TIMEOUT"]},
+    "blockers": {"type": "array", "items": {"type": "string", "maxLength": 2000}},
+    "checks": {"type": "array"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verdict": {"const": "PASS"}}},
+      "then": {
+        "required": [
+          "preflight",
+          "worktree",
+          "start_commit",
+          "start_tree",
+          "raw_claude_sha256",
+          "claude",
+          "final_commit",
+          "final_tree",
+          "changed_files"
+        ],
+        "properties": {"blockers": {"maxItems": 0}}
+      }
+    },
+    {
+      "if": {"properties": {"verdict": {"enum": ["BLOCK", "TIMEOUT"]}}},
+      "then": {"properties": {"blockers": {"minItems": 1}}}
+    }
+  ]
+}

@@ -16,7 +16,7 @@ This directory is the Git-backed authority for governed Hermes project setup and
 - `templates/` — non-secret setup inputs that must be completed before planning.
 - `generated/` — derived fleet/project projections; never authority.
 
-JellySSH-specific review routing remains in `projectctl.py`, `reviewctl.py`, `review_boundary.py`, and `jellyssh_review_mcp.py`. `governancectl.py` provides the separately authenticated parent-context, timing, canonical-Kanban review, and acceptance publication boundary. Generic setup and maintenance are isolated in `managerlib.py` behind the thin `managerctl.py` CLI.
+JellySSH-specific review routing remains in `projectctl.py`, `reviewctl.py`, `review_boundary.py`, and `jellyssh_review_mcp.py`. `governancectl.py` provides the separately authenticated parent-context, timing, canonical-Kanban review, and acceptance publication boundary. Generic setup and maintenance are isolated in `managerlib.py` behind the thin `managerctl.py` CLI. `claude_worker_adapter.py` is an optional fixed-route external-engine boundary for the dedicated `jellyclaude@jellybase` account; it returns structured implementation or advisory-review evidence but does not mutate Kanban or publish acceptance authority.
 
 ## Safety model
 

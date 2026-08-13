@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "attempt_id": "feature-example-001",
+  "mode": "implementation",
+  "base_commit": "0000000000000000000000000000000000000000",
+  "branch": "feat/replace-with-feature-slug",
+  "specification": {
+    "path": "docs/specifications/SPEC-NNN-replace-me.md",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "task": "Replace with a bounded ticket derived from the accepted specification. Do not include credentials or secret values.",
+  "checks": ["format", "analyze", "test"],
+  "model": "sonnet",
+  "effort": "high",
+  "timeout_seconds": 1800,
+  "output_path": "/home/jellybot/projects/jellyssh-claude-adapter/evidence/feature-example-001.json"
+}

@@ -23,7 +23,8 @@ The control plane and the code workspace are deliberately separate:
 6. [Matt Pocock skills](matt-pocock-skills.md)
 7. [Skill Control Plane and project initialization](skill-control-plane-and-project-initialization.md)
 8. [Kanban card templates](kanban-card-templates.md)
-9. [Operator checklist](operator-checklist.md)
+9. [JellySSH Claude Code adapter](jellyssh-claude-code-adapter.md) — optional bounded implementation or advisory-review lane through the dedicated `jellyclaude@jellybase` account
+10. [Operator checklist](operator-checklist.md)
 
 ## Quick start for a new feature
 
@@ -36,6 +37,7 @@ The control plane and the code workspace are deliberately separate:
 7. Run required architecture, security, UI, and database/data expert reviews before implementation.
 8. Create a dedicated board for the project; do not mix application work into `spawner`.
 9. Dispatch one bounded implementation card at a time to the approved project-specific profile.
+   That Hermes profile may invoke the reviewed Claude adapter; Claude Code is never itself the Kanban assignee or result authority.
 10. Require tests, independent review, commit evidence, and the project's push gate before calling a feature ready.
 11. Create a pull request or merge only after explicit operator approval.
 
