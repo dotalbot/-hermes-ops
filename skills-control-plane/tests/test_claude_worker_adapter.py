@@ -224,6 +224,8 @@ class CommandConstructionTests(unittest.TestCase):
         script = ssh_script.call_args.args[0]
         self.assertIn("clone --no-hardlinks", script)
         self.assertIn("test -f \"$source/.git\"", script)
+        self.assertIn('mv -- "$source/.git" "$sandbox/gitlink"', script)
+        self.assertIn('test ! -e "$source/.git"', script)
         self.assertIn("refs/replace", script)
         self.assertNotIn("worktree add", script)
 
@@ -256,6 +258,15 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("hexdigest() != sys.argv[3]", script)
         cleanup.assert_called_once()
 
+    def test_git_link_restore_is_controller_owned_and_fail_closed(self) -> None:
+        worktree = "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source"
+        with mock.patch.object(adapter, "_ssh_script", return_value="") as ssh_script:
+            adapter.restore_worktree_git_link(worktree)
+        script = ssh_script.call_args.args[0]
+        self.assertIn('test ! -e "$source/.git"', script)
+        self.assertIn('test -f "$sandbox/gitlink"', script)
+        self.assertIn('mv -- "$sandbox/gitlink" "$source/.git"', script)
+
     def test_prompt_is_stdin_and_fixed_route_is_used(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
         command = adapter.build_claude_command(request, "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source")
@@ -267,6 +278,9 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("--permission-mode auto", " ".join(command.argv))
         self.assertNotIn("Bash", " ".join(command.argv))
         self.assertIn("--settings /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/home/.claude/adapter-session-settings.json", " ".join(command.argv))
+        rendered = shlex.split(command.argv[-1])[0]
+        self.assertIn("--setting-sources user", rendered)
+        self.assertNotIn("--read-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/git", rendered)
         self.assertIn("timeout --signal=TERM --kill-after=30", " ".join(command.argv))
         self.assertEqual(command.argv[:4], ["ssh", "agent-claude", "bash", "-lc"])
         self.assertTrue(command.argv[-1].startswith("'set -euo pipefail;"))
@@ -343,11 +357,19 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn(adapter.REMOTE_FLUTTER, script)
         self.assertIn(adapter.REMOTE_DART, script)
         self.assertIn(adapter.REMOTE_FLUTTER_SNAPSHOT, script)
-        self.assertIn("sha256sum", script)
+        for path, digest in adapter.EXPECTED_EXECUTABLE_SHA256.items():
+            self.assertIn(path, script)
+            self.assertIn(digest, script)
         self.assertNotIn("toolchain.env", script)
 
 
 class ResultValidationTests(unittest.TestCase):
+    def test_protected_state_rejects_untrusted_executable_baseline(self) -> None:
+        value = {"status": "", "replace_refs": [], "executables": [{"path": path, "sha256": "0" * 64} for path in adapter.EXPECTED_EXECUTABLE_SHA256]}
+        with mock.patch.object(adapter, "_ssh_script", return_value=json.dumps(value)):
+            with self.assertRaisesRegex(adapter.AdapterError, "trusted manifest"):
+                adapter.capture_remote_protected_state()
+
     def test_protected_repository_and_executable_drift_blocks(self) -> None:
         expected = {"refs": ["refs/heads/main a"], "executables": [{"sha256": "1" * 64}]}
         with mock.patch.object(adapter, "capture_remote_protected_state", return_value=dict(expected)):
@@ -361,7 +383,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.4.0",
+            "adapter_version": "0.4.1",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
@@ -809,6 +831,13 @@ class AtomicPublicationTests(unittest.TestCase):
             skill_digests={"code-review": "f" * 64},
         )
 
+    def test_post_publication_cleanup_faults_are_best_effort(self) -> None:
+        worktree = "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source"
+        faults = [PermissionError("cleanup failed"), subprocess.TimeoutExpired(["ssh"], 60)]
+        for fault in faults:
+            with self.subTest(fault=type(fault).__name__), mock.patch.object(adapter, "_run", side_effect=fault):
+                adapter.cleanup_worktree(worktree)
+
     def test_success_publication_stages_before_ref_then_links_evidence(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
         state = {"commit": TARGET, "tree": "4" * 40, "branch": request["branch"], "changed": ["app/lib/example.dart"]}
@@ -990,12 +1019,15 @@ class CliFailureTests(unittest.TestCase):
         state_patcher = mock.patch.object(adapter, "capture_remote_protected_state", return_value={"sealed": True})
         verify_patcher = mock.patch.object(adapter, "verify_remote_protected_state")
         purge_patcher = mock.patch.object(adapter, "purge_sandbox_sensitive_state")
+        restore_patcher = mock.patch.object(adapter, "restore_worktree_git_link")
         state_patcher.start()
         verify_patcher.start()
         purge_patcher.start()
+        restore_patcher.start()
         self.addCleanup(state_patcher.stop)
         self.addCleanup(verify_patcher.stop)
         self.addCleanup(purge_patcher.stop)
+        self.addCleanup(restore_patcher.stop)
 
     def test_malformed_worker_json_is_retained_only_inside_canonical_block(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

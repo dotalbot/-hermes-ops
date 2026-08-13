@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.4.0"
+ADAPTER_VERSION = "0.4.1"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -90,6 +90,12 @@ REMOTE_CLAUDE = "/home/jellyclaude/.local/bin/claude"
 REMOTE_FLUTTER = "/home/jellyclaude/dev/sdk/flutter/bin/flutter"
 REMOTE_DART = "/home/jellyclaude/dev/sdk/flutter-3.44.9/bin/cache/dart-sdk/bin/dart"
 REMOTE_FLUTTER_SNAPSHOT = "/home/jellyclaude/dev/sdk/flutter-3.44.9/bin/cache/flutter_tools.snapshot"
+EXPECTED_EXECUTABLE_SHA256 = {
+    REMOTE_CLAUDE: "d535985e6941a3eb00179ccd7f52ceb0c6623a0305a518ebc4e6514f84a94c99",
+    REMOTE_FLUTTER: "7d486c33b30a0cf1ea5146231c68bb8f966cdb4e087c5cd8b37e14513f536e7d",
+    REMOTE_DART: "c03ad868b5c53e31461b0fef22dc6eb6aeb56b7567efff6ca488ce9c4a6f8a6a",
+    REMOTE_FLUTTER_SNAPSHOT: "7fdbab587e49457e1e14f00027b12ab1db3895da88d24ad3f5eb91e1847086fb",
+}
 REMOTE_SESSION_SETTINGS = "/home/jellyclaude/.claude/adapter-session-settings.json"
 REMOTE_SANDBOX_ROOT = "/home/jellyclaude/.cache/jellyssh-claude-sandboxes"
 ALLOWED_OUTPUT_ROOT = Path("/home/jellybot/projects/jellyssh-claude-adapter/evidence")
@@ -552,6 +558,8 @@ def build_claude_command(
         "--no-session-persistence",
         "--settings",
         str(settings),
+        "--setting-sources",
+        "user",
         "--permission-mode",
         permission,
         "--model",
@@ -583,7 +591,7 @@ def build_claude_command(
                 writable_files.append(str(target))
     readable_directories = [
         "/usr", "/bin", "/lib", "/lib64", "/etc", "/dev", "/proc", "/sys",
-        str(worktree_path), str(sandbox / "git"), str(sandbox_home),
+        str(worktree_path), str(sandbox_home),
     ]
     readable_files = [REMOTE_CLAUDE]
     landlock = LANDLOCK_LAUNCHER
@@ -685,6 +693,10 @@ def preflight(
         else sha256_bytes(SESSION_SETTINGS_PATH.read_bytes())
     )
     expected_json = shlex.quote(json.dumps(expected, sort_keys=True))
+    executable_hash_checks = "\n".join(
+        f"test \"$(sha256sum {shlex.quote(path)} | cut -d' ' -f1)\" = {shlex.quote(digest)}"
+        for path, digest in EXPECTED_EXECUTABLE_SHA256.items()
+    )
     base = str(request["base_commit"]) if request else ""
     branch = str(request.get("branch", "")) if request else ""
     attempt = str(request.get("attempt_id", "")) if request else ""
@@ -695,7 +707,7 @@ test -x {shlex.quote(REMOTE_CLAUDE)}
 test -x {shlex.quote(REMOTE_FLUTTER)}
 test -x {shlex.quote(REMOTE_DART)}
 test -f {shlex.quote(REMOTE_FLUTTER_SNAPSHOT)}
-sha256sum {shlex.quote(REMOTE_CLAUDE)} {shlex.quote(REMOTE_FLUTTER)} {shlex.quote(REMOTE_DART)} {shlex.quote(REMOTE_FLUTTER_SNAPSHOT)} >/dev/null
+{executable_hash_checks}
 ! pgrep -u "$(id -u)" -x claude >/dev/null
 {shlex.quote(REMOTE_CLAUDE)} auth status --text >/dev/null
 test -x "$(command -v tmux)"
@@ -791,7 +803,7 @@ PY
     }
 
 
-def prepare_worktree(request: dict[str, Any]) -> dict[str, str]:
+def prepare_worktree(request: dict[str, Any]) -> dict[str, Any]:
     attempt = str(request["attempt_id"])
     sandbox = f"{REMOTE_SANDBOX_ROOT}/{attempt}"
     worktree = f"{sandbox}/source"
@@ -863,6 +875,9 @@ printf '{{"path":"%s","branch":"%s","start_commit":"%s","start_tree":"%s"}}\\n' 
  {shlex.quote(worktree)} {shlex.quote(branch)} \\
  "$(git -C {shlex.quote(worktree)} rev-parse HEAD)" \\
  "$(git -C {shlex.quote(worktree)} rev-parse HEAD^{{tree}})"
+mv -- "$source/.git" "$sandbox/gitlink"
+test ! -e "$source/.git"
+test -f "$sandbox/gitlink"
 """
     try:
         result = json.loads(_ssh_script(script, timeout=120))
@@ -881,7 +896,30 @@ def cleanup_worktree(worktree: str, branch: str | None = None) -> None:
     if PurePosixPath(REMOTE_SANDBOX_ROOT) not in PurePosixPath(worktree).parents:
         return
     script = f"rm -rf -- {shlex.quote(sandbox)} >/dev/null 2>&1 || true\n"
-    _run(["ssh", SSH_TARGET, "bash", "-s"], input_text=script, timeout=60, check=False)
+    try:
+        _run(["ssh", SSH_TARGET, "bash", "-s"], input_text=script, timeout=60, check=False)
+    except (OSError, subprocess.SubprocessError):
+        # This may run after canonical publication. Cleanup failure must not
+        # turn visible PASS evidence into a reported failure.
+        pass
+
+
+def restore_worktree_git_link(worktree: str) -> None:
+    source = PurePosixPath(worktree)
+    sandbox = source.parent
+    if PurePosixPath(REMOTE_SANDBOX_ROOT) not in source.parents:
+        raise AdapterError("sandbox Git-link restore path is outside the fixed remote root")
+    script = f"""set -euo pipefail
+source={shlex.quote(str(source))}
+sandbox={shlex.quote(str(sandbox))}
+test ! -e "$source/.git"
+test -f "$sandbox/gitlink"
+test ! -L "$sandbox/gitlink"
+mv -- "$sandbox/gitlink" "$source/.git"
+test -f "$source/.git"
+test ! -L "$source/.git"
+"""
+    _ssh_script(script, timeout=60)
 
 
 def purge_sandbox_sensitive_state(worktree: str) -> None:
@@ -931,13 +969,13 @@ repository=pathlib.Path(sys.argv[1]).resolve(strict=True)
 def git(*args): return subprocess.check_output(['git','-c','core.useReplaceRefs=false','-C',str(repository),*args],stderr=subprocess.DEVNULL)
 def file_identity(raw):
  path=pathlib.Path(raw); resolved=path.resolve(strict=True); metadata=resolved.stat()
- return {'path':str(path),'resolved':str(resolved),'sha256':hashlib.sha256(resolved.read_bytes()).hexdigest(),'mode':metadata.st_mode,'uid':metadata.st_uid,'gid':metadata.st_gid}
+ return {{'path':str(path),'resolved':str(resolved),'sha256':hashlib.sha256(resolved.read_bytes()).hexdigest(),'mode':metadata.st_mode,'uid':metadata.st_uid,'gid':metadata.st_gid}}
 config=[]
 for scope in ('--system','--global','--local','--worktree'):
  try: payload=git('config',scope,'--null','--list','--show-origin')
  except subprocess.CalledProcessError: payload=''
  config.append([scope,hashlib.sha256(payload if isinstance(payload,bytes) else payload.encode()).hexdigest()])
-print(json.dumps({
+print(json.dumps({{
  'repository':str(repository),
  'git_dir':git('rev-parse','--absolute-git-dir').decode().strip(),
  'common_dir':git('rev-parse','--git-common-dir').decode().strip(),
@@ -947,7 +985,7 @@ print(json.dumps({
  'replace_refs':sorted(git('for-each-ref','--format=%(refname) %(objectname)','refs/replace').decode().splitlines()),
  'config':config,
  'executables':[file_identity(x) for x in sys.argv[2:]],
-},sort_keys=True))
+}},sort_keys=True))
 PY
 """
     try:
@@ -956,6 +994,9 @@ PY
         raise AdapterError("remote protected-state snapshot is malformed") from exc
     if value.get("status") or value.get("replace_refs"):
         raise AdapterError("remote protected state is not clean")
+    observed_hashes = {item.get("path"): item.get("sha256") for item in value.get("executables", [])}
+    if observed_hashes != EXPECTED_EXECUTABLE_SHA256:
+        raise AdapterError("remote executable identity does not match trusted manifest")
     return value
 
 
@@ -1469,7 +1510,10 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         result["start_tree"] = start["start_tree"]
         protected_state = capture_remote_protected_state()
         try:
-            process = invoke_claude(request, worktree, start.get("review_files"))
+            try:
+                process = invoke_claude(request, worktree, start.get("review_files"))
+            finally:
+                restore_worktree_git_link(worktree)
         finally:
             verify_remote_protected_state(protected_state)
         validate_output_text(process.stdout or "")
