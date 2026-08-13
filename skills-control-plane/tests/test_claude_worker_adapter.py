@@ -314,10 +314,29 @@ class ResultValidationTests(unittest.TestCase):
         self.assertIn("CONTENT_SCAN_PASS", script)
 
     def test_checks_must_not_change_precommit_state(self) -> None:
-        before = {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart"]}
+        before = {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart"], "state_sha256": "a" * 64}
         adapter.validate_checks_preserved_state(before, dict(before))
         with self.assertRaises(adapter.AdapterError):
-            adapter.validate_checks_preserved_state(before, {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart", "generated.txt"]})
+            adapter.validate_checks_preserved_state(before, {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart", "generated.txt"], "state_sha256": "b" * 64})
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_checks_preserved_state(before, {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart"], "state_sha256": "b" * 64})
+
+    def test_precommit_state_digest_hashes_changed_file_bytes(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        state = {
+            "commit": BASE,
+            "tree": "4" * 40,
+            "branch": request["branch"],
+            "status": " M app/lib/example.dart",
+            "changed": ["app/lib/example.dart"],
+            "state_sha256": "a" * 64,
+        }
+        with mock.patch.object(adapter, "_ssh_script", return_value=json.dumps(state)) as ssh_script:
+            adapter.inspect_precommit_worktree(request, "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001")
+        script = ssh_script.call_args.args[0]
+        self.assertIn("state_sha256", script)
+        self.assertIn("readlink", script)
+        self.assertIn("handle.read", script)
 
     def test_review_requires_one_machine_verdict_line(self) -> None:
         with self.assertRaises(adapter.AdapterError):

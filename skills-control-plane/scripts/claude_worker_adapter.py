@@ -619,7 +619,11 @@ def validate_changed_paths(request: dict[str, Any], changed_files: list[str]) ->
 
 
 def validate_checks_preserved_state(before: dict[str, Any], after: dict[str, Any]) -> None:
-    if before["status"] != after["status"] or before["changed"] != after["changed"]:
+    if (
+        before["status"] != after["status"]
+        or before["changed"] != after["changed"]
+        or before["state_sha256"] != after["state_sha256"]
+    ):
         raise AdapterError("independent checks changed the implementation worktree")
 
 
@@ -656,18 +660,33 @@ def inspect_precommit_worktree(request: dict[str, Any], worktree: str) -> dict[s
     base = str(request["base_commit"])
     script = f"""set -euo pipefail
 python3 - {shlex.quote(worktree)} {shlex.quote(base)} <<'PY'
-import json,subprocess,sys
+import hashlib,json,os,pathlib,struct,subprocess,sys
 worktree,base=sys.argv[1:]
 def git(*args): return subprocess.check_output(['git','-C',worktree,*args])
 status=git('status','--porcelain=v1','-z').decode('utf-8')
 tracked=git('diff','--name-only','-z',base,'--').decode('utf-8').split('\\0')
 untracked=git('ls-files','--others','--exclude-standard','-z').decode('utf-8').split('\\0')
+changed=sorted(set(x for x in tracked+untracked if x))
+h=hashlib.sha256(); root=pathlib.Path(worktree).resolve(strict=True)
+for relative in changed:
+    raw=relative.encode('utf-8'); h.update(struct.pack('>Q',len(raw))); h.update(raw)
+    path=root/relative
+    if not path.exists() and not path.is_symlink():
+        h.update(b'DELETED'); continue
+    metadata=os.lstat(path); h.update(struct.pack('>Q',metadata.st_mode))
+    if path.is_symlink():
+        target=os.readlink(path).encode('utf-8'); h.update(struct.pack('>Q',len(target))); h.update(target)
+    elif path.is_file():
+        with path.open('rb') as handle:
+            while chunk:=handle.read(1024*1024): h.update(chunk)
+    else: h.update(b'NON_REGULAR')
 print(json.dumps({{
  'commit':git('rev-parse','HEAD').decode().strip(),
  'tree':git('rev-parse','HEAD^{{tree}}').decode().strip(),
  'branch':git('branch','--show-current').decode().strip(),
  'status':status,
- 'changed':sorted(set(x for x in tracked+untracked if x)),
+ 'changed':changed,
+ 'state_sha256':h.hexdigest(),
 }},sort_keys=True))
 PY
 """
