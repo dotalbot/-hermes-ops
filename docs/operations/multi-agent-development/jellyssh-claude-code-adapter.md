@@ -19,7 +19,8 @@ JellySSH work may be implemented or advised on by Claude Code, but Claude Code i
 - Claude executable: `/home/jellyclaude/.local/bin/claude`.
 - Toolchain file: `/home/jellyclaude/.config/jellyssh/toolchain.env`.
 - The account has no `sudo` and no credentials from `jellydev`.
-- Claude's repository-scoped GitHub deploy key is read-only, and an account-level `PreToolUse` hook independently blocks push and destructive Git commands.
+- Claude's repository-scoped GitHub deploy key is read-only. A pinned per-session settings policy denies the model's file tools access to SSH, Claude-authentication, GitHub-authentication, backup-authentication, and `.env` paths.
+- Claude receives no Bash tool in either mode. The adapter alone runs fixed Git, formatting, analysis, and test commands; an account-level `PreToolUse` hook remains defense in depth for interactive account use.
 - The adapter never mutates Kanban, opens a PR, merges, releases, deploys, signs, sideloads, or claims physical-device acceptance.
 
 ## Modes
@@ -43,10 +44,10 @@ Read-only checks must verify:
 - Require a full lowercase base commit reachable from `origin/main`.
 - Create one isolated worktree and one new feature/fix/docs/test/refactor/chore branch.
 - Pass prompt text to Claude through stdin, not argv.
-- Use non-interactive structured JSON output in Claude's guarded `auto` mode without `--dangerously-skip-permissions`; the account hook still blocks push and destructive Git.
-- Require Claude to use the repository specification/ticket, TDD where a public seam exists, run requested fixed-enum checks, commit intended changes, and not push.
+- Use non-interactive structured JSON output in Claude's guarded `auto` mode without `--dangerously-skip-permissions` or Bash access.
+- Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and creates the local commit with a fixed message; neither Claude nor the adapter pushes.
 - Return evidence; never treat Claude prose as approval.
-- Block if the process times out, the result is malformed, HEAD does not descend from the base, the tree is dirty, no new commit exists, or the branch/ref is wrong.
+- Block if the process or a fixed check times out, output is malformed or secret-shaped, HEAD does not descend from the base, the pre-commit state has no changes, the committed tree has no net changes, or the branch/ref is wrong.
 
 ### `run review`
 

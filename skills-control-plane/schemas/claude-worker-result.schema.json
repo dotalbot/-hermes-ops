@@ -13,6 +13,7 @@
     "started_at",
     "finished_at",
     "route",
+    "controller_digests",
     "verdict",
     "blockers",
     "checks"
@@ -37,7 +38,19 @@
     },
     "verdict": {"enum": ["PASS", "BLOCK", "TIMEOUT"]},
     "blockers": {"type": "array", "items": {"type": "string", "maxLength": 2000}},
-    "checks": {"type": "array"}
+    "checks": {"type": "array"},
+    "controller_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "hook", "request_schema", "result_schema", "session_settings"],
+      "properties": {
+        "adapter": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "hook": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "request_schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "result_schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "session_settings": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
   },
   "allOf": [
     {

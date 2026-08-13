@@ -27,6 +27,7 @@ CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
 GOVERNED_HOOK_PATH = CONTROL_ROOT / "assets/claude-worker/block-dangerous-git.py"
+SESSION_SETTINGS_PATH = CONTROL_ROOT / "assets/claude-worker/session-settings.json"
 SSH_TARGET = "agent-claude"
 REMOTE_USER = "jellyclaude"
 REMOTE_HOST = "jellybase"
@@ -35,10 +36,12 @@ REMOTE_WORKTREE_ROOT = "/home/jellyclaude/dev_projects/jellyssh-worktrees"
 REMOTE_ORIGIN = "git@github-jellyssh:dotalbot/jellyssh.git"
 REMOTE_CLAUDE = "/home/jellyclaude/.local/bin/claude"
 REMOTE_TOOLCHAIN = "/home/jellyclaude/.config/jellyssh/toolchain.env"
+REMOTE_SESSION_SETTINGS = "/home/jellyclaude/.claude/adapter-session-settings.json"
 ALLOWED_OUTPUT_ROOT = Path("/home/jellybot/projects/jellyssh-claude-adapter/evidence")
 SECRET_KEY_RE = re.compile(r"(?i)(password|passwd|passphrase|secret|token|api[_-]?key|private[_-]?key|credential)")
 SECRET_VALUE_RE = re.compile(
     r"(?i)(?:gh[opusr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|"
+    r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----|"
     r"(?:password|passwd|passphrase|secret|token|api[_-]?key)\s*[:=]\s*\S+)"
 )
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -78,6 +81,7 @@ def controller_digests() -> dict[str, str]:
         "request_schema": SCHEMA_PATH,
         "result_schema": RESULT_SCHEMA_PATH,
         "hook": GOVERNED_HOOK_PATH,
+        "session_settings": SESSION_SETTINGS_PATH,
     }
     return {name: sha256_bytes(path.read_bytes()) for name, path in paths.items()}
 
@@ -155,6 +159,13 @@ def validate_request_content(value: Any, path: str = "<root>") -> None:
             raise AdapterError(f"secret-shaped value rejected at {path}")
 
 
+def validate_output_text(value: str) -> None:
+    if CONTROL_RE.search(value):
+        raise AdapterError("worker output contains disallowed control characters")
+    if SECRET_VALUE_RE.search(value):
+        raise AdapterError("worker output contains secret-shaped content")
+
+
 def _validate_output_path(path: str, *, allow_test_output: bool = False) -> Path:
     output = Path(path)
     if not output.is_absolute():
@@ -188,7 +199,7 @@ def load_and_validate_request(path: Path, *, allow_test_output: bool = False) ->
     return request
 
 
-def build_prompt(request: dict[str, Any]) -> str:
+def build_prompt(request: dict[str, Any], review_files: list[str] | None = None) -> str:
     specification = request["specification"]
     common = f"""You are a bounded JellySSH {request['mode']} worker.
 Repository instructions in CLAUDE.md and the approved personal skills apply.
@@ -202,28 +213,37 @@ Requested checks: {', '.join(request['checks']) or 'none'}
 Never push, merge, open a PR, deploy, sign, sideload, use sudo, access another user's home, or expand scope.
 """
     if request["mode"] == "implementation":
-        return common + """Use /implement and /tdd where a pre-agreed public behavior seam exists. Work only in the current worktree. Commit only intended files to the current branch. Finish with a concise summary of commit, changed files, tests, and remaining risks. The controller will independently verify every claim.\n"""
+        return common + """Use /implement and /tdd where a pre-agreed public behavior seam exists. Work only in the current worktree using the file tools. Do not commit; the controller will run fixed checks and create the local commit mechanically. Finish with a concise summary of changed files, tests, and remaining risks. The controller will independently verify every claim.\n"""
+    files = "\n".join(f"- {path}" for path in (review_files or [])) or "- none"
     return common + f"""Target commit: {request['target_commit']}
-This is read-only advisory review. Use the two independent Standards and Specification axes from /code-review. Do not edit, commit, push, or run commands that mutate tracked files. End with exactly one machine-readable line: REVIEW_VERDICT=PASS or REVIEW_VERDICT=BLOCK. The controller will independently verify immutability.\n"""
+Controller-observed files changed from base to target:
+{files}
+This is read-only advisory review. Use the two independent Standards and Specification axes from /code-review. Inspect the listed files and any directly relevant context with read-only file tools. Do not edit, commit, push, or run commands. End with exactly one machine-readable line: REVIEW_VERDICT=PASS or REVIEW_VERDICT=BLOCK. The controller will independently verify immutability.\n"""
 
 
-def build_claude_command(request: dict[str, Any], worktree: str) -> WorkerCommand:
+def build_claude_command(
+    request: dict[str, Any],
+    worktree: str,
+    review_files: list[str] | None = None,
+) -> WorkerCommand:
     worktree_path = PurePosixPath(worktree)
     expected_root = PurePosixPath(REMOTE_WORKTREE_ROOT)
     if expected_root not in worktree_path.parents:
         raise AdapterError("worktree is outside the fixed remote root")
     if request["mode"] == "implementation":
         permission = "auto"
-        tools = "Read,Glob,Grep,Edit,Write,Bash,Skill"
+        tools = "Read,Glob,Grep,Edit,Write,Skill"
     else:
         permission = "plan"
-        tools = "Read,Glob,Grep,Bash,Skill"
+        tools = "Read,Glob,Grep,Skill"
     remote_argv = [
         REMOTE_CLAUDE,
         "-p",
         "--output-format",
         "json",
         "--no-session-persistence",
+        "--settings",
+        REMOTE_SESSION_SETTINGS,
         "--permission-mode",
         permission,
         "--model",
@@ -245,7 +265,7 @@ def build_claude_command(request: dict[str, Any], worktree: str) -> WorkerComman
         # login-shell program so `bash -lc` receives one command, not `set` plus
         # outer-shell fragments that can contaminate structured stdout.
         argv=["ssh", SSH_TARGET, "bash", "-lc", shlex.quote(command)],
-        stdin_text=build_prompt(request),
+        stdin_text=build_prompt(request, review_files),
     )
 
 
@@ -289,9 +309,24 @@ def _expected_skill_digests() -> dict[str, str]:
     return expected
 
 
+def validate_tool_versions(versions: dict[str, Any]) -> None:
+    patterns = {
+        "claude": r"^\d+\.\d+\.\d+ \(Claude Code\)$",
+        "flutter": r"^Flutter \d+\.\d+\.\d+\b",
+        "dart": r"^Dart SDK version: \d+\.\d+\.\d+\b",
+    }
+    if set(versions) != set(patterns):
+        raise AdapterError("tool version evidence has unexpected keys")
+    for name, pattern in patterns.items():
+        value = versions[name]
+        if not isinstance(value, str) or not re.search(pattern, value):
+            raise AdapterError(f"invalid {name} version evidence")
+
+
 def preflight(request: dict[str, Any] | None = None) -> dict[str, Any]:
     expected = _expected_skill_digests()
     expected_hook_sha256 = sha256_bytes(GOVERNED_HOOK_PATH.read_bytes())
+    expected_settings_sha256 = sha256_bytes(SESSION_SETTINGS_PATH.read_bytes())
     expected_json = shlex.quote(json.dumps(expected, sort_keys=True))
     base = str(request["base_commit"]) if request else ""
     branch = str(request.get("branch", "")) if request else ""
@@ -320,6 +355,7 @@ printf '%s' "$push_output" | grep -Eqi 'denied|permission|read.only|cannot acces
 git -C {shlex.quote(REMOTE_REPOSITORY)} var GIT_AUTHOR_IDENT >/dev/null
 git -C {shlex.quote(REMOTE_REPOSITORY)} var GIT_COMMITTER_IDENT >/dev/null
 test "$(sha256sum "$HOME/.claude/hooks/block-dangerous-git.py" | cut -d' ' -f1)" = {shlex.quote(expected_hook_sha256)}
+test "$(sha256sum {shlex.quote(REMOTE_SESSION_SETTINGS)} | cut -d' ' -f1)" = {shlex.quote(expected_settings_sha256)}
 python3 - <<'PY'
 import json,pathlib
 home=pathlib.Path.home()
@@ -337,7 +373,7 @@ PY
         target = str(request["target_commit"])
         script += f"git -C {shlex.quote(REMOTE_REPOSITORY)} cat-file -e {shlex.quote(target + '^{commit}')}\n"
         script += f"git -C {shlex.quote(REMOTE_REPOSITORY)} merge-base --is-ancestor {shlex.quote(base)} {shlex.quote(target)}\n"
-        script += f"git -C {shlex.quote(REMOTE_REPOSITORY)} merge-base --is-ancestor {shlex.quote(target)} origin/main\n"
+
     if branch:
         script += f"! git -C {shlex.quote(REMOTE_REPOSITORY)} show-ref --verify --quiet refs/heads/{shlex.quote(branch)}\n"
     if attempt:
@@ -368,16 +404,22 @@ printf 'PREFLIGHT_PASS\\n'
         raise AdapterError("unexpected preflight response")
     versions_script = """set -euo pipefail
 export PATH="$HOME/.local/bin:$HOME/dev/sdk/flutter/bin:$PATH"
+mkdir -p "$HOME/.cache"
 python3 - <<'PY'
-import json,subprocess
-def run(*argv): return subprocess.run(argv,check=True,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT).stdout.strip().splitlines()[0]
-print(json.dumps({'claude':run('claude','--version'),'flutter':run('flutter','--version'),'dart':run('dart','--version')},sort_keys=True))
+import json,pathlib,subprocess
+def run(*argv):
+    lines=subprocess.run(argv,check=True,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT).stdout.strip().splitlines()
+    if not lines: raise SystemExit(2)
+    return lines[0]
+lock=str(pathlib.Path.home()/'.cache/jellyssh-flutter-version.lock')
+print(json.dumps({'claude':run('claude','--version'),'flutter':run('flock','-w','120',lock,'flutter','--version'),'dart':run('dart','--version')},sort_keys=True))
 PY
 """
     try:
-        versions = json.loads(_ssh_script(versions_script, timeout=60))
+        versions = json.loads(_ssh_script(versions_script, timeout=150))
     except (json.JSONDecodeError, AdapterError) as exc:
         raise AdapterError("tool version evidence is malformed") from exc
+    validate_tool_versions(versions)
     return {
         "status": "PASS",
         "ssh_target": SSH_TARGET,
@@ -387,6 +429,7 @@ PY
         "github_access": "read-only",
         "skill_digests": expected,
         "hook_sha256": expected_hook_sha256,
+        "session_settings_sha256": expected_settings_sha256,
         "versions": versions,
     }
 
@@ -416,7 +459,10 @@ printf '{{"path":"%s","branch":"%s","start_commit":"%s","start_tree":"%s"}}\\n' 
  "$(git -C {shlex.quote(worktree)} rev-parse HEAD^{{tree}})"
 """
     try:
-        return json.loads(_ssh_script(script, timeout=120))
+        result = json.loads(_ssh_script(script, timeout=120))
+        if request["mode"] == "review":
+            result["review_files"] = list_changed_files(base, str(request["target_commit"]))
+        return result
     except Exception as exc:
         cleanup_worktree(worktree, branch if request["mode"] == "implementation" else None)
         if isinstance(exc, AdapterError):
@@ -431,8 +477,24 @@ def cleanup_worktree(worktree: str, branch: str | None = None) -> None:
     _run(["ssh", SSH_TARGET, "bash", "-s"], input_text=script, timeout=60, check=False)
 
 
-def invoke_claude(request: dict[str, Any], worktree: str) -> subprocess.CompletedProcess[str]:
-    command = build_claude_command(request, worktree)
+def list_changed_files(base: str, target: str) -> list[str]:
+    script = (
+        f"git -C {shlex.quote(REMOTE_REPOSITORY)} diff --name-only -z "
+        f"{shlex.quote(base)}...{shlex.quote(target)} --"
+    )
+    output = _ssh_script(script, timeout=60)
+    paths = sorted(path for path in output.split("\0") if path)
+    if not paths:
+        raise AdapterError("review target has no changed files from base")
+    return paths
+
+
+def invoke_claude(
+    request: dict[str, Any],
+    worktree: str,
+    review_files: list[str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    command = build_claude_command(request, worktree, review_files)
     return _run(
         command.argv,
         input_text=command.stdin_text,
@@ -442,9 +504,10 @@ def invoke_claude(request: dict[str, Any], worktree: str) -> subprocess.Complete
 
 
 def parse_claude_result(process: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+    validate_output_text(process.stdout or "")
+    validate_output_text(process.stderr or "")
     if process.returncode != 0:
-        detail = (process.stderr or process.stdout).strip()[-1000:]
-        raise AdapterError(f"Claude exited nonzero ({process.returncode}): {detail}")
+        raise AdapterError(f"Claude exited nonzero ({process.returncode})")
     try:
         payload = json.loads(process.stdout)
     except json.JSONDecodeError as exc:
@@ -464,6 +527,7 @@ def parse_claude_result(process: subprocess.CompletedProcess[str]) -> dict[str, 
         "terminal_reason": terminal_reason,
         "models": models,
         "summary": result[:2000],
+        "_full_text": result,
     }
 
 
@@ -480,6 +544,128 @@ def validate_requested_model(requested: str, claude: dict[str, Any]) -> None:
         raise AdapterError(f"requested primary model family absent from Claude result: {requested}")
 
 
+def validate_git_state(
+    request: dict[str, Any],
+    state: dict[str, Any],
+    start: dict[str, str],
+) -> None:
+    if state["status"]:
+        raise AdapterError("worktree is dirty after Claude run")
+    if request["mode"] == "implementation":
+        if state["commit"] == request["base_commit"]:
+            raise AdapterError("implementation produced no new commit")
+        if state["branch"] != request["branch"]:
+            raise AdapterError("implementation branch drifted")
+        if not state["changed"] or state["tree"] == start["start_tree"]:
+            raise AdapterError("implementation produced no net changed files")
+    else:
+        if state["commit"] != request["target_commit"] or state["tree"] != start["start_tree"]:
+            raise AdapterError("review changed the exact target")
+        if state["branch"]:
+            raise AdapterError("review worktree is not detached")
+
+
+def validate_precommit_state(request: dict[str, Any], state: dict[str, Any]) -> None:
+    if state["commit"] != request["base_commit"]:
+        raise AdapterError("worker created or moved a commit before controller commit")
+    if state["branch"] != request["branch"]:
+        raise AdapterError("implementation branch drifted")
+    if not state["status"] or not state["changed"]:
+        raise AdapterError("implementation produced no changed files")
+
+
+def validate_checks_preserved_state(before: dict[str, Any], after: dict[str, Any]) -> None:
+    if before["status"] != after["status"] or before["changed"] != after["changed"]:
+        raise AdapterError("independent checks changed the implementation worktree")
+
+
+def scan_changed_files(worktree: str, changed_files: list[str]) -> None:
+    encoded_paths = shlex.quote(json.dumps(changed_files))
+    secret_pattern = shlex.quote(SECRET_VALUE_RE.pattern)
+    script = f"""set -euo pipefail
+git -C {shlex.quote(worktree)} diff --check
+python3 - {shlex.quote(worktree)} {encoded_paths} {secret_pattern} <<'PY'
+import json,pathlib,re,sys
+root=pathlib.Path(sys.argv[1]).resolve()
+paths=json.loads(sys.argv[2])
+secret=re.compile(sys.argv[3])
+for relative in paths:
+    path=root/relative
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise SystemExit(2)
+    if path.is_symlink(): raise SystemExit(2)
+    if not path.exists(): continue
+    if not path.is_file() or path.stat().st_size > 10_000_000: raise SystemExit(2)
+    text=path.read_bytes().decode('utf-8','ignore')
+    if secret.search(text): raise SystemExit(2)
+print('CONTENT_SCAN_PASS')
+PY
+"""
+    output = _ssh_script(script, timeout=60)
+    if output.strip() != "CONTENT_SCAN_PASS":
+        raise AdapterError("changed-file content scan returned an unexpected result")
+
+
+def inspect_precommit_worktree(request: dict[str, Any], worktree: str) -> dict[str, Any]:
+    base = str(request["base_commit"])
+    script = f"""set -euo pipefail
+python3 - {shlex.quote(worktree)} {shlex.quote(base)} <<'PY'
+import json,subprocess,sys
+worktree,base=sys.argv[1:]
+def git(*args): return subprocess.check_output(['git','-C',worktree,*args])
+status=git('status','--porcelain=v1','-z').decode('utf-8')
+tracked=git('diff','--name-only','-z',base,'--').decode('utf-8').split('\\0')
+untracked=git('ls-files','--others','--exclude-standard','-z').decode('utf-8').split('\\0')
+print(json.dumps({{
+ 'commit':git('rev-parse','HEAD').decode().strip(),
+ 'tree':git('rev-parse','HEAD^{{tree}}').decode().strip(),
+ 'branch':git('branch','--show-current').decode().strip(),
+ 'status':status,
+ 'changed':sorted(set(x for x in tracked+untracked if x)),
+}},sort_keys=True))
+PY
+"""
+    try:
+        state = json.loads(_ssh_script(script, timeout=60))
+    except (json.JSONDecodeError, AdapterError) as exc:
+        raise AdapterError("malformed pre-commit Git state") from exc
+    validate_precommit_state(request, state)
+    return state
+
+
+def commit_implementation(
+    request: dict[str, Any],
+    worktree: str,
+    changed_files: list[str],
+) -> dict[str, Any]:
+    paths = " ".join(shlex.quote(path) for path in changed_files)
+    script = f"""set -euo pipefail
+test "$(git -C {shlex.quote(worktree)} rev-parse HEAD)" = {shlex.quote(str(request['base_commit']))}
+git -C {shlex.quote(worktree)} add -- {paths}
+! git -C {shlex.quote(worktree)} diff --cached --quiet
+git -C {shlex.quote(worktree)} commit -q -m 'chore: apply governed Claude implementation'
+python3 - {shlex.quote(worktree)} {shlex.quote(str(request['base_commit']))} <<'PY'
+import json,subprocess,sys
+worktree,base=sys.argv[1:]
+def git(*args): return subprocess.check_output(['git','-C',worktree,*args])
+changed=[x for x in git('diff','--name-only','-z',base+'...HEAD','--').decode().split('\\0') if x]
+print(json.dumps({{
+ 'commit':git('rev-parse','HEAD').decode().strip(),
+ 'tree':git('rev-parse','HEAD^{{tree}}').decode().strip(),
+ 'branch':git('branch','--show-current').decode().strip(),
+ 'status':git('status','--porcelain=v1','-z').decode(),
+ 'changed':sorted(changed),
+}},sort_keys=True))
+PY
+"""
+    try:
+        return json.loads(_ssh_script(script, timeout=120))
+    except (json.JSONDecodeError, AdapterError) as exc:
+        raise AdapterError("controller commit returned malformed Git state") from exc
+
+
 def inspect_worktree(request: dict[str, Any], worktree: str, start: dict[str, str]) -> dict[str, Any]:
     base = str(request["base_commit"])
     script = f"""set -euo pipefail
@@ -494,22 +680,12 @@ printf '{{"commit":"%s","tree":"%s","branch":"%s","status":%s,"changed":%s}}\\n'
         state = json.loads(_ssh_script(script, timeout=60))
     except (json.JSONDecodeError, AdapterError) as exc:
         raise AdapterError("malformed post-run Git state") from exc
-    if state["status"]:
-        raise AdapterError("worktree is dirty after Claude run")
+    validate_git_state(request, state, start)
     if request["mode"] == "implementation":
-        if state["commit"] == base:
-            raise AdapterError("implementation produced no new commit")
-        if state["branch"] != request["branch"]:
-            raise AdapterError("implementation branch drifted")
         _ssh_script(
             f"git -C {shlex.quote(worktree)} merge-base --is-ancestor {shlex.quote(base)} {shlex.quote(state['commit'])}\n",
             timeout=30,
         )
-    else:
-        if state["commit"] != request["target_commit"] or state["tree"] != start["start_tree"]:
-            raise AdapterError("review changed the exact target")
-        if state["branch"]:
-            raise AdapterError("review worktree is not detached")
     return state
 
 
@@ -519,14 +695,16 @@ def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
         command = CHECK_COMMANDS[str(name)]
         remote = (
             f"set -euo pipefail; . {shlex.quote(REMOTE_TOOLCHAIN)}; "
-            f"cd {shlex.quote(worktree + '/app')}; {command}"
+            f"cd {shlex.quote(worktree + '/app')}; "
+            f"exec timeout --signal=TERM --kill-after=30 {min(int(request['timeout_seconds']), 1200)} {command}"
         )
         process = _run(
-            ["ssh", SSH_TARGET, "bash", "-lc", remote],
-            timeout=min(int(request["timeout_seconds"]), 1200),
+            ["ssh", SSH_TARGET, "bash", "-lc", shlex.quote(remote)],
+            timeout=min(int(request["timeout_seconds"]), 1200) + 45,
             check=False,
         )
         combined = ((process.stdout or "") + (process.stderr or ""))[-4000:]
+        validate_output_text(combined)
         results.append({"name": name, "exit_code": process.returncode, "passed": process.returncode == 0, "output": combined})
         if process.returncode != 0:
             raise AdapterError(f"independent check failed: {name}")
@@ -576,23 +754,35 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         result["worktree"] = worktree
         result["start_commit"] = start["start_commit"]
         result["start_tree"] = start["start_tree"]
-        process = invoke_claude(request, worktree)
+        process = invoke_claude(request, worktree, start.get("review_files"))
+        validate_output_text(process.stdout or "")
+        validate_output_text(process.stderr or "")
         raw_payload = process.stdout.encode("utf-8")
         raw_path = output_path.with_suffix(".claude.raw.json")
         atomic_write_bytes(raw_path, raw_payload)
         result["raw_claude_sha256"] = sha256_bytes(raw_payload)
         result["claude"] = parse_claude_result(process)
+        full_worker_text = result["claude"].pop("_full_text")
         validate_requested_model(str(request["model"]), result["claude"])
-        state = inspect_worktree(request, worktree, start)
+        if request["mode"] == "implementation":
+            precommit = inspect_precommit_worktree(request, worktree)
+            result["checks"] = run_checks(request, worktree)
+            after_checks = inspect_precommit_worktree(request, worktree)
+            validate_checks_preserved_state(precommit, after_checks)
+            scan_changed_files(worktree, after_checks["changed"])
+            state = commit_implementation(request, worktree, after_checks["changed"])
+            validate_git_state(request, state, start)
+        else:
+            state = inspect_worktree(request, worktree, start)
+            result["checks"] = run_checks(request, worktree)
+            state = inspect_worktree(request, worktree, start)
+            result["review_verdict"] = validate_review_verdict(full_worker_text)
+            if result["review_verdict"] != "PASS":
+                raise AdapterError("Claude advisory review returned BLOCK")
         result["final_commit"] = state["commit"]
         result["final_tree"] = state["tree"]
         result["branch"] = state["branch"] or None
         result["changed_files"] = state["changed"]
-        result["checks"] = run_checks(request, worktree)
-        if request["mode"] == "review":
-            result["review_verdict"] = validate_review_verdict(result["claude"]["summary"])
-            if result["review_verdict"] != "PASS":
-                raise AdapterError("Claude advisory review returned BLOCK")
         result["verdict"] = "PASS"
     except subprocess.TimeoutExpired as exc:
         result["verdict"] = "TIMEOUT"

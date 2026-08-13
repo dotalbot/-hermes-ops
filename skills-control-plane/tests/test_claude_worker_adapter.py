@@ -92,6 +92,8 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertNotIn("--dangerously-skip-permissions", command.argv)
         self.assertNotIn("push", " ".join(command.argv))
         self.assertIn("--permission-mode auto", " ".join(command.argv))
+        self.assertNotIn("Bash", " ".join(command.argv))
+        self.assertIn("--settings /home/jellyclaude/.claude/adapter-session-settings.json", " ".join(command.argv))
         self.assertIn("timeout --signal=TERM --kill-after=30", " ".join(command.argv))
         self.assertEqual(command.argv[:4], ["ssh", "agent-claude", "bash", "-lc"])
         self.assertTrue(command.argv[-1].startswith("'set -euo pipefail;"))
@@ -116,8 +118,31 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("PUSH_UNEXPECTEDLY_ALLOWED", source)
         self.assertIn("write access unexpectedly available", source)
 
+    def test_independent_checks_quote_the_complete_login_shell_program(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze"]
+        completed = subprocess.CompletedProcess(["ssh"], 0, "ok", "")
+        with mock.patch.object(adapter, "_run", return_value=completed) as run:
+            adapter.run_checks(request, "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001")
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[:4], ["ssh", "agent-claude", "bash", "-lc"])
+        self.assertTrue(argv[-1].startswith("'set -euo pipefail;"))
+        self.assertTrue(argv[-1].endswith("'"))
+
 
 class ResultValidationTests(unittest.TestCase):
+    def test_tool_versions_reject_flutter_lock_chatter(self) -> None:
+        valid = {
+            "claude": "2.1.228 (Claude Code)",
+            "flutter": "Flutter 3.44.9 • channel stable",
+            "dart": "Dart SDK version: 3.12.2 (stable)",
+        }
+        adapter.validate_tool_versions(valid)
+        invalid = dict(valid)
+        invalid["flutter"] = "Waiting for another flutter command to release the startup lock..."
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_tool_versions(invalid)
+
     def test_malformed_claude_json_blocks(self) -> None:
         process = subprocess.CompletedProcess(["claude"], 0, "not json", "")
         with self.assertRaises(adapter.AdapterError):
@@ -150,9 +175,52 @@ class ResultValidationTests(unittest.TestCase):
         digests = adapter.controller_digests()
         self.assertEqual(
             sorted(digests),
-            ["adapter", "hook", "request_schema", "result_schema"],
+            ["adapter", "hook", "request_schema", "result_schema", "session_settings"],
         )
         self.assertTrue(all(re.fullmatch(r"[0-9a-f]{64}", value) for value in digests.values()))
+
+    def test_secret_shaped_worker_output_is_rejected_before_publication(self) -> None:
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_output_text("worker printed ghp_abcdabcdabcdabcdabcdabcd")
+
+    def test_implementation_requires_changed_files_before_controller_commit(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        state = {"commit": BASE, "tree": "4" * 40, "branch": request["branch"], "status": " M app/lib/a.dart", "changed": []}
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_precommit_state(request, state)
+
+    def test_controller_commit_command_has_fixed_message_and_no_worker_text(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        with mock.patch.object(adapter, "_ssh_script", return_value=json.dumps({
+            "commit": TARGET,
+            "tree": "4" * 40,
+            "branch": request["branch"],
+            "status": "",
+            "changed": ["app/lib/a.dart"],
+        })) as ssh_script:
+            state = adapter.commit_implementation(request, "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001", ["app/lib/a.dart"])
+        script = ssh_script.call_args.args[0]
+        self.assertIn(" add -- app/lib/a.dart", script)
+        self.assertIn("chore: apply governed Claude implementation", script)
+        self.assertNotIn(str(request["task"]), script)
+        self.assertEqual(state["commit"], TARGET)
+
+    def test_remote_content_scan_is_path_bounded_and_secret_aware(self) -> None:
+        with mock.patch.object(adapter, "_ssh_script", return_value="CONTENT_SCAN_PASS\n") as ssh_script:
+            adapter.scan_changed_files(
+                "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+                ["app/lib/a.dart"],
+            )
+        script = ssh_script.call_args.args[0]
+        self.assertIn("is_symlink", script)
+        self.assertIn("PRIVATE KEY", script)
+        self.assertIn("CONTENT_SCAN_PASS", script)
+
+    def test_checks_must_not_change_precommit_state(self) -> None:
+        before = {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart"]}
+        adapter.validate_checks_preserved_state(before, dict(before))
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_checks_preserved_state(before, {"status": " M app/lib/a.dart", "changed": ["app/lib/a.dart", "generated.txt"]})
 
     def test_review_requires_one_machine_verdict_line(self) -> None:
         with self.assertRaises(adapter.AdapterError):
@@ -160,6 +228,38 @@ class ResultValidationTests(unittest.TestCase):
         with self.assertRaises(adapter.AdapterError):
             adapter.validate_review_verdict("REVIEW_VERDICT=PASS\nREVIEW_VERDICT=BLOCK")
         self.assertEqual(adapter.validate_review_verdict("Finding summary\nREVIEW_VERDICT=PASS"), "PASS")
+
+    def test_review_verdict_is_validated_from_full_text_not_truncated_summary(self) -> None:
+        full = "x" * 3000 + "\nREVIEW_VERDICT=PASS"
+        payload = {
+            "is_error": False,
+            "session_id": "session-1",
+            "terminal_reason": "completed",
+            "result": full,
+            "modelUsage": {"claude-sonnet-5": {"inputTokens": 1}},
+        }
+        parsed = adapter.parse_claude_result(
+            subprocess.CompletedProcess(["claude"], 0, json.dumps(payload), "")
+        )
+        self.assertEqual(len(parsed["summary"]), 2000)
+        self.assertEqual(adapter.validate_review_verdict(parsed["_full_text"]), "PASS")
+
+    def test_precommit_script_contains_no_literal_nul_bytes(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        state = {
+            "commit": BASE,
+            "tree": "4" * 40,
+            "branch": request["branch"],
+            "status": "?? docs/new.md\\u0000",
+            "changed": ["docs/new.md"],
+        }
+        with mock.patch.object(adapter, "_ssh_script", return_value=json.dumps(state)) as ssh_script:
+            adapter.inspect_precommit_worktree(
+                request,
+                "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+            )
+        self.assertNotIn("\x00", ssh_script.call_args.args[0])
+        self.assertIn("split('\\0')", ssh_script.call_args.args[0])
 
 
 class AtomicPublicationTests(unittest.TestCase):
@@ -210,6 +310,7 @@ class CliFailureTests(unittest.TestCase):
                 "terminal_reason": "completed",
                 "models": ["claude-sonnet-5"],
                 "summary": "finding\nREVIEW_VERDICT=BLOCK",
+                "_full_text": "finding\nREVIEW_VERDICT=BLOCK",
             }
             with mock.patch.object(adapter, "load_and_validate_request", return_value=request), mock.patch.object(
                 adapter, "preflight", return_value={"status": "PASS"}
@@ -225,7 +326,7 @@ class CliFailureTests(unittest.TestCase):
                 return_value={"commit": TARGET, "tree": "4" * 40, "branch": "", "changed": []},
             ) as inspect:
                 result = adapter.execute(Path("request.json"), allow_test_output=True)
-            inspect.assert_called_once()
+            self.assertEqual(inspect.call_count, 2)
             self.assertEqual(result["verdict"], "BLOCK")
             self.assertEqual(result["review_verdict"], "BLOCK")
 
