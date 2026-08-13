@@ -17,13 +17,65 @@ import shlex
 import struct
 import subprocess
 import sys
+import types
 from typing import Any
 
 import jsonschema
 import yaml
 
 
-ADAPTER_VERSION = "0.2.0"
+def _code_fingerprint(code: types.CodeType) -> str:
+    digest = hashlib.sha256()
+
+    def add(value: Any) -> None:
+        if isinstance(value, types.CodeType):
+            digest.update(b"C")
+            for number in (
+                value.co_argcount,
+                value.co_posonlyargcount,
+                value.co_kwonlyargcount,
+                value.co_nlocals,
+                value.co_stacksize,
+                value.co_flags,
+            ):
+                digest.update(struct.pack(">Q", number))
+            for sequence in (value.co_code, value.co_names, value.co_varnames, value.co_freevars, value.co_cellvars, value.co_consts):
+                add(sequence)
+        elif isinstance(value, bytes):
+            digest.update(b"B" + struct.pack(">Q", len(value)) + value)
+        elif isinstance(value, str):
+            encoded = value.encode("utf-8")
+            digest.update(b"S" + struct.pack(">Q", len(encoded)) + encoded)
+        elif isinstance(value, tuple):
+            digest.update(b"T" + struct.pack(">Q", len(value)))
+            for item in value:
+                add(item)
+        elif isinstance(value, frozenset):
+            digest.update(b"R" + struct.pack(">Q", len(value)))
+            for item in sorted(value, key=lambda member: (type(member).__name__, repr(member))):
+                add(item)
+        elif value is None:
+            digest.update(b"N")
+        elif value is Ellipsis:
+            digest.update(b"E")
+        elif isinstance(value, bool):
+            digest.update(b"Y1" if value else b"Y0")
+        elif isinstance(value, int):
+            encoded = str(value).encode("ascii")
+            digest.update(b"I" + struct.pack(">Q", len(encoded)) + encoded)
+        elif isinstance(value, float):
+            digest.update(b"F" + struct.pack(">d", value))
+        elif isinstance(value, complex):
+            digest.update(b"X" + struct.pack(">dd", value.real, value.imag))
+        else:
+            raise RuntimeError(f"unsupported code constant: {type(value).__name__}")
+
+    add(code)
+    return digest.hexdigest()
+
+
+EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
+ADAPTER_VERSION = "0.3.0"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -64,6 +116,16 @@ class WorkerCommand:
     stdin_text: str
 
 
+@dataclass(frozen=True)
+class ControllerSnapshot:
+    commit: str
+    asset_bytes: dict[str, bytes]
+    digests: dict[str, str]
+    request_schema: dict[str, Any]
+    result_schema: dict[str, Any]
+    skill_digests: dict[str, str]
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -89,6 +151,51 @@ def controller_asset_paths() -> dict[str, Path]:
 def controller_digests() -> dict[str, str]:
     paths = controller_asset_paths()
     return {name: sha256_bytes(path.read_bytes()) for name, path in paths.items()}
+
+
+def _json_from_bytes(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise AdapterError(f"invalid committed {label}") from exc
+    if not isinstance(value, dict):
+        raise AdapterError(f"committed {label} root must be an object")
+    return value
+
+
+def _committed_skill_digests(commit: str) -> dict[str, str]:
+    release_prefix = "skills-control-plane/releases/core-development/0.1.0"
+    release_bytes = _controller_git("show", f"{commit}:{release_prefix}/release.yaml")
+    try:
+        release = yaml.safe_load(release_bytes)
+    except yaml.YAMLError as exc:
+        raise AdapterError("invalid committed skill release") from exc
+    if not isinstance(release, dict) or not isinstance(release.get("skills"), list):
+        raise AdapterError("invalid committed skill release structure")
+    expected: dict[str, str] = {}
+    for entry in release["skills"]:
+        if not isinstance(entry, dict):
+            raise AdapterError("invalid committed skill release entry")
+        name = str(entry["name"])
+        bundle = f"{release_prefix}/{entry['path']}"
+        listing = _controller_git("ls-tree", "-r", "--name-only", commit, "--", bundle)
+        files = sorted(path for path in listing.decode("utf-8").splitlines() if path)
+        if not files:
+            raise AdapterError(f"empty committed skill bundle: {name}")
+        digest = hashlib.sha256()
+        for repository_path in files:
+            relative = repository_path.removeprefix(bundle + "/").encode("utf-8")
+            content = _controller_git("show", f"{commit}:{repository_path}")
+            digest.update(struct.pack(">Q", len(relative)))
+            digest.update(relative)
+            digest.update(struct.pack(">Q", len(content)))
+            digest.update(content)
+        observed = digest.hexdigest()
+        declared = str(entry["bundle_sha256"]).removeprefix("sha256:")
+        if observed != declared:
+            raise AdapterError(f"committed skill release digest mismatch: {name}")
+        expected[name] = observed
+    return expected
 
 
 def _controller_git(*args: str) -> bytes:
@@ -125,6 +232,32 @@ def verified_controller_commit() -> str:
         if sha256_bytes(committed) != sha256_bytes(path.read_bytes()):
             raise AdapterError(f"controller asset differs from exact commit: {name}")
     return commit
+
+
+def capture_controller_snapshot() -> ControllerSnapshot:
+    if _controller_git("status", "--porcelain", "--untracked-files=normal"):
+        raise AdapterError("controller checkout is not clean")
+    commit = _controller_git("rev-parse", "HEAD").decode("ascii").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise AdapterError("controller commit is malformed")
+    assets: dict[str, bytes] = {}
+    for name, path in controller_asset_paths().items():
+        relative = path.relative_to(CONTROL_ROOT.parent).as_posix()
+        assets[name] = _controller_git("show", f"{commit}:{relative}")
+    try:
+        committed_code = compile(assets["adapter"].decode("utf-8"), str(Path(__file__).resolve()), "exec")
+    except (UnicodeDecodeError, SyntaxError) as exc:
+        raise AdapterError("exact committed adapter cannot be compiled") from exc
+    if EXECUTING_ADAPTER_CODE_SHA256 != _code_fingerprint(committed_code):
+        raise AdapterError("loaded controller does not match exact committed adapter")
+    return ControllerSnapshot(
+        commit=commit,
+        asset_bytes=assets,
+        digests={name: sha256_bytes(payload) for name, payload in assets.items()},
+        request_schema=_json_from_bytes(assets["request_schema"], "request schema"),
+        result_schema=_json_from_bytes(assets["result_schema"], "result schema"),
+        skill_digests=_committed_skill_digests(commit),
+    )
 
 
 def bundle_digest(path: Path) -> str:
@@ -271,9 +404,14 @@ def _validate_output_path(path: str, *, allow_test_output: bool = False) -> Path
     return output
 
 
-def load_and_validate_request(path: Path, *, allow_test_output: bool = False) -> dict[str, Any]:
+def load_and_validate_request(
+    path: Path,
+    *,
+    allow_test_output: bool = False,
+    snapshot: ControllerSnapshot | None = None,
+) -> dict[str, Any]:
     request = _load_json(path, "Claude worker request")
-    schema = _load_json(SCHEMA_PATH, "Claude worker request schema")
+    schema = snapshot.request_schema if snapshot else _load_json(SCHEMA_PATH, "Claude worker request schema")
     try:
         jsonschema.Draft202012Validator.check_schema(schema)
         jsonschema.validate(request, schema)
@@ -424,10 +562,20 @@ def validate_tool_versions(versions: dict[str, Any]) -> None:
             raise AdapterError(f"invalid {name} version evidence")
 
 
-def preflight(request: dict[str, Any] | None = None) -> dict[str, Any]:
-    expected = _expected_skill_digests()
-    expected_hook_sha256 = sha256_bytes(GOVERNED_HOOK_PATH.read_bytes())
-    expected_settings_sha256 = sha256_bytes(SESSION_SETTINGS_PATH.read_bytes())
+def preflight(
+    request: dict[str, Any] | None = None,
+    *,
+    snapshot: ControllerSnapshot | None = None,
+) -> dict[str, Any]:
+    expected = snapshot.skill_digests if snapshot else _expected_skill_digests()
+    expected_hook_sha256 = (
+        snapshot.digests["hook"] if snapshot else sha256_bytes(GOVERNED_HOOK_PATH.read_bytes())
+    )
+    expected_settings_sha256 = (
+        snapshot.digests["session_settings"]
+        if snapshot
+        else sha256_bytes(SESSION_SETTINGS_PATH.read_bytes())
+    )
     expected_json = shlex.quote(json.dumps(expected, sort_keys=True))
     base = str(request["base_commit"]) if request else ""
     branch = str(request.get("branch", "")) if request else ""
@@ -444,6 +592,7 @@ test -x "$(command -v flutter)"
 test -x "$(command -v dart)"
 test -r {shlex.quote(REMOTE_TOOLCHAIN)}
 test "$(git -C {shlex.quote(REMOTE_REPOSITORY)} remote get-url origin)" = {shlex.quote(REMOTE_ORIGIN)}
+if git -C {shlex.quote(REMOTE_REPOSITORY)} config --get-regexp '^filter[.]' >/dev/null; then exit 2; fi
 test -z "$(git -C {shlex.quote(REMOTE_REPOSITORY)} status --porcelain)"
 git -C {shlex.quote(REMOTE_REPOSITORY)} fetch -q origin --prune
 git -C {shlex.quote(REMOTE_REPOSITORY)} ls-remote origin HEAD >/dev/null
@@ -761,19 +910,22 @@ status=git('status','--porcelain=v1','-z').decode('utf-8')
 tracked=git('diff','--name-only','-z',base,'--').decode('utf-8').split('\\0')
 untracked=git('ls-files','--others','--exclude-standard','-z').decode('utf-8').split('\\0')
 changed=sorted(set(x for x in tracked+untracked if x))
-h=hashlib.sha256(); root=pathlib.Path(worktree).resolve(strict=True)
+h=hashlib.sha256(); content=hashlib.sha256(); root=pathlib.Path(worktree).resolve(strict=True)
 for relative in changed:
     raw=relative.encode('utf-8'); h.update(struct.pack('>Q',len(raw))); h.update(raw)
+    content.update(struct.pack('>Q',len(raw))); content.update(raw)
     path=root/relative
     if not path.exists() and not path.is_symlink():
-        h.update(b'DELETED'); continue
+        h.update(b'DELETED'); content.update(b'DELETED'); continue
     metadata=os.lstat(path); h.update(struct.pack('>Q',metadata.st_mode))
     if path.is_symlink():
-        target=os.readlink(path).encode('utf-8'); h.update(struct.pack('>Q',len(target))); h.update(target)
+        mode=b'120000'; target=os.readlink(path).encode('utf-8'); h.update(struct.pack('>Q',len(target))); h.update(target); data=target
     elif path.is_file():
+        mode=b'100755' if metadata.st_mode & 0o111 else b'100644'; data=b''
         with path.open('rb') as handle:
-            while chunk:=handle.read(1024*1024): h.update(chunk)
-    else: h.update(b'NON_REGULAR')
+            while chunk:=handle.read(1024*1024): h.update(chunk); data+=chunk
+    else: h.update(b'NON_REGULAR'); content.update(b'NON_REGULAR'); continue
+    content.update(mode); content.update(struct.pack('>Q',len(data))); content.update(data)
 print(json.dumps({{
  'commit':git('rev-parse','HEAD').decode().strip(),
  'tree':git('rev-parse','HEAD^{{tree}}').decode().strip(),
@@ -781,6 +933,7 @@ print(json.dumps({{
  'status':status,
  'changed':changed,
  'state_sha256':h.hexdigest(),
+ 'content_sha256':content.hexdigest(),
 }},sort_keys=True))
 PY
 """
@@ -795,18 +948,81 @@ PY
 def commit_implementation(
     request: dict[str, Any],
     worktree: str,
-    changed_files: list[str],
+    expected_state: dict[str, Any],
 ) -> dict[str, Any]:
-    paths = " ".join(shlex.quote(path) for path in changed_files)
+    changed_files = [str(path) for path in expected_state["changed"]]
+    paths_json = shlex.quote(json.dumps(changed_files))
+    allowed_json = shlex.quote(json.dumps(request["allowed_paths"]))
+    secret_pattern = shlex.quote(SECRET_VALUE_RE.pattern)
     script = f"""set -euo pipefail
-test "$(git -C {shlex.quote(worktree)} rev-parse HEAD)" = {shlex.quote(str(request['base_commit']))}
-git -C {shlex.quote(worktree)} add -- {paths}
-! git -C {shlex.quote(worktree)} diff --cached --quiet
-git -C {shlex.quote(worktree)} commit -q -m 'chore: apply governed Claude implementation'
-python3 - {shlex.quote(worktree)} {shlex.quote(str(request['base_commit']))} <<'PY'
+worktree={shlex.quote(worktree)}
+base={shlex.quote(str(request['base_commit']))}
+branch={shlex.quote(str(request['branch']))}
+expected_state={shlex.quote(str(expected_state['state_sha256']))}
+expected_content={shlex.quote(str(expected_state['content_sha256']))}
+test "$(git -C "$worktree" rev-parse HEAD)" = "$base"
+test "$(git -C "$worktree" branch --show-current)" = "$branch"
+if git -C "$worktree" config --get-regexp '^filter[.]' >/dev/null; then exit 2; fi
+index=$(mktemp "$HOME/.cache/jellyssh-claude-index.XXXXXX")
+trap 'rm -f "$index"' EXIT
+rm -f "$index"
+export GIT_INDEX_FILE="$index"
+git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" read-tree "$base"
+tree=$(python3 - "$worktree" "$base" {paths_json} {allowed_json} {secret_pattern} "$expected_state" "$expected_content" <<'PY'
+import hashlib,json,os,pathlib,re,struct,subprocess,sys
+worktree,base,paths_json,allowed_json,secret_pattern,expected_state,expected_content=sys.argv[1:]
+paths=json.loads(paths_json); allowed=json.loads(allowed_json); secret=re.compile(secret_pattern)
+root=pathlib.Path(worktree).resolve(strict=True)
+def git(*args,input=None): return subprocess.check_output(['git','-c','core.hooksPath=/dev/null','-c','commit.gpgSign=false','-C',worktree,*args],input=input)
+status=git('status','--porcelain=v1','-z').decode()
+tracked=git('diff','--name-only','-z',base,'--').decode().split('\\0')
+untracked=git('ls-files','--others','--exclude-standard','-z').decode().split('\\0')
+changed=sorted(set(x for x in tracked+untracked if x))
+if changed != paths or not status: raise SystemExit(2)
+def permitted(path): return any(path == item.rstrip('/') or (item.endswith('/') and path.startswith(item)) for item in allowed)
+if any(not permitted(path) for path in changed): raise SystemExit(2)
+state=hashlib.sha256(); content=hashlib.sha256(); entries=[]
+for relative in changed:
+ raw=relative.encode(); state.update(struct.pack('>Q',len(raw))); state.update(raw); content.update(struct.pack('>Q',len(raw))); content.update(raw)
+ path=root/relative
+ if not path.exists() and not path.is_symlink():
+  state.update(b'DELETED'); content.update(b'DELETED'); entries.append((relative,None,None)); continue
+ metadata=os.lstat(path); state.update(struct.pack('>Q',metadata.st_mode))
+ if path.is_symlink():
+  mode=b'120000'; data=os.readlink(path).encode(); state.update(struct.pack('>Q',len(data))); state.update(data)
+ elif path.is_file():
+  mode=b'100755' if metadata.st_mode & 0o111 else b'100644'; data=path.read_bytes(); state.update(data)
+ else: raise SystemExit(2)
+ if secret.search(data.decode('utf-8','ignore')): raise SystemExit(2)
+ content.update(mode); content.update(struct.pack('>Q',len(data))); content.update(data); entries.append((relative,mode,data))
+if state.hexdigest() != expected_state or content.hexdigest() != expected_content: raise SystemExit(2)
+for relative,mode,data in entries:
+ if mode is None: git('update-index','--force-remove','--',relative)
+ else:
+  blob=git('hash-object','-w','--stdin','--no-filters',input=data).decode().strip()
+  git('update-index','--add','--cacheinfo',mode.decode(),blob,relative)
+tree=git('write-tree').decode().strip()
+immutable=hashlib.sha256()
+for relative in changed:
+ raw=relative.encode(); immutable.update(struct.pack('>Q',len(raw))); immutable.update(raw)
+ entry=git('ls-tree',tree,'--',relative).decode().strip()
+ if not entry: immutable.update(b'DELETED'); continue
+ mode=entry.split()[0].encode(); data=git('show',tree+':'+relative)
+ if secret.search(data.decode('utf-8','ignore')): raise SystemExit(2)
+ immutable.update(mode); immutable.update(struct.pack('>Q',len(data))); immutable.update(data)
+if immutable.hexdigest() != expected_content: raise SystemExit(2)
+print(tree)
+PY
+)
+commit=$(printf '%s\n' 'chore: apply governed Claude implementation' | git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" commit-tree "$tree" -p "$base")
+unset GIT_INDEX_FILE
+rm -f "$index"
+git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" update-ref "refs/heads/$branch" "$commit" "$base"
+git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" reset --hard -q "$commit"
+python3 - "$worktree" "$base" <<'PY'
 import json,subprocess,sys
 worktree,base=sys.argv[1:]
-def git(*args): return subprocess.check_output(['git','-C',worktree,*args])
+def git(*args): return subprocess.check_output(['git','-c','core.hooksPath=/dev/null','-c','commit.gpgSign=false','-C',worktree,*args])
 changed=[x for x in git('diff','--name-only','-z',base+'...HEAD','--').decode().split('\\0') if x]
 print(json.dumps({{
  'commit':git('rev-parse','HEAD').decode().strip(),
@@ -868,7 +1084,12 @@ def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
     return results
 
 
-def _result_base(request: dict[str, Any], request_digest: str, started: str) -> dict[str, Any]:
+def _result_base(
+    request: dict[str, Any],
+    request_digest: str,
+    started: str,
+    snapshot: ControllerSnapshot,
+) -> dict[str, Any]:
     return {
         "schema_version": 2,
         "adapter_version": ADAPTER_VERSION,
@@ -882,16 +1103,16 @@ def _result_base(request: dict[str, Any], request_digest: str, started: str) -> 
             "identity": f"{REMOTE_USER}@{REMOTE_HOST}",
             "repository": REMOTE_REPOSITORY,
         },
-        "controller_commit": verified_controller_commit(),
-        "controller_digests": controller_digests(),
+        "controller_commit": snapshot.commit,
+        "controller_digests": snapshot.digests,
         "verdict": "BLOCK",
         "blockers": [],
         "checks": [],
     }
 
 
-def _validate_result(result: dict[str, Any]) -> None:
-    schema = _load_json(RESULT_SCHEMA_PATH, "Claude worker result schema")
+def _validate_result(result: dict[str, Any], *, snapshot: ControllerSnapshot | None = None) -> None:
+    schema = snapshot.result_schema if snapshot else _load_json(RESULT_SCHEMA_PATH, "Claude worker result schema")
     try:
         jsonschema.validate(result, schema)
     except jsonschema.ValidationError as exc:
@@ -900,13 +1121,18 @@ def _validate_result(result: dict[str, Any]) -> None:
 
 def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str, Any]:
     started = utc_now()
-    request = load_and_validate_request(request_path, allow_test_output=allow_test_output)
+    snapshot = capture_controller_snapshot()
+    request = load_and_validate_request(
+        request_path,
+        allow_test_output=allow_test_output,
+        snapshot=snapshot,
+    )
     output_path = _validate_output_path(str(request["output_path"]), allow_test_output=allow_test_output)
     request_digest = sha256_bytes(canonical_json(request))
-    result = _result_base(request, request_digest, started)
+    result = _result_base(request, request_digest, started, snapshot)
     worktree: str | None = None
     try:
-        result["preflight"] = preflight(request)
+        result["preflight"] = preflight(request, snapshot=snapshot)
         start = prepare_worktree(request)
         worktree = start["path"]
         result["worktree"] = worktree
@@ -930,7 +1156,7 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
             after_checks = inspect_precommit_worktree(request, worktree)
             validate_checks_preserved_state(precommit, after_checks)
             scan_changed_files(worktree, after_checks["changed"])
-            state = commit_implementation(request, worktree, after_checks["changed"])
+            state = commit_implementation(request, worktree, after_checks)
             validate_git_state(request, state, start)
         else:
             state = inspect_worktree(request, worktree, start)
@@ -954,7 +1180,7 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         result["verdict"] = "BLOCK"
         result["blockers"].append(f"unexpected adapter failure: {type(exc).__name__}")
     result["finished_at"] = utc_now()
-    _validate_result(result)
+    _validate_result(result, snapshot=snapshot)
     atomic_write_json(output_path, result)
     return result
 
@@ -973,7 +1199,8 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         if args.command == "preflight":
-            result = preflight()
+            snapshot = capture_controller_snapshot()
+            result = preflight(snapshot=snapshot)
             if args.output:
                 atomic_write_json(args.output, result)
             print(canonical_json(result).decode("utf-8"))

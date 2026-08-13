@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import base64
+import hashlib
 import os
 from pathlib import Path
 import re
+import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -236,7 +239,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.2.0",
+            "adapter_version": "0.3.0",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
@@ -394,6 +397,46 @@ class ResultValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(adapter.AdapterError, "not clean"):
                 adapter.verified_controller_commit()
 
+    def test_controller_snapshot_rejects_loaded_adapter_aba_and_owns_schema_bytes(self) -> None:
+        paths = adapter.controller_asset_paths()
+        commit = "a" * 40
+
+        def committed_git(*args: str) -> bytes:
+            if args == ("status", "--porcelain", "--untracked-files=normal"):
+                return b""
+            if args == ("rev-parse", "HEAD"):
+                return (commit + "\n").encode()
+            if args[0] == "show":
+                relative = args[1].split(":", 1)[1]
+                for path in paths.values():
+                    if path.relative_to(adapter.CONTROL_ROOT.parent).as_posix() == relative:
+                        return path.read_bytes()
+            raise AssertionError(args)
+
+        with mock.patch.object(adapter, "_controller_git", side_effect=committed_git), mock.patch.object(
+            adapter, "_committed_skill_digests", return_value={"code-review": "f" * 64}
+        ):
+            snapshot = adapter.capture_controller_snapshot()
+        self.assertEqual(snapshot.commit, commit)
+        self.assertEqual(snapshot.request_schema["title"], "Governed Claude worker request")
+
+        with mock.patch.object(adapter, "EXECUTING_ADAPTER_CODE_SHA256", "0" * 64):
+            with mock.patch.object(adapter, "_controller_git", side_effect=committed_git), mock.patch.object(
+                adapter, "_committed_skill_digests", return_value={"code-review": "f" * 64}
+            ):
+                with self.assertRaisesRegex(adapter.AdapterError, "loaded controller"):
+                    adapter.capture_controller_snapshot()
+
+        with tempfile.TemporaryDirectory() as temp:
+            request_path = Path(temp) / "request.json"
+            output = "/home/jellybot/projects/jellyssh-claude-adapter/evidence/snapshot-test.json"
+            request_path.write_text(json.dumps(implementation_request(output)))
+            with mock.patch.object(adapter, "_load_json", wraps=adapter._load_json) as load_json, mock.patch.object(
+                adapter, "_validate_output_path", return_value=Path(output)
+            ):
+                adapter.load_and_validate_request(request_path, snapshot=snapshot)
+            self.assertEqual(load_json.call_count, 1)
+
     def test_controller_git_disables_replacement_objects(self) -> None:
         with mock.patch.object(adapter.subprocess, "check_output", return_value=b"") as check_output:
             adapter._controller_git("status", "--porcelain")
@@ -430,8 +473,13 @@ class ResultValidationTests(unittest.TestCase):
         with self.assertRaises(adapter.AdapterError):
             adapter.validate_precommit_state(request, state)
 
-    def test_controller_commit_command_has_fixed_message_and_no_worker_text(self) -> None:
+    def test_controller_commit_uses_digest_bound_immutable_tree_without_hooks(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        expected = {
+            "changed": ["app/lib/a.dart"],
+            "state_sha256": "5" * 64,
+            "content_sha256": "6" * 64,
+        }
         with mock.patch.object(adapter, "_ssh_script", return_value=json.dumps({
             "commit": TARGET,
             "tree": "4" * 40,
@@ -439,12 +487,115 @@ class ResultValidationTests(unittest.TestCase):
             "status": "",
             "changed": ["app/lib/a.dart"],
         })) as ssh_script:
-            state = adapter.commit_implementation(request, "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001", ["app/lib/a.dart"])
+            state = adapter.commit_implementation(
+                request,
+                "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+                expected,
+            )
         script = ssh_script.call_args.args[0]
-        self.assertIn(" add -- app/lib/a.dart", script)
+        self.assertIn("GIT_INDEX_FILE", script)
+        self.assertIn("commit-tree", script)
+        self.assertIn("core.hooksPath=/dev/null", script)
+        self.assertIn("hash-object','-w','--stdin','--no-filters", script)
+        self.assertIn(expected["content_sha256"], script)
+        self.assertIn("update-ref", script)
+        self.assertNotIn(" commit -q ", script)
+        self.assertNotIn(" add -- ", script)
         self.assertIn("chore: apply governed Claude implementation", script)
         self.assertNotIn(str(request["task"]), script)
         self.assertEqual(state["commit"], TARGET)
+
+        with mock.patch.object(adapter, "_ssh_script", side_effect=adapter.AdapterError("validated content changed")):
+            with self.assertRaises(adapter.AdapterError):
+                adapter.commit_implementation(
+                    request,
+                    "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+                    expected,
+                )
+
+    def test_controller_commit_transaction_bypasses_hooks_and_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repository = root / "repository"
+            home = root / "home"
+            (home / ".cache").mkdir(parents=True)
+            repository.mkdir()
+            subprocess.run(["git", "init", "-q", "-b", "main", str(repository)], check=True)
+            subprocess.run(["git", "-C", str(repository), "config", "user.name", "Governed Test"], check=True)
+            subprocess.run(["git", "-C", str(repository), "config", "user.email", "governed@example.invalid"], check=True)
+            source = repository / "app/lib/example.dart"
+            source.parent.mkdir(parents=True)
+            source.write_text("before\n")
+            subprocess.run(["git", "-C", str(repository), "add", "--", "app/lib/example.dart"], check=True)
+            subprocess.run(["git", "-C", str(repository), "commit", "-q", "-m", "base"], check=True)
+            base = subprocess.check_output(["git", "-C", str(repository), "rev-parse", "HEAD"], text=True).strip()
+            branch = "feat/example-change"
+            subprocess.run(["git", "-C", str(repository), "switch", "-q", "-c", branch], check=True)
+            source.write_text("validated bytes\n")
+
+            marker = root / "hook-ran"
+            filter_marker = root / "filter-ran"
+            hook = repository / ".git/hooks/pre-commit"
+            hook.write_text(f"#!/bin/sh\ntouch {marker}\nexit 2\n")
+            hook.chmod(hook.stat().st_mode | stat.S_IXUSR)
+            attributes = repository / ".git/info/attributes"
+            attributes.write_text("app/lib/example.dart filter=hostile\n")
+            filter_script = root / "hostile-filter"
+            filter_script.write_text(f"#!/bin/sh\ntouch {filter_marker}\ncat\n")
+            filter_script.chmod(filter_script.stat().st_mode | stat.S_IXUSR)
+            subprocess.run(["git", "-C", str(repository), "config", "filter.hostile.clean", str(filter_script)], check=True)
+
+            metadata = os.lstat(source)
+            raw = b"app/lib/example.dart"
+            state = hashlib.sha256()
+            state.update(struct.pack(">Q", len(raw))); state.update(raw)
+            state.update(struct.pack(">Q", metadata.st_mode)); state.update(source.read_bytes())
+            content = hashlib.sha256()
+            content.update(struct.pack(">Q", len(raw))); content.update(raw)
+            content.update(b"100644"); content.update(struct.pack(">Q", len(source.read_bytes()))); content.update(source.read_bytes())
+            request = implementation_request(str(root / "result.json"))
+            request["base_commit"] = base
+            request["branch"] = branch
+            request["checks"] = []
+            expected = {"changed": ["app/lib/example.dart"], "state_sha256": state.hexdigest(), "content_sha256": content.hexdigest()}
+            def run_script(script: str, *, timeout: int = 120) -> str:
+                process = subprocess.run(
+                    ["bash"], input=script, text=True, capture_output=True,
+                    env={**os.environ, "HOME": str(home)}, timeout=timeout, check=False,
+                )
+                if process.returncode != 0:
+                    raise adapter.AdapterError(process.stderr[-1000:])
+                return process.stdout
+
+            with mock.patch.object(adapter, "_ssh_script", side_effect=run_script):
+                with self.assertRaises(adapter.AdapterError):
+                    adapter.commit_implementation(request, str(repository), expected)
+            self.assertFalse(filter_marker.exists())
+            self.assertFalse(marker.exists())
+
+            subprocess.run(["git", "-C", str(repository), "config", "--unset", "filter.hostile.clean"], check=True)
+            attributes.unlink()
+            source.write_text("raced bytes\n")
+            with mock.patch.object(adapter, "_ssh_script", side_effect=run_script):
+                with self.assertRaises(adapter.AdapterError):
+                    adapter.commit_implementation(request, str(repository), expected)
+            self.assertEqual(
+                subprocess.check_output(["git", "-C", str(repository), "rev-parse", "HEAD"], text=True).strip(),
+                base,
+            )
+            self.assertFalse(marker.exists())
+
+            source.write_text("validated bytes\n")
+            with mock.patch.object(adapter, "_ssh_script", side_effect=run_script):
+                result = adapter.commit_implementation(request, str(repository), expected)
+            self.assertFalse(marker.exists())
+            committed = subprocess.check_output(["git", "-C", str(repository), "show", "HEAD:app/lib/example.dart"])
+            self.assertEqual(committed, b"validated bytes\n")
+            self.assertEqual(result["branch"], branch)
+            self.assertEqual(
+                subprocess.check_output(["git", "-C", str(repository), "status", "--porcelain"], text=True),
+                "",
+            )
 
     def test_remote_content_scan_is_path_bounded_and_secret_aware(self) -> None:
         with mock.patch.object(adapter, "_ssh_script", return_value="CONTENT_SCAN_PASS\n") as ssh_script:
@@ -601,7 +752,16 @@ class AtomicPublicationTests(unittest.TestCase):
 
 class CliFailureTests(unittest.TestCase):
     def setUp(self) -> None:
-        patcher = mock.patch.object(adapter, "verified_controller_commit", return_value="a" * 40)
+        paths = adapter.controller_asset_paths()
+        self.snapshot = adapter.ControllerSnapshot(
+            commit="a" * 40,
+            asset_bytes={name: path.read_bytes() for name, path in paths.items()},
+            digests={name: adapter.sha256_bytes(path.read_bytes()) for name, path in paths.items()},
+            request_schema=json.loads(paths["request_schema"].read_text()),
+            result_schema=json.loads(paths["result_schema"].read_text()),
+            skill_digests={"code-review": "f" * 64},
+        )
+        patcher = mock.patch.object(adapter, "capture_controller_snapshot", return_value=self.snapshot)
         patcher.start()
         self.addCleanup(patcher.stop)
 

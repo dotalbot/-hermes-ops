@@ -22,7 +22,7 @@ JellySSH work may be implemented or advised on by Claude Code, but Claude Code i
 - Claude's repository-scoped GitHub deploy key is read-only. A pinned per-session settings policy denies the model's file tools access to SSH, Claude-authentication, GitHub-authentication, backup-authentication, and `.env` paths.
 - Claude receives no Bash tool in either mode. `--tools` restricts the built-in inventory to `Read,Glob,Grep,Edit,Write,Skill` for implementation and `Read,Glob,Grep,Skill` for review. `--allowedTools` only pre-approves the same bounded set; it is not treated as an inventory restriction. Strict MCP configuration plus an explicit `mcp__*` deny prevents MCP tools from bypassing that boundary. The adapter alone runs fixed Git, formatting, analysis, and test commands; an account-level `PreToolUse` hook remains defense in depth for interactive account use.
 - The adapter never mutates Kanban, opens a PR, merges, releases, deploys, signs, sideloads, or claims physical-device acceptance.
-- The controller must run from a clean Git checkout. Before any attempt it records the exact 40-character controller commit and verifies that every governed adapter/schema/hook/settings byte matches the blob at that revision; a dirty or unidentifiable controller blocks before remote execution.
+- The controller must run from a clean Git checkout. At process startup it records the adapter source digest, then captures one authenticated snapshot from exact Git objects: the 40-character controller commit, request/result schemas, hook/settings assets, and approved skill-release metadata and bundle bytes. The startup adapter digest must equal the committed adapter blob. All later schema validation, policy hashing, skill expectations, and result validation consume this snapshot rather than mutable live paths; a dirty, ABA-restored, or unidentifiable controller blocks before remote execution.
 
 ## Modes
 
@@ -47,7 +47,7 @@ Read-only checks must verify:
 - Require exact file paths or segment-bounded directory prefixes for intended implementation changes, and block before checks or commit if any changed path is undeclared.
 - Pass prompt text to Claude through stdin, not argv.
 - Use non-interactive structured JSON output in Claude's guarded `auto` mode without `--dangerously-skip-permissions` or Bash access.
-- Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and creates the local commit with a fixed message; neither Claude nor the adapter pushes.
+- Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and creates the local commit with a fixed message; neither Claude nor the adapter pushes. Commit creation rejects configured Git filters, disables hooks/signing, captures each post-check changed path once into controller-owned memory, verifies its state/content digest and secret/path policy, writes exact blobs with `hash-object --no-filters`, constructs a private-index tree, validates the immutable tree, creates the commit with `commit-tree`, then compare-and-swaps the expected branch ref. The real worktree index is hard-reset and inspected only after the private index is removed.
 - Return evidence; never treat Claude prose as approval.
 - Block if the process or a fixed check times out, output is malformed or secret-shaped, HEAD does not descend from the base, the pre-commit state has no changes, the committed tree has no net changes, or the branch/ref is wrong.
 
@@ -77,7 +77,7 @@ The adapter rejects paths outside the repository, arbitrary commands, caller-sel
 
 ## Result contract
 
-The current result contract is schema version `2` and adapter version `0.2.0`; it is intentionally incompatible with the historical two-artifact `0.1.0` result shape.
+The current result contract is schema version `2` and adapter version `0.3.0`; it is intentionally incompatible with the historical two-artifact `0.1.0` result shape.
 
 The canonical JSON result includes:
 
@@ -116,6 +116,9 @@ Tests must prove:
 - malformed JSON, timeout and nonzero exit fail closed;
 - structurally valid synthetic credential shapes are rejected in worker output and changed-file content;
 - exact controller-commit/byte binding and dirty-controller rejection;
+- ABA-restored controller rejection and snapshot-only schema/policy consumption;
+- hostile Git-filter rejection plus hook-free, filter-free exact-byte commit-tree construction;
+- mutation-between-scan-and-commit rejection through post-check state/content digests and immutable-tree validation;
 - one-artifact atomic result publication, including malformed-output retention;
 - symlink-ancestor rejection and path-swap confinement through a retained directory descriptor;
 - no reported failure after the atomic publication commit point;
