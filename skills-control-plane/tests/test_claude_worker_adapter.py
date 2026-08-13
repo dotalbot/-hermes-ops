@@ -383,7 +383,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.4.1",
+            "adapter_version": "0.4.2",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
@@ -881,6 +881,49 @@ class AtomicPublicationTests(unittest.TestCase):
             self.assertEqual(observed["verdict"], "BLOCK")
             self.assertEqual(json.loads(output.read_text())["verdict"], "BLOCK")
             self.assertFalse(list(output.parent.glob(".*.tmp")))
+
+    def test_evidence_abort_failure_cannot_skip_exact_ref_rollback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "result.json"
+            request = implementation_request(str(output))
+            state = {"commit": TARGET, "tree": "4" * 40, "branch": request["branch"], "changed": ["app/lib/example.dart"]}
+            result = {"verdict": "PASS", "blockers": []}
+            calls: list[str] = []
+            link_calls = 0
+            real_publish = adapter.publish_staged_evidence
+
+            def fail_first_link(staged: adapter.StagedEvidence) -> None:
+                nonlocal link_calls
+                link_calls += 1
+                if link_calls == 1:
+                    raise OSError("link failed")
+                real_publish(staged)
+
+            def fail_abort(*args: object) -> None:
+                calls.append("abort")
+                raise PermissionError("unlink failed")
+
+            with mock.patch.object(adapter, "publish_implementation_ref", side_effect=lambda *a: calls.append("ref")), mock.patch.object(
+                adapter, "publish_staged_evidence", side_effect=fail_first_link
+            ), mock.patch.object(
+                adapter, "rollback_implementation_ref", side_effect=lambda *a: calls.append("rollback")
+            ), mock.patch.object(
+                adapter, "abort_staged_evidence", side_effect=fail_abort
+            ), mock.patch.object(adapter, "_validate_result"):
+                observed = adapter.finalize_implementation_publication(
+                    request, "/sandbox/source", state, output, result, self._snapshot()
+                )
+            self.assertEqual(calls, ["ref", "rollback", "abort"])
+            self.assertEqual(observed["verdict"], "BLOCK")
+            self.assertEqual(json.loads(output.read_text())["verdict"], "BLOCK")
+
+    def test_abort_staged_evidence_suppresses_unlink_failure_and_closes_descriptor(self) -> None:
+        staged = adapter.StagedEvidence(10, ".tmp", "result.json")
+        with mock.patch.object(adapter.os, "unlink", side_effect=PermissionError("unlink failed")), mock.patch.object(
+            adapter.os, "close"
+        ) as close:
+            adapter.abort_staged_evidence(staged)
+        close.assert_called_once_with(10)
 
     def test_uncertain_ref_failure_also_runs_idempotent_rollback(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

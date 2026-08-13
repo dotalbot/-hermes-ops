@@ -51,7 +51,7 @@ Read-only checks must verify:
 - Pass prompt text to Claude through stdin, not argv.
 - Use non-interactive structured JSON output in Claude's guarded `auto` mode without `--dangerously-skip-permissions` or Bash access.
 - Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and prepares an unreferenced local commit with a fixed message; neither Claude nor the adapter pushes. Commit preparation rejects configured Git filters, disables hooks/signing, captures each post-check changed path once into controller-owned memory, verifies its state/content digest and secret/path policy, writes exact blobs with `hash-object --no-filters`, constructs a private-index tree, validates the immutable tree, and creates the commit with `commit-tree` without advancing a ref or resetting the workspace.
-- Final publication first schema-validates and fsyncs hidden canonical evidence under a retained no-follow directory descriptor, then transfers and verifies the unreferenced objects, creates the shared branch with a create-only compare-and-swap, and atomically hard-links the evidence. Any uncertain ref/evidence failure invokes idempotent exact-value ref deletion before publishing `BLOCK`; rollback uncertainty publishes no misleading evidence and fails closed. Credential/session purge is mandatory before publication, while full sandbox cleanup after the publication commit point is best-effort and cannot change a successful result.
+- Final publication first schema-validates and fsyncs hidden canonical evidence under a retained no-follow directory descriptor, then transfers and verifies the unreferenced objects, creates the shared branch with a create-only compare-and-swap, and atomically hard-links the evidence. Any uncertain ref/evidence failure invokes idempotent exact-value ref deletion before any fallible temporary-evidence cleanup and before publishing `BLOCK`; cleanup cannot mask or skip rollback, while rollback uncertainty publishes no misleading evidence and fails closed. Credential/session purge is mandatory before publication, while full sandbox cleanup after the publication commit point is best-effort and cannot change a successful result.
 - Return evidence; never treat Claude prose as approval.
 - Block if the process or a fixed check times out, output is malformed or secret-shaped, HEAD does not descend from the base, the pre-commit state has no changes, the committed tree has no net changes, or the branch/ref is wrong.
 
@@ -81,7 +81,7 @@ The adapter rejects paths outside the repository, arbitrary commands, caller-sel
 
 ## Result contract
 
-The current result contract is schema version `2` and adapter version `0.4.1`; it is intentionally incompatible with historical adapter versions.
+The current result contract is schema version `2` and adapter version `0.4.2`; it is intentionally incompatible with historical adapter versions.
 
 The canonical JSON result includes:
 

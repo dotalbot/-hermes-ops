@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.4.1"
+ADAPTER_VERSION = "0.4.2"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -371,7 +371,7 @@ def abort_staged_evidence(staged: StagedEvidence) -> None:
         return
     try:
         os.unlink(staged.temporary, dir_fd=staged.parent_fd)
-    except FileNotFoundError:
+    except OSError:
         pass
     finally:
         try:
@@ -1473,10 +1473,18 @@ def finalize_implementation_publication(
         publish_staged_evidence(staged)
         return result
     except Exception as publication_error:
-        abort_staged_evidence(staged)
+        rollback_error: Exception | None = None
         try:
             rollback_implementation_ref(request, state)
-        except Exception as rollback_error:
+        except Exception as exc:
+            rollback_error = exc
+        try:
+            abort_staged_evidence(staged)
+        except Exception:
+            # Ref recovery is the mandatory transaction action. Temporary-file
+            # cleanup must never mask its outcome or prevent BLOCK evidence.
+            pass
+        if rollback_error is not None:
             raise AdapterError(
                 "implementation publication failed and exact ref rollback could not be verified"
             ) from rollback_error
