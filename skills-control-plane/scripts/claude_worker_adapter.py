@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.4.2"
+ADAPTER_VERSION = "0.4.3"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -90,6 +90,7 @@ REMOTE_CLAUDE = "/home/jellyclaude/.local/bin/claude"
 REMOTE_FLUTTER = "/home/jellyclaude/dev/sdk/flutter/bin/flutter"
 REMOTE_DART = "/home/jellyclaude/dev/sdk/flutter-3.44.9/bin/cache/dart-sdk/bin/dart"
 REMOTE_FLUTTER_SNAPSHOT = "/home/jellyclaude/dev/sdk/flutter-3.44.9/bin/cache/flutter_tools.snapshot"
+REMOTE_RESOLVER_CONFIG = "/run/systemd/resolve/stub-resolv.conf"
 EXPECTED_EXECUTABLE_SHA256 = {
     REMOTE_CLAUDE: "d535985e6941a3eb00179ccd7f52ceb0c6623a0305a518ebc4e6514f84a94c99",
     REMOTE_FLUTTER: "7d486c33b30a0cf1ea5146231c68bb8f966cdb4e087c5cd8b37e14513f536e7d",
@@ -593,7 +594,10 @@ def build_claude_command(
         "/usr", "/bin", "/lib", "/lib64", "/etc", "/dev", "/proc", "/sys",
         str(worktree_path), str(sandbox_home),
     ]
-    readable_files = [REMOTE_CLAUDE]
+    # /etc/resolv.conf is a symlink to this file on the fixed Jellybase
+    # endpoint. Landlock resolves permissions against the target inode, so
+    # allowing /etc alone does not permit DNS resolution.
+    readable_files = [REMOTE_CLAUDE, REMOTE_RESOLVER_CONFIG]
     landlock = LANDLOCK_LAUNCHER
     launcher = ["python3", "-c", landlock]
     for path in readable_directories:
@@ -707,6 +711,8 @@ test -x {shlex.quote(REMOTE_CLAUDE)}
 test -x {shlex.quote(REMOTE_FLUTTER)}
 test -x {shlex.quote(REMOTE_DART)}
 test -f {shlex.quote(REMOTE_FLUTTER_SNAPSHOT)}
+test -r {shlex.quote(REMOTE_RESOLVER_CONFIG)}
+test "$(readlink -f /etc/resolv.conf)" = {shlex.quote(REMOTE_RESOLVER_CONFIG)}
 {executable_hash_checks}
 ! pgrep -u "$(id -u)" -x claude >/dev/null
 {shlex.quote(REMOTE_CLAUDE)} auth status --text >/dev/null

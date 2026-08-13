@@ -280,6 +280,8 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("--settings /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/home/.claude/adapter-session-settings.json", " ".join(command.argv))
         rendered = shlex.split(command.argv[-1])[0]
         self.assertIn("--setting-sources user", rendered)
+        self.assertIn("--read-file /run/systemd/resolve/stub-resolv.conf", rendered)
+        self.assertNotIn("--read-dir /run", rendered)
         self.assertNotIn("--read-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/git", rendered)
         self.assertIn("timeout --signal=TERM --kill-after=30", " ".join(command.argv))
         self.assertEqual(command.argv[:4], ["ssh", "agent-claude", "bash", "-lc"])
@@ -324,6 +326,8 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("block-dangerous-git.py", source)
         self.assertIn("PUSH_UNEXPECTEDLY_ALLOWED", source)
         self.assertIn("write access unexpectedly available", source)
+        self.assertIn("readlink -f /etc/resolv.conf", source)
+        self.assertIn("REMOTE_RESOLVER_CONFIG", source)
 
     def test_independent_checks_quote_the_complete_login_shell_program(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
@@ -383,7 +387,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.4.2",
+            "adapter_version": "0.4.3",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
