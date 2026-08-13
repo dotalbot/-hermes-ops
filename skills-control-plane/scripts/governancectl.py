@@ -594,7 +594,7 @@ def bind_review_authority(
     _reject_secret_material(capability, "capability evidence")
     required_contract = {
         "schema_version", "work_item", "review_card_id", "capability_evidence_sha256",
-        "authority", "required_axes", "expected_workspace_kind", "expected_max_runtime_seconds",
+        "focused_check", "authority", "required_axes", "expected_workspace_kind", "expected_max_runtime_seconds",
         "expected_max_retries", "kanban_board", "expected_reviewer_profile",
     }
     if set(contract) != required_contract or contract.get("schema_version") != 1:
@@ -624,6 +624,14 @@ def bind_review_authority(
     spec = capability.get("review_specification")
     if not isinstance(spec, dict):
         raise GovernanceError("capability review specification is unavailable")
+    try:
+        spec = reviewctl.validate_review_specification(spec)
+    except reviewctl.ReviewControlError as exc:
+        raise GovernanceError("capability review specification is invalid") from exc
+    if spec["review_type"] != "final":
+        raise GovernanceError("governed review authority requires a final review specification")
+    if contract.get("focused_check") != spec.get("focused_check"):
+        raise GovernanceError("capability focused check mismatch")
     try:
         reviewctl.validate_capability_envelope(
             capability, spec, card_id, {}, revalidate_live=False
@@ -685,6 +693,8 @@ def bind_review_authority(
         "verdict": "PASS",
         "findings": [],
         "axes": {"standards": "PASS", "specification": "PASS"},
+        "review_type": spec["review_type"],
+        "focused_check": spec["focused_check"],
         "authority": authority,
         "capability_evidence_sha256": capability_digest,
         "review_contract_sha256": contract_digest,

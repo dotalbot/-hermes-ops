@@ -83,6 +83,7 @@ REQUIRED_DISABLED_TOOLSETS = {
 CAPABILITY_REQUIRED_DISABLED_TOOLSETS = REQUIRED_DISABLED_TOOLSETS - {"kanban"}
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _ALLOWED_REVIEW_TYPES = {"code", "architecture", "security", "database-data", "mobile-ux", "final"}
+_ALLOWED_FOCUSED_CHECKS = {"sftp-browser-test", "terminal-behaviour-test"}
 _ALLOWED_SEVERITIES = {"blocking", "high", "medium", "low", "note"}
 _ATTEMPT_RE = re.compile(r"^t_[0-9a-f]{8}$")
 CAPABILITY_SCHEMA = CONTROL_ROOT / "schemas" / "reviewer-capability-evidence.schema.json"
@@ -141,6 +142,7 @@ def build_capability_envelope(
     attempt_id: str,
     created_at_utc: str | None = None,
 ) -> dict[str, Any]:
+    spec = validate_review_specification(spec)
     _reject_secret_material(spec, "review specification")
     if not _ATTEMPT_RE.fullmatch(attempt_id):
         raise ReviewControlError("capability attempt id is invalid")
@@ -197,6 +199,7 @@ def validate_capability_envelope(
 ) -> dict[str, Any]:
     if not isinstance(envelope, dict):
         raise ReviewControlError("capability evidence root must be an object")
+    spec = validate_review_specification(spec)
     _reject_secret_material(envelope, "capability evidence")
     _reject_secret_material(spec, "review specification")
     sources = _verified_control_sources()
@@ -460,16 +463,12 @@ def _load_review_procedures(spec: dict[str, Any]) -> list[dict[str, str]]:
     return procedures
 
 
-def load_spec(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        raise ReviewControlError(f"invalid review specification: {exc}") from exc
+def validate_review_specification(value: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ReviewControlError("review specification must be a JSON object")
     allowed = {
         "schema_version", "project", "expected_commit", "expected_tree", "base_commit",
-        "specification_commit", "specification_path", "review_type", "paths", "focus",
+        "specification_commit", "specification_path", "review_type", "focused_check", "paths", "focus",
     }
     unknown = sorted(set(value) - allowed)
     if unknown:
@@ -483,6 +482,12 @@ def load_spec(path: Path) -> dict[str, Any]:
         raise ReviewControlError("expected_tree must be a full lowercase tree SHA")
     if value.get("review_type") not in _ALLOWED_REVIEW_TYPES:
         raise ReviewControlError("review_type is not allowlisted")
+    focused_check = value.get("focused_check")
+    if value["review_type"] == "final":
+        if focused_check not in _ALLOWED_FOCUSED_CHECKS:
+            raise ReviewControlError("final review focused_check is not allowlisted")
+    elif focused_check is not None:
+        raise ReviewControlError("focused_check is only valid for final reviews")
     paths = value.get("paths", [])
     if not isinstance(paths, list) or not paths or len(paths) > 100:
         raise ReviewControlError("paths must contain 1 to 100 entries")
@@ -504,6 +509,14 @@ def load_spec(path: Path) -> dict[str, Any]:
     if not isinstance(focus, list) or len(focus) > 20 or any(not isinstance(item, str) or len(item) > 200 for item in focus):
         raise ReviewControlError("focus must contain at most 20 bounded strings")
     return value
+
+
+def load_spec(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise ReviewControlError(f"invalid review specification: {exc}") from exc
+    return validate_review_specification(value)
 
 
 def _verify_pinned_host_key() -> None:
@@ -746,7 +759,7 @@ def _validate_check_output(name: str, ok: bool, text: str) -> None:
             raise ReviewControlError("submodule status is uninitialized or mismatched")
     if name == "dart-format-check" and (not ok or not re.search(r"Formatted \d+ files \(0 changed\)", text)):
         raise ReviewControlError("Dart format check output drift")
-    if name in {"flutter-test", "sftp-browser-test"}:
+    if name in {"flutter-test", "sftp-browser-test", "terminal-behaviour-test"}:
         if not ok or len(text.encode("utf-8")) > 4096:
             raise ReviewControlError("Flutter test compact output failed or exceeded its bound")
         try:
@@ -783,12 +796,13 @@ def _validate_check_output(name: str, ok: bool, text: str) -> None:
             raise ReviewControlError("Flutter test compact terminal contract drift")
 
 
-def _required_checks(review_type: str) -> list[str]:
+def _required_checks(spec: dict[str, Any]) -> list[str]:
+    review_type = spec["review_type"]
     checks = ["sandbox-self-check", "head-clean", "diff-check", "submodule-status"]
     if review_type in {"code", "database-data", "mobile-ux", "final"}:
         checks.extend(["dart-format-check", "flutter-analyze"])
         if review_type == "final":
-            checks.append("sftp-browser-test")
+            checks.append(spec["focused_check"])
         checks.append("flutter-test")
     return checks
 
@@ -878,8 +892,9 @@ async def _collect_mcp_evidence_async(
                     raise ReviewControlError("MCP exact-commit diff call failed: " + diff_text[:500])
                 approved_specification = await _approved_specification_evidence(spec, call)
                 checks: dict[str, dict[str, Any]] = {}
-                selected_checks = check_names if check_names is not None else _required_checks(spec["review_type"])
-                if not selected_checks or any(name not in _required_checks(spec["review_type"]) for name in selected_checks):
+                required_checks = _required_checks(spec)
+                selected_checks = check_names if check_names is not None else required_checks
+                if not selected_checks or any(name not in required_checks for name in selected_checks):
                     raise ReviewControlError("capability check inventory is invalid")
                 for name in selected_checks:
                     ok, text = await call("run_readonly_check", {"name": name})

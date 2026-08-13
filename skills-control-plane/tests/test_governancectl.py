@@ -209,6 +209,7 @@ class GovernanceTimingTests(unittest.TestCase):
             "work_item": "BUG-010",
             "review_card_id": "t_abcdef12",
             "capability_evidence_sha256": capability_digest or "sha256:" + "6" * 64,
+            "focused_check": "terminal-behaviour-test",
             "authority": self._authority(),
             "required_axes": ["standards", "specification"],
             "expected_workspace_kind": "scratch",
@@ -307,6 +308,12 @@ class GovernanceTimingTests(unittest.TestCase):
                 "specification_path": "docs/bugs/BUG-010.md",
                 "expected_commit": "4" * 40,
                 "expected_tree": "5" * 40,
+                "review_type": "final",
+                "focused_check": "terminal-behaviour-test",
+                "schema_version": 1,
+                "project": "jellyssh",
+                "paths": ["docs/bugs/BUG-010.md"],
+                "focus": [],
             },
             "approved_specification": {"sha256": "sha256:" + "3" * 64},
             "capability_verdict": "PASS",
@@ -340,12 +347,34 @@ class GovernanceTimingTests(unittest.TestCase):
         self.assertEqual(result["kind"], "governed-review-authority")
         self.assertEqual(result["verdict"], "PASS")
         self.assertEqual(result["authority"], self._authority())
+        self.assertEqual(result["review_type"], "final")
+        self.assertEqual(result["focused_check"], "terminal-behaviour-test")
         self.assertEqual(result["capability_evidence_sha256"], capability_digest)
         self.assertEqual(result["kanban_provenance"]["board"], "jellyssh")
         self.assertEqual(result["kanban_provenance"]["run_id"], 1)
         self.assertEqual(result["kanban_provenance"]["profile"], "jellybase_jellyssh_reviewer")
         self.assertEqual(result["kanban_provenance"]["run_metadata"]["verdict"], "PASS")
         self.assertEqual(json.loads(output.read_text(encoding="utf-8")), result)
+
+        malformed_capability_value = self._capability()
+        malformed_capability_value["review_specification"]["review_type"] = "code"
+        malformed_capability = self._write_json("malformed-capability.json", malformed_capability_value)
+        malformed_digest = "sha256:" + hashlib.sha256(malformed_capability.read_bytes()).hexdigest()
+        malformed_contract_value = self._review_contract(malformed_digest)
+        malformed_contract_value.update({
+            "kanban_board": "jellyssh",
+            "expected_reviewer_profile": "jellybase_jellyssh_reviewer",
+        })
+        malformed_contract = self._write_json("malformed-contract.json", malformed_contract_value)
+        with (
+            mock.patch.object(self.mod, "_shared_hermes_root", return_value=root),
+            mock.patch.object(self.mod.reviewctl, "validate_capability_envelope", return_value={}),
+        ):
+            with self.assertRaisesRegex(self.mod.GovernanceError, "review specification is invalid"):
+                self.mod.bind_review_authority(
+                    malformed_contract, malformed_capability,
+                    Path(self.temp.name) / "malformed-authority.json",
+                )
 
         db = root / "kanban" / "boards" / "jellyssh" / "kanban.db"
         connection = sqlite3.connect(db)

@@ -7,6 +7,7 @@
   "specification_commit": "REPLACE_FULL_SPECIFICATION_COMMIT",
   "specification_path": "docs/bugs/REPLACE.md",
   "review_type": "final",
+  "focused_check": "REPLACE_WITH_CLOSED_ENUM_FOCUSED_CHECK",
   "paths": ["REPLACE_APPROVED_PATH"],
   "focus": ["REPLACE_REQUIREMENT"]
 }

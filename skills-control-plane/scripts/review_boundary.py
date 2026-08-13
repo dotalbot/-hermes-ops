@@ -98,7 +98,7 @@ try:
 except IndexError:
  check_name="invalid"
  structural_error=True
-if check_name not in {"flutter-test","sftp-browser-test"}:
+if check_name not in {"flutter-test","sftp-browser-test","terminal-behaviour-test"}:
  check_name="invalid"
  structural_error=True
 
@@ -335,6 +335,7 @@ _ALLOWED_CHECKS = {
     "flutter-analyze",
     "flutter-test",
     "sftp-browser-test",
+    "terminal-behaviour-test",
     "dart-format-check",
 }
 
@@ -755,6 +756,13 @@ class ReviewRepository:
                 "--no-pub",
                 "test/screens/sftp/sftp_browser_screen_test.dart",
             ],
+            "terminal-behaviour-test": [
+                *flutter_tool,
+                "test",
+                "--machine",
+                "--no-pub",
+                "test/screens/settings/terminal_behaviour_settings_screen_test.dart",
+            ],
             "dart-format-check": [
                 "/opt/flutter/bin/cache/dart-sdk/bin/dart",
                 "format",
@@ -773,7 +781,7 @@ class ReviewRepository:
             "cp -a /review-input/tools /workspace/tools; "
             "cd /workspace/repo/app; "
         )
-        if name in {"flutter-test", "sftp-browser-test"}:
+        if name in {"flutter-test", "sftp-browser-test", "terminal-behaviour-test"}:
             machine_output = "/workspace/flutter-test.machine.jsonl"
             diagnostic_output = "/workspace/flutter-test.stderr"
             sandbox_command = (
@@ -827,7 +835,7 @@ timeout --signal=TERM --kill-after=10 300 docker run --rm --pull=never --name "$
 """
         command = ["/bin/bash", "-c", script]
         output = self._run(command, timeout=330)
-        limit = 4096 if name in {"flutter-test", "sftp-browser-test"} else _MAX_GIT_BYTES
+        limit = 4096 if name in {"flutter-test", "sftp-browser-test", "terminal-behaviour-test"} else _MAX_GIT_BYTES
         return self._bounded(output, limit) or "PASS"
 
     def _run_sandbox_self_check(self) -> str:
@@ -863,6 +871,7 @@ printf 'SANDBOX_SELF_CHECK=PASS\n'
             "flutter-analyze",
             "flutter-test",
             "sftp-browser-test",
+            "terminal-behaviour-test",
             "dart-format-check",
         }:
             return self._run_sandboxed_flutter_check(name)

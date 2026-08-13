@@ -89,11 +89,11 @@ review_boundary:
   ssh_host_key_fingerprint: SHA256:MsKB6W/Pdd/0AU70/OvI8DnG9tFMyQvcEeYjaTLazR0
   pinned_known_hosts_path: /home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts
   implementation_sha256:
-    reviewctl.py: sha256:0747fe63ae29dfb76234e4b96fa668f9f00d1d8586d41bb70333b835bd976ceb
-    review_boundary.py: sha256:4161529f59e4d7a46b5f4085e74efe5cf18bfd23ac365e6934868b21913602a6
+    reviewctl.py: sha256:91b091141f60452ab51eae06f4a9241cfd52d92651ca8c127c29a6d8dc4c4f75
+    review_boundary.py: sha256:369b09e73700e70635b22e46a931c8c08e0d188ccc078f6a84e1fc2dcd62c41c
     jellyssh_review_mcp.py: sha256:f307541c0337ef9849468ebf4838c50374553a27847d6841ce850555aaeb6bc9
     projectctl.py: sha256:45183cc7d0ac5a82b0fb889f63f9ea00495809ac00e599260dcb1e185cfe1b1b
-    governancectl.py: sha256:a1383f9f4f51d058ce950cf4a8387e22722f9536aa26f59a2b5b902ab1c71cb0
+    governancectl.py: sha256:830f866485b014d2ed696e284e8c3040f3263c15511cb9600cb16a2208c570a1
     managerctl.py: sha256:bde99448165886fe2f16436a303233ae4f6e9c9d2390a8d5c522251f81aac7ff
     managerlib.py: sha256:a5d3ce1f7b817f197a4a37c011d3ca6601f9e8cc853c584bc4a2ef8b08fdc5b1
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
@@ -104,9 +104,9 @@ review_boundary:
   ssh_identity_file: /home/jellybot/.ssh/id_ed25519
   project_manifest_sha256: sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899
   schema_sha256:
-    reviewer-capability-evidence.schema.json: sha256:6a9c7a67dbf5a228b596e20b020cec4085032aa0d23ee0d71c7fecc9986d325a
+    reviewer-capability-evidence.schema.json: sha256:9b3b114fbd1b90624b5645e1c449b2e74d036aec420bf8e6c8c56d4b8043d692
     governance-timing.schema.json: sha256:db9e7cdf6e4ecaeba94b142c6a2cdccc319c1188d09957787472f46bf9efdf60
-    governed-review-contract.schema.json: sha256:54c03e294896ce580a6a5b19208686c547e8ec87ac3c87fc4f2fb7f38e9c453b
+    governed-review-contract.schema.json: sha256:41dd34ab58ea8033a7c2954f36152a4726bb25d843b6b31437c39a3bfa31e851
     governed-acceptance-request.schema.json: sha256:69f6d145309f8657f860738e190bdf5a24caee98d2ba9cdf4227a725ec748d2a
 repository_auth:
   remote: git@github.com:dotalbot/jellyssh.git

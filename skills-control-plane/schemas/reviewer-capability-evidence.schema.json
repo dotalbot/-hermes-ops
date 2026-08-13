@@ -17,7 +17,7 @@
     "project": {"const": "jellyssh"},
     "attempt_id": {"type": "string", "pattern": "^t_[0-9a-f]{8}$"},
     "created_at_utc": {"type": "string", "format": "date-time"},
-    "review_specification": {"type": "object"},
+    "review_specification": {"$ref": "#/$defs/reviewSpecification"},
     "review_specification_sha256": {"$ref": "#/$defs/sha256"},
     "controller_sources_sha256": {
       "type": "object",
@@ -60,6 +60,31 @@
   },
   "$defs": {
     "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
-    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "reviewSpecification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "project", "expected_commit", "expected_tree",
+        "base_commit", "specification_commit", "specification_path",
+        "review_type", "paths", "focus"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "project": {"const": "jellyssh"},
+        "expected_commit": {"$ref": "#/$defs/commit"},
+        "expected_tree": {"$ref": "#/$defs/commit"},
+        "base_commit": {"$ref": "#/$defs/commit"},
+        "specification_commit": {"$ref": "#/$defs/commit"},
+        "specification_path": {"type": "string", "minLength": 1, "maxLength": 500},
+        "review_type": {"enum": ["code", "architecture", "security", "database-data", "mobile-ux", "final"]},
+        "focused_check": {"enum": ["sftp-browser-test", "terminal-behaviour-test"]},
+        "paths": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "string"}},
+        "focus": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 200}}
+      },
+      "if": {"properties": {"review_type": {"const": "final"}}},
+      "then": {"required": ["focused_check"]},
+      "else": {"not": {"required": ["focused_check"]}}
+    }
   }
 }
