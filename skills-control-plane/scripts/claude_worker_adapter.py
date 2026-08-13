@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.4.3"
+ADAPTER_VERSION = "0.4.4"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -116,6 +116,15 @@ CHECK_COMMANDS = {
 
 class AdapterError(RuntimeError):
     """A blocking adapter contract failure."""
+
+
+class CheckFailure(AdapterError):
+    """A blocking independent check failure with bounded diagnostics."""
+
+    def __init__(self, name: str, checks: list[dict[str, Any]]) -> None:
+        super().__init__(f"independent check failed: {name}")
+        self.checks = checks
+        self.cleanup_blockers: list[str] = []
 
 
 @dataclass(frozen=True)
@@ -1389,6 +1398,7 @@ cp -a --reflink=auto -- "$source" "$target"
         "/usr", "/bin", "/lib", "/lib64", "/etc", "/dev", "/proc", "/sys",
         str(check_root), flutter_root, pub_cache,
     ]
+    pending_failure: Exception | None = None
     try:
         for name in request["checks"]:
             command = CHECK_COMMANDS[str(name)]
@@ -1415,19 +1425,42 @@ cp -a --reflink=auto -- "$source" "$target"
                 timeout=min(int(request["timeout_seconds"]), 1200) + 45,
                 check=False,
             )
-            combined = ((process.stdout or "") + (process.stderr or ""))[-4000:]
-            validate_output_text(combined)
+            full_output = (process.stdout or "") + (process.stderr or "")
+            validate_output_text(full_output)
+            combined = full_output[-4000:]
             results.append({"name": name, "exit_code": process.returncode, "passed": process.returncode == 0, "output": combined})
             if process.returncode != 0:
-                raise AdapterError(f"independent check failed: {name}")
+                raise CheckFailure(str(name), list(results))
         return results
+    except Exception as exc:
+        pending_failure = exc
+        raise
     finally:
-        _run(
-            ["ssh", SSH_TARGET, "bash", "-s"],
-            input_text=f"rm -rf -- {shlex.quote(str(check_root))}\n",
-            timeout=60,
-            check=False,
-        )
+        try:
+            cleanup = _run(
+                ["ssh", SSH_TARGET, "bash", "-s"],
+                input_text=f"rm -rf -- {shlex.quote(str(check_root))}\n",
+                timeout=60,
+                check=False,
+            )
+            validate_output_text((cleanup.stdout or "") + (cleanup.stderr or ""))
+            if cleanup.returncode != 0:
+                raise AdapterError(f"independent check cleanup failed: {cleanup.returncode}")
+        except Exception as cleanup_error:
+            if isinstance(pending_failure, CheckFailure):
+                if isinstance(cleanup_error, subprocess.TimeoutExpired):
+                    blocker = "independent check cleanup timed out"
+                elif isinstance(cleanup_error, AdapterError) and str(cleanup_error).startswith(
+                    "independent check cleanup failed:"
+                ):
+                    blocker = str(cleanup_error)
+                elif isinstance(cleanup_error, AdapterError):
+                    blocker = "independent check cleanup output rejected"
+                else:
+                    blocker = "independent check cleanup failed"
+                pending_failure.cleanup_blockers.append(blocker)
+            elif pending_failure is None:
+                raise
 
 
 def _result_base(
@@ -1463,6 +1496,14 @@ def _validate_result(result: dict[str, Any], *, snapshot: ControllerSnapshot | N
         jsonschema.validate(result, schema)
     except jsonschema.ValidationError as exc:
         raise AdapterError(f"internal result schema failure: {exc.message}") from exc
+
+
+def record_adapter_failure(result: dict[str, Any], failure: AdapterError) -> None:
+    result["verdict"] = "BLOCK"
+    result["blockers"].append(str(failure))
+    if isinstance(failure, CheckFailure):
+        result["checks"] = failure.checks
+        result["blockers"].extend(failure.cleanup_blockers)
 
 
 def finalize_implementation_publication(
@@ -1574,8 +1615,7 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         result["verdict"] = "TIMEOUT"
         result["blockers"].append(f"Claude timeout after {exc.timeout} seconds")
     except AdapterError as exc:
-        result["verdict"] = "BLOCK"
-        result["blockers"].append(str(exc))
+        record_adapter_failure(result, exc)
     except Exception as exc:  # defensive fail-closed boundary
         result["verdict"] = "BLOCK"
         result["blockers"].append(f"unexpected adapter failure: {type(exc).__name__}")
