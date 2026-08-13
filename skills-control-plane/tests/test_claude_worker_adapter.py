@@ -147,6 +147,20 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertTrue(command.argv[-1].startswith("'set -euo pipefail;"))
         self.assertTrue(command.argv[-1].endswith("'"))
 
+    def test_implementation_restricts_available_tools_and_disables_mcp(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        command = adapter.build_claude_command(
+            request,
+            "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+        )
+        rendered = " ".join(command.argv)
+        self.assertIn("--tools Read,Glob,Grep,Edit,Write,Skill", rendered)
+        self.assertIn("--allowedTools Read,Glob,Grep,Edit,Write,Skill", rendered)
+        self.assertIn("--strict-mcp-config", rendered)
+        self.assertIn("--disallowedTools", rendered)
+        self.assertIn("mcp__*", rendered)
+        self.assertNotIn("Bash", rendered)
+
     def test_review_uses_plan_mode_and_no_edit_tool(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
         request["mode"] = "review"
@@ -157,6 +171,11 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("--permission-mode plan", " ".join(command.argv))
         self.assertNotIn("Edit", " ".join(command.argv))
         self.assertNotIn("Write", " ".join(command.argv))
+        self.assertIn("--tools Read,Glob,Grep,Skill", " ".join(command.argv))
+        self.assertIn("--allowedTools Read,Glob,Grep,Skill", " ".join(command.argv))
+        self.assertIn("--strict-mcp-config", " ".join(command.argv))
+        self.assertIn("--disallowedTools", " ".join(command.argv))
+        self.assertIn("mcp__*", " ".join(command.argv))
 
     def test_preflight_source_pins_the_governed_hook_and_settings_binding(self) -> None:
         source = (SCRIPTS / "claude_worker_adapter.py").read_text()
@@ -393,6 +412,23 @@ class AtomicPublicationTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 adapter.atomic_write_json(target, {"new": True})
             self.assertEqual(target.read_text(), "original\n")
+
+    def test_atomic_write_does_not_report_failure_after_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "result.json"
+            real_fsync = adapter.os.fsync
+            calls = 0
+
+            def fail_directory_sync(descriptor: int) -> None:
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise RuntimeError("simulated post-publication failure")
+                real_fsync(descriptor)
+
+            with mock.patch.object(adapter.os, "fsync", side_effect=fail_directory_sync):
+                adapter.atomic_write_json(target, {"verdict": "PASS"})
+            self.assertEqual(target.read_text(), '{"verdict":"PASS"}\n')
 
 
 class CliFailureTests(unittest.TestCase):

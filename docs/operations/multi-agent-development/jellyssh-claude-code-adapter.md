@@ -20,7 +20,7 @@ JellySSH work may be implemented or advised on by Claude Code, but Claude Code i
 - Toolchain file: `/home/jellyclaude/.config/jellyssh/toolchain.env`.
 - The account has no `sudo` and no credentials from `jellydev`.
 - Claude's repository-scoped GitHub deploy key is read-only. A pinned per-session settings policy denies the model's file tools access to SSH, Claude-authentication, GitHub-authentication, backup-authentication, and `.env` paths.
-- Claude receives no Bash tool in either mode. The adapter alone runs fixed Git, formatting, analysis, and test commands; an account-level `PreToolUse` hook remains defense in depth for interactive account use.
+- Claude receives no Bash tool in either mode. `--tools` restricts the built-in inventory to `Read,Glob,Grep,Edit,Write,Skill` for implementation and `Read,Glob,Grep,Skill` for review. `--allowedTools` only pre-approves the same bounded set; it is not treated as an inventory restriction. Strict MCP configuration plus an explicit `mcp__*` deny prevents MCP tools from bypassing that boundary. The adapter alone runs fixed Git, formatting, analysis, and test commands; an account-level `PreToolUse` hook remains defense in depth for interactive account use.
 - The adapter never mutates Kanban, opens a PR, merges, releases, deploys, signs, sideloads, or claims physical-device acceptance.
 
 ## Modes
@@ -91,6 +91,8 @@ The canonical JSON result includes:
 - blockers;
 - SHA-256 of retained raw Claude JSON.
 
+Evidence publication uses an exclusive atomic hard link as its commit point. Errors before the link fail publication. Temporary-file cleanup and directory synchronization after valid immutable evidence becomes visible are best-effort and cannot make the controller report failure after publication.
+
 A `PASS` means the adapter contract completed. It is implementation evidence or advisory review evidence, not product acceptance.
 
 ## Verification
@@ -102,10 +104,12 @@ Tests must prove:
 - exact fixed SSH/repository/worktree route;
 - prompt supplied over stdin;
 - no bypass-permissions or push flags;
+- exact mode-specific built-in tool inventory restriction and MCP denial;
 - implementation clean/commit/base checks;
 - review before/after immutability checks;
 - malformed JSON, timeout and nonzero exit fail closed;
 - atomic result publication;
+- no reported failure after the atomic publication commit point;
 - live preflight against `agent-claude`;
 - one no-edit Claude smoke in a disposable worktree.
 

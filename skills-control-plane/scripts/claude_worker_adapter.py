@@ -106,6 +106,7 @@ def bundle_digest(path: Path) -> str:
 def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    published = False
     try:
         os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "wb") as handle:
@@ -115,17 +116,28 @@ def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None
         # Hard-link publication is atomic and refuses to overwrite an immutable
         # attempt if another process won the same-path race after preflight.
         os.link(temporary, path)
-        os.unlink(temporary)
-        directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-    except Exception:
+        published = True
+        # The link is the publication commit point. Everything after it is
+        # best-effort housekeeping: never report failure after valid evidence
+        # has become visible at the immutable destination.
         try:
             os.unlink(temporary)
-        except FileNotFoundError:
+        except Exception:
             pass
+        try:
+            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        except Exception:
+            pass
+    except Exception:
+        if not published:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
         raise
 
 
@@ -257,8 +269,13 @@ def build_claude_command(
         str(request["model"]),
         "--effort",
         str(request["effort"]),
+        "--tools",
+        tools,
         "--allowedTools",
         tools,
+        "--strict-mcp-config",
+        "--disallowedTools",
+        "mcp__*",
     ]
     command = (
         "set -euo pipefail; "
