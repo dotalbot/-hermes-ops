@@ -569,6 +569,7 @@ class ReviewControlTests(unittest.TestCase):
             "specification_commit": "b" * 40,
             "specification_path": "docs/spec.md",
             "review_type": "final",
+            "focused_check": "sftp-browser-test",
             "paths": ["docs/spec.md"],
             "focus": [],
         }
@@ -656,9 +657,11 @@ class ReviewControlTests(unittest.TestCase):
                     specification_commit=commits[1],
                 )
 
-    def test_final_review_requires_sandbox_and_quality_checks(self) -> None:
+    def test_final_review_requires_selected_closed_enum_focused_check(self) -> None:
         self.assertEqual(
-            reviewctl._required_checks("final"),
+            reviewctl._required_checks(
+                {"review_type": "final", "focused_check": "terminal-behaviour-test"}
+            ),
             [
                 "sandbox-self-check",
                 "head-clean",
@@ -666,10 +669,108 @@ class ReviewControlTests(unittest.TestCase):
                 "submodule-status",
                 "dart-format-check",
                 "flutter-analyze",
-                "sftp-browser-test",
+                "terminal-behaviour-test",
                 "flutter-test",
             ],
         )
+
+    def test_final_review_spec_requires_closed_enum_focused_check(self) -> None:
+        base = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "a" * 40,
+            "expected_tree": "b" * 40,
+            "base_commit": "c" * 40,
+            "specification_commit": "d" * 40,
+            "specification_path": "docs/bugs/BUG-010.md",
+            "review_type": "final",
+            "focused_check": "terminal-behaviour-test",
+            "paths": ["docs/bugs/BUG-010.md"],
+            "focus": [],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "review.json"
+            for value in (None, "caller-supplied-test", "test/screens/other.dart"):
+                candidate = dict(base)
+                if value is None:
+                    candidate.pop("focused_check")
+                else:
+                    candidate["focused_check"] = value
+                path.write_text(json.dumps(candidate), encoding="utf-8")
+                with self.subTest(value=value), self.assertRaises(reviewctl.ReviewControlError):
+                    reviewctl.load_spec(path)
+            for value in ("sftp-browser-test", "terminal-behaviour-test"):
+                path.write_text(json.dumps({**base, "focused_check": value}), encoding="utf-8")
+                self.assertEqual(reviewctl.load_spec(path)["focused_check"], value)
+
+    def test_capability_generation_and_validation_reject_specs_that_bypass_file_loader_semantics(self) -> None:
+        valid = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "a" * 40,
+            "expected_tree": "b" * 40,
+            "base_commit": "c" * 40,
+            "specification_commit": "d" * 40,
+            "specification_path": "docs/bugs/BUG-010.md",
+            "review_type": "final",
+            "focused_check": "terminal-behaviour-test",
+            "paths": ["docs/bugs/BUG-010.md"],
+            "focus": [],
+        }
+        evidence = {
+            "metadata": {"head": "a" * 40},
+            "approved_specification": {
+                "sha256": "sha256:" + hashlib.sha256(b"approved bytes").hexdigest(),
+                "content": "approved bytes",
+            },
+            "checks": {"head-clean": {"ok": True, "output": "CLEAN"}},
+        }
+        sources = {name: name.encode() for name in reviewctl.CONTROL_COMPONENTS}
+        sources.update({name: path.read_bytes() for name, path in reviewctl.CONTROL_SCHEMAS.items()})
+        sources["project.yaml"] = b"project bytes"
+        for malformed in (
+            {key: value for key, value in valid.items() if key != "focused_check"},
+            {**valid, "review_type": "code"},
+        ):
+            with (
+                self.subTest(review_type=malformed["review_type"]),
+                mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+                mock.patch.object(reviewctl, "verify_capability_profile_binding"),
+                mock.patch.object(reviewctl, "verify_repository_binding"),
+                mock.patch.object(reviewctl, "build_evidence", return_value=evidence),
+            ):
+                with self.assertRaises(reviewctl.ReviewControlError):
+                    reviewctl.build_capability_envelope(
+                        malformed, Path("/profile"), {}, "t_abcdef12",
+                        "2026-08-12T00:00:00+00:00",
+                    )
+                envelope = {
+                    "schema_version": 1,
+                    "kind": "reviewer-capability",
+                    "project": "jellyssh",
+                    "attempt_id": "t_abcdef12",
+                    "created_at_utc": "2026-08-12T00:00:00+00:00",
+                    "review_specification": malformed,
+                    "review_specification_sha256": reviewctl._canonical_sha256(malformed),
+                    "controller_sources_sha256": reviewctl._capability_source_digests(sources),
+                    "approved_specification": {
+                        "commit": malformed["specification_commit"],
+                        "path": malformed["specification_path"],
+                        "sha256": evidence["approved_specification"]["sha256"],
+                    },
+                    "repository_metadata": evidence["metadata"],
+                    "mcp_evidence": evidence,
+                    "mcp_evidence_sha256": reviewctl._canonical_sha256(evidence),
+                    "capability_verdict": "PASS",
+                    "semantic_verdict": None,
+                }
+                envelope["envelope_sha256"] = reviewctl._document_sha256(
+                    envelope, "envelope_sha256"
+                )
+                with self.assertRaises(reviewctl.ReviewControlError):
+                    reviewctl.validate_capability_envelope(
+                        envelope, malformed, "t_abcdef12", {}, revalidate_live=False
+                    )
 
     def test_result_contract_rejects_pass_with_high_finding(self) -> None:
         spec = {
@@ -710,6 +811,7 @@ class ReviewControlTests(unittest.TestCase):
             "specification_commit": "b" * 40,
             "specification_path": "docs/spec.md",
             "review_type": "final",
+            "focused_check": "sftp-browser-test",
             "paths": [],
             "focus": [],
         }
@@ -822,6 +924,7 @@ class ReviewControlTests(unittest.TestCase):
     def test_review_procedure_hash_drift_blocks_prompt(self) -> None:
         spec = {
             "review_type": "final",
+            "focused_check": "sftp-browser-test",
             "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "expected_tree": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "base_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
@@ -841,6 +944,7 @@ class ReviewControlTests(unittest.TestCase):
             "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "expected_tree": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "review_type": "final",
+            "focused_check": "sftp-browser-test",
             "base_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "specification_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "specification_path": "app/spec.md",
@@ -908,7 +1012,7 @@ class ReviewControlTests(unittest.TestCase):
         with self.assertRaises(reviewctl.ReviewControlError):
             reviewctl._validate_check_output("flutter-test", False, json.dumps(valid))
 
-    def test_focused_sftp_check_requires_exact_compact_identity(self) -> None:
+    def test_focused_checks_require_exact_compact_identity(self) -> None:
         valid = {
             "schema_version": 1,
             "check": "sftp-browser-test",
@@ -935,6 +1039,12 @@ class ReviewControlTests(unittest.TestCase):
                 )
         with self.assertRaises(reviewctl.ReviewControlError):
             reviewctl._validate_check_output("sftp-browser-test", False, json.dumps(valid))
+        terminal = {**valid, "check": "terminal-behaviour-test"}
+        reviewctl._validate_check_output("terminal-behaviour-test", True, json.dumps(terminal))
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl._validate_check_output(
+                "terminal-behaviour-test", True, json.dumps({**terminal, "check": "sftp-browser-test"})
+            )
     def test_capability_schema_is_part_of_authenticated_controller_snapshot(self) -> None:
         sources = reviewctl._verified_control_sources()
         self.assertEqual(
@@ -1015,6 +1125,7 @@ class ReviewControlTests(unittest.TestCase):
             "specification_commit": "2" * 40,
             "specification_path": "docs/bugs/BUG-010.md",
             "review_type": "final",
+            "focused_check": "terminal-behaviour-test",
             "paths": ["docs/bugs/BUG-010.md", "app/lib"],
             "focus": ["single flight"],
         }
@@ -1055,6 +1166,7 @@ class ReviewControlTests(unittest.TestCase):
             "specification_commit": "2" * 40,
             "specification_path": "docs/bugs/BUG-010.md",
             "review_type": "final",
+            "focused_check": "terminal-behaviour-test",
             "paths": ["docs/bugs/BUG-010.md"],
             "focus": [],
         }
@@ -1094,6 +1206,9 @@ class ReviewControlTests(unittest.TestCase):
             changed_spec = {**spec, "expected_commit": "5" * 40, "expected_tree": "5" * 40}
             with self.assertRaises(reviewctl.ReviewControlError):
                 reviewctl.validate_capability_envelope(envelope, changed_spec, "t_abcdef12", {})
+            changed_focused_check = {**spec, "focused_check": "sftp-browser-test"}
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.validate_capability_envelope(envelope, changed_focused_check, "t_abcdef12", {})
 
     def test_capability_file_uses_one_authenticated_snapshot_and_safe_atomic_path(self) -> None:
         spec = {
@@ -1105,6 +1220,7 @@ class ReviewControlTests(unittest.TestCase):
             "specification_commit": "2" * 40,
             "specification_path": "docs/bugs/BUG-010.md",
             "review_type": "final",
+            "focused_check": "terminal-behaviour-test",
             "paths": ["docs/bugs/BUG-010.md"],
             "focus": [],
         }

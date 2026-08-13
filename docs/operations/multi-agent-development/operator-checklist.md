@@ -4,7 +4,7 @@
 
 - [ ] Identify the Git remote or existing Jellybase path.
 - [ ] Confirm the target is a dedicated development clone, not a production checkout.
-- [ ] Confirm the worker uses `jellydev@192.168.1.2` through LAN SSH.
+- [ ] Confirm the selected execution lane: normal Hermes work uses `jellydev@192.168.1.2`; the reviewed Claude adapter uses only `jellyclaude@jellybase` through the LAN `agent-claude` alias.
 - [ ] Inspect repository status before fetch, branch creation, or edits.
 - [ ] Preserve and understand existing uncommitted and untracked files.
 - [ ] Define the feature outcome, constraints, non-goals, and observable acceptance criteria.
@@ -20,6 +20,8 @@
 - [ ] Ticket breakdown and dependency edges were approved.
 - [ ] The implementation card includes the exact remote path, branch, ticket, acceptance criteria, and final report requirements.
 - [ ] No parallel worker is editing the same checkout or branch.
+- [ ] For a Claude adapter card, live preflight proves the exact skill hashes, repository-scoped GitHub access, Git attribution, clean coordinator clone, requested base, and no conflicting attempt path.
+- [ ] A Claude implementation card uses an isolated feature worktree and an independent reviewer; a Claude implementation session never approves its own candidate.
 
 ## Before calling implementation complete
 

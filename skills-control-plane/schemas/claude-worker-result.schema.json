@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotalbot.invalid/schemas/claude-worker-result.schema.json",
+  "title": "Governed Claude worker result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_version",
+    "attempt_id",
+    "mode",
+    "request_sha256",
+    "started_at",
+    "finished_at",
+    "route",
+    "controller_commit",
+    "controller_digests",
+    "verdict",
+    "blockers",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {"const": 2},
+    "adapter_version": {"const": "0.4.3"},
+    "attempt_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$"},
+    "mode": {"enum": ["implementation", "review"]},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ssh_target", "identity", "repository"],
+      "properties": {
+        "ssh_target": {"const": "agent-claude"},
+        "identity": {"const": "jellyclaude@jellybase"},
+        "repository": {"const": "/home/jellyclaude/dev_projects/jellyssh"}
+      }
+    },
+    "verdict": {"enum": ["PASS", "BLOCK", "TIMEOUT"]},
+    "controller_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "blockers": {"type": "array", "items": {"type": "string", "maxLength": 2000}},
+    "checks": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "exit_code", "passed", "output"],
+        "properties": {
+          "name": {"enum": ["format", "analyze", "test"]},
+          "exit_code": {"type": "integer"},
+          "passed": {"type": "boolean"},
+          "output": {"type": "string", "maxLength": 4000}
+        }
+      }
+    },
+    "controller_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "hook", "request_schema", "result_schema", "session_settings"],
+      "properties": {
+        "adapter": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "hook": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "request_schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "result_schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "session_settings": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "ssh_target", "identity", "repository", "origin", "github_access", "skill_digests", "hook_sha256", "session_settings_sha256", "versions"],
+      "properties": {
+        "status": {"const": "PASS"},
+        "ssh_target": {"const": "agent-claude"},
+        "identity": {"const": "jellyclaude@jellybase"},
+        "repository": {"const": "/home/jellyclaude/dev_projects/jellyssh"},
+        "origin": {"const": "git@github-jellyssh:dotalbot/jellyssh.git"},
+        "github_access": {"const": "read-only"},
+        "skill_digests": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        },
+        "hook_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "session_settings_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claude", "flutter", "dart"],
+          "properties": {
+            "claude": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+ \\(Claude Code\\)$"},
+            "flutter": {"type": "string", "pattern": "^Flutter [0-9]+\\.[0-9]+\\.[0-9]+\\b"},
+            "dart": {"type": "string", "pattern": "^Dart SDK version: [0-9]+\\.[0-9]+\\.[0-9]+\\b"}
+          }
+        }
+      }
+    },
+    "worktree": {"type": "string", "pattern": "^/home/jellyclaude/[.]cache/jellyssh-claude-sandboxes/[a-z][a-z0-9-]{2,63}/source$"},
+    "start_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "start_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "raw_claude_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "raw_claude_b64": {
+      "type": "string",
+      "maxLength": 5333336,
+      "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+    },
+    "claude": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "terminal_reason", "models", "summary"],
+      "properties": {
+        "session_id": {"type": "string", "minLength": 1},
+        "terminal_reason": {"const": "completed"},
+        "models": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "summary": {"type": "string", "maxLength": 2000}
+      }
+    },
+    "final_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "final_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "branch": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^(feat|fix|docs|test|refactor|chore)/[a-z0-9][a-z0-9._-]{1,80}$"}
+      ]
+    },
+    "changed_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[A-Za-z0-9._/-]+$"}
+    },
+    "review_verdict": {"enum": ["PASS", "BLOCK"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verdict": {"const": "PASS"}}, "required": ["verdict"]},
+      "then": {
+        "required": ["preflight", "worktree", "start_commit", "start_tree", "raw_claude_sha256", "raw_claude_b64", "claude", "final_commit", "final_tree", "changed_files"],
+        "properties": {"blockers": {"maxItems": 0}}
+      }
+    },
+    {
+      "if": {"properties": {"verdict": {"enum": ["BLOCK", "TIMEOUT"]}}, "required": ["verdict"]},
+      "then": {"properties": {"blockers": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"verdict": {"const": "PASS"}, "mode": {"const": "implementation"}}, "required": ["verdict", "mode"]},
+      "then": {
+        "required": ["branch"],
+        "properties": {"branch": {"type": "string"}},
+        "not": {"required": ["review_verdict"]}
+      }
+    },
+    {
+      "if": {"properties": {"verdict": {"const": "PASS"}, "mode": {"const": "review"}}, "required": ["verdict", "mode"]},
+      "then": {
+        "required": ["branch", "review_verdict"],
+        "properties": {"branch": {"type": "null"}, "review_verdict": {"const": "PASS"}}
+      }
+    }
+  ]
+}

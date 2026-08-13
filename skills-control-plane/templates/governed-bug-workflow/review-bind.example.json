@@ -3,6 +3,7 @@
   "work_item": "BUG-000",
   "review_card_id": "t_00000000",
   "capability_evidence_sha256": "sha256:REPLACE_64_HEX",
+  "focused_check": "REPLACE_WITH_CLOSED_ENUM_FOCUSED_CHECK",
   "authority": {
     "repository": "git@github.com:dotalbot/jellyssh.git",
     "base_commit": "REPLACE_FULL_BASE_COMMIT",

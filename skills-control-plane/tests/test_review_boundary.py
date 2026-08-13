@@ -158,19 +158,23 @@ class ReviewSandboxCommandTests(unittest.TestCase):
         )
 
     def test_focused_flutter_summary_preserves_fixed_check_identity(self) -> None:
-        process, summary = self._run_flutter_reporter(
-            self._successful_flutter_events(),
-            0,
-            check_name="sftp-browser-test",
-        )
+        summaries = {}
+        for check_name in ("sftp-browser-test", "terminal-behaviour-test"):
+            process, summary = self._run_flutter_reporter(
+                self._successful_flutter_events(),
+                0,
+                check_name=check_name,
+            )
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertEqual(summary["check"], check_name)
+            summaries[check_name] = summary
         invalid_process, invalid_summary = self._run_flutter_reporter(
             self._successful_flutter_events(),
             0,
             check_name="caller-supplied-test",
         )
 
-        self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertEqual(summary["check"], "sftp-browser-test")
+        self.assertEqual(set(summaries), {"sftp-browser-test", "terminal-behaviour-test"})
         self.assertNotEqual(invalid_process.returncode, 0)
         self.assertEqual(invalid_summary["check"], "invalid")
         self.assertFalse(invalid_summary["success"])
@@ -327,6 +331,13 @@ class ReviewSandboxCommandTests(unittest.TestCase):
                 "/opt/flutter/bin/cache/flutter_tools.snapshot "
                 "--no-version-check test --machine --no-pub "
                 "test/screens/sftp/sftp_browser_screen_test.dart",
+            ),
+            (
+                "terminal-behaviour-test",
+                "/opt/flutter/bin/cache/dart-sdk/bin/dart "
+                "/opt/flutter/bin/cache/flutter_tools.snapshot "
+                "--no-version-check test --machine --no-pub "
+                "test/screens/settings/terminal_behaviour_settings_screen_test.dart",
             ),
             (
                 "dart-format-check",
