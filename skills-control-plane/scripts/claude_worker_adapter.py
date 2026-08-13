@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
@@ -11,18 +12,18 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import secrets
 import shlex
 import struct
 import subprocess
 import sys
-import tempfile
 from typing import Any
 
 import jsonschema
 import yaml
 
 
-ADAPTER_VERSION = "0.1.0"
+ADAPTER_VERSION = "0.2.0"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -40,7 +41,7 @@ REMOTE_SESSION_SETTINGS = "/home/jellyclaude/.claude/adapter-session-settings.js
 ALLOWED_OUTPUT_ROOT = Path("/home/jellybot/projects/jellyssh-claude-adapter/evidence")
 SECRET_KEY_RE = re.compile(r"(?i)(password|passwd|passphrase|secret|token|api[_-]?key|private[_-]?key|credential)")
 SECRET_VALUE_RE = re.compile(
-    r"(?i)(?:gh[opusr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|"
+    r"(?i)(?:github_pat_[A-Za-z0-9_]{20,}|gh[opusr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|"
     r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----|"
     r"(?:password|passwd|passphrase|secret|token|api[_-]?key)\s*[:=]\s*\S+)"
 )
@@ -75,15 +76,55 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def controller_digests() -> dict[str, str]:
-    paths = {
+def controller_asset_paths() -> dict[str, Path]:
+    return {
         "adapter": Path(__file__).resolve(),
         "request_schema": SCHEMA_PATH,
         "result_schema": RESULT_SCHEMA_PATH,
         "hook": GOVERNED_HOOK_PATH,
         "session_settings": SESSION_SETTINGS_PATH,
     }
+
+
+def controller_digests() -> dict[str, str]:
+    paths = controller_asset_paths()
     return {name: sha256_bytes(path.read_bytes()) for name, path in paths.items()}
+
+
+def _controller_git(*args: str) -> bytes:
+    try:
+        environment = os.environ.copy()
+        environment["GIT_NO_REPLACE_OBJECTS"] = "1"
+        return subprocess.check_output(
+            [
+                "git",
+                "-c",
+                "core.fsmonitor=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-C",
+                str(CONTROL_ROOT.parent),
+                *args,
+            ],
+            stderr=subprocess.PIPE,
+            env=environment,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise AdapterError("controller Git identity cannot be established") from exc
+
+
+def verified_controller_commit() -> str:
+    if _controller_git("status", "--porcelain", "--untracked-files=normal"):
+        raise AdapterError("controller checkout is not clean")
+    commit = _controller_git("rev-parse", "HEAD").decode("ascii").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise AdapterError("controller commit is malformed")
+    for name, path in controller_asset_paths().items():
+        relative = path.relative_to(CONTROL_ROOT.parent).as_posix()
+        committed = _controller_git("show", f"{commit}:{relative}")
+        if sha256_bytes(committed) != sha256_bytes(path.read_bytes()):
+            raise AdapterError(f"controller asset differs from exact commit: {name}")
+    return commit
 
 
 def bundle_digest(path: Path) -> str:
@@ -103,42 +144,72 @@ def bundle_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _open_directory_no_symlinks(path: Path) -> int:
+    if not path.is_absolute():
+        raise AdapterError("evidence directory must be absolute")
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open("/", flags)
+    try:
+        for part in path.parts[1:]:
+            child = os.open(part, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        return descriptor
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
 def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    if not path.is_absolute() or path.name in {"", ".", ".."}:
+        raise AdapterError("evidence path must be an absolute file path")
+    parent = _open_directory_no_symlinks(path.parent)
+    temporary = f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     published = False
     try:
-        os.fchmod(descriptor, mode)
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            mode,
+            dir_fd=parent,
+        )
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
         # Hard-link publication is atomic and refuses to overwrite an immutable
         # attempt if another process won the same-path race after preflight.
-        os.link(temporary, path)
+        os.link(
+            temporary,
+            path.name,
+            src_dir_fd=parent,
+            dst_dir_fd=parent,
+            follow_symlinks=False,
+        )
         published = True
         # The link is the publication commit point. Everything after it is
         # best-effort housekeeping: never report failure after valid evidence
         # has become visible at the immutable destination.
         try:
-            os.unlink(temporary)
+            os.unlink(temporary, dir_fd=parent)
         except Exception:
             pass
         try:
-            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            os.fsync(parent)
         except Exception:
             pass
     except Exception:
         if not published:
             try:
-                os.unlink(temporary)
+                os.unlink(temporary, dir_fd=parent)
             except FileNotFoundError:
                 pass
         raise
+    finally:
+        try:
+            os.close(parent)
+        except OSError:
+            pass
 
 
 def atomic_write_json(path: Path, value: dict[str, Any], *, mode: int = 0o600) -> None:
@@ -187,10 +258,16 @@ def _validate_output_path(path: str, *, allow_test_output: bool = False) -> Path
             output.relative_to(ALLOWED_OUTPUT_ROOT)
         except ValueError as exc:
             raise AdapterError("output path is outside the adapter evidence root") from exc
-    if output.is_symlink() or output.parent.is_symlink():
-        raise AdapterError("output path must not use symlinks")
-    if output.exists() or output.with_suffix(".claude.raw.json").exists():
-        raise AdapterError("evidence path already exists; attempts are immutable")
+    parent = _open_directory_no_symlinks(output.parent)
+    try:
+        try:
+            os.stat(output.name, dir_fd=parent, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise AdapterError("evidence path already exists; attempts are immutable")
+    finally:
+        os.close(parent)
     return output
 
 
@@ -793,7 +870,7 @@ def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
 
 def _result_base(request: dict[str, Any], request_digest: str, started: str) -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "adapter_version": ADAPTER_VERSION,
         "attempt_id": request["attempt_id"],
         "mode": request["mode"],
@@ -805,6 +882,7 @@ def _result_base(request: dict[str, Any], request_digest: str, started: str) -> 
             "identity": f"{REMOTE_USER}@{REMOTE_HOST}",
             "repository": REMOTE_REPOSITORY,
         },
+        "controller_commit": verified_controller_commit(),
         "controller_digests": controller_digests(),
         "verdict": "BLOCK",
         "blockers": [],
@@ -838,9 +916,10 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         validate_output_text(process.stdout or "")
         validate_output_text(process.stderr or "")
         raw_payload = process.stdout.encode("utf-8")
-        raw_path = output_path.with_suffix(".claude.raw.json")
-        atomic_write_bytes(raw_path, raw_payload)
+        if len(raw_payload) > 4_000_000:
+            raise AdapterError("Claude raw output exceeds evidence size limit")
         result["raw_claude_sha256"] = sha256_bytes(raw_payload)
+        result["raw_claude_b64"] = base64.b64encode(raw_payload).decode("ascii")
         result["claude"] = parse_claude_result(process)
         full_worker_text = result["claude"].pop("_full_text")
         validate_requested_model(str(request["model"]), result["claude"])

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import base64
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -82,6 +84,20 @@ class RequestValidationTests(unittest.TestCase):
         with self.assertRaises(jsonschema.ValidationError):
             jsonschema.validate(request, self.schema)
 
+    def test_bad_commit_branch_check_and_specification_path_are_rejected(self) -> None:
+        mutations = [
+            ("base_commit", "HEAD"),
+            ("branch", "main"),
+            ("checks", ["arbitrary-shell"]),
+            ("specification", {"path": "../secret.md", "sha256": SPEC_SHA}),
+        ]
+        for field, value in mutations:
+            with self.subTest(field=field):
+                request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+                request[field] = value
+                with self.assertRaises(jsonschema.ValidationError):
+                    jsonschema.validate(request, self.schema)
+
     def test_review_cannot_supply_branch(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
         request["mode"] = "review"
@@ -130,6 +146,23 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertIn("is_symlink()", script)
         self.assertIn("relative_to(root)", script)
         self.assertNotIn("actual=$(sha256sum", script)
+
+    def test_wrong_target_or_specification_digest_blocks_worktree_preparation(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
+        request["mode"] = "review"
+        request.pop("branch")
+        request.pop("allowed_paths")
+        request["target_commit"] = TARGET
+        with mock.patch.object(adapter, "_ssh_script", side_effect=adapter.AdapterError("command failed")) as ssh_script, mock.patch.object(
+            adapter, "cleanup_worktree"
+        ) as cleanup:
+            with self.assertRaises(adapter.AdapterError):
+                adapter.prepare_worktree(request)
+        script = ssh_script.call_args.args[0]
+        self.assertIn(TARGET, script)
+        self.assertIn(SPEC_SHA, script)
+        self.assertIn("hexdigest() != sys.argv[3]", script)
+        cleanup.assert_called_once()
 
     def test_prompt_is_stdin_and_fixed_route_is_used(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
@@ -202,14 +235,15 @@ class ResultValidationTests(unittest.TestCase):
     def test_result_schema_is_closed_and_review_pass_requires_review_verdict(self) -> None:
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
-            "schema_version": 1,
-            "adapter_version": "0.1.0",
+            "schema_version": 2,
+            "adapter_version": "0.2.0",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
             "started_at": "2026-08-13T00:00:00Z",
             "finished_at": "2026-08-13T00:01:00Z",
             "route": {"ssh_target": "agent-claude", "identity": "jellyclaude@jellybase", "repository": "/home/jellyclaude/dev_projects/jellyssh"},
+            "controller_commit": "9" * 40,
             "controller_digests": {name: "b" * 64 for name in ["adapter", "hook", "request_schema", "result_schema", "session_settings"]},
             "verdict": "PASS",
             "blockers": [],
@@ -222,7 +256,7 @@ class ResultValidationTests(unittest.TestCase):
                 "versions": {"claude": "2.1.228 (Claude Code)", "flutter": "Flutter 3.44.9 stable", "dart": "Dart SDK version: 3.12.2 stable"},
             },
             "worktree": "/home/jellyclaude/dev_projects/jellyssh-worktrees/review-001",
-            "start_commit": TARGET, "start_tree": "f" * 40, "raw_claude_sha256": "1" * 64,
+            "start_commit": TARGET, "start_tree": "f" * 40, "raw_claude_sha256": "1" * 64, "raw_claude_b64": "e30=",
             "claude": {"session_id": "s", "terminal_reason": "completed", "models": ["claude-sonnet-5"], "summary": "ok"},
             "final_commit": TARGET, "final_tree": "f" * 40, "branch": None, "changed_files": ["app/lib/a.dart"],
         }
@@ -269,6 +303,36 @@ class ResultValidationTests(unittest.TestCase):
         with self.assertRaises(adapter.AdapterError):
             adapter.parse_claude_result(process)
 
+    def test_nonzero_claude_exit_blocks(self) -> None:
+        process = subprocess.CompletedProcess(["claude"], 7, "{}", "failed")
+        with self.assertRaisesRegex(adapter.AdapterError, "nonzero"):
+            adapter.parse_claude_result(process)
+
+    def test_git_state_negative_invariants(self) -> None:
+        implementation = implementation_request("/tmp/result.json")
+        start = {"start_tree": "a" * 40}
+        valid = {"commit": TARGET, "tree": "b" * 40, "branch": implementation["branch"], "status": "", "changed": ["app/lib/example.dart"]}
+        for field, value in [("status", " M dirty"), ("branch", "fix/wrong"), ("tree", start["start_tree"]), ("changed", [])]:
+            with self.subTest(field=field):
+                state = dict(valid)
+                state[field] = value
+                with self.assertRaises(adapter.AdapterError):
+                    adapter.validate_git_state(implementation, state, start)
+
+        review = dict(implementation)
+        review["mode"] = "review"
+        review["target_commit"] = TARGET
+        review.pop("branch")
+        review.pop("allowed_paths")
+        review_start = {"start_tree": "c" * 40}
+        valid_review = {"commit": TARGET, "tree": "c" * 40, "branch": "", "status": "", "changed": ["app/lib/example.dart"]}
+        for field, value in [("commit", BASE), ("tree", "d" * 40), ("branch", "feat/not-detached"), ("status", " M dirty")]:
+            with self.subTest(review_field=field):
+                state = dict(valid_review)
+                state[field] = value
+                with self.assertRaises(adapter.AdapterError):
+                    adapter.validate_git_state(review, state, review_start)
+
     def test_success_result_requires_session_and_model(self) -> None:
         payload = {
             "is_error": False,
@@ -295,9 +359,70 @@ class ResultValidationTests(unittest.TestCase):
         )
         self.assertTrue(all(re.fullmatch(r"[0-9a-f]{64}", value) for value in digests.values()))
 
+    def test_controller_commit_requires_clean_checkout_and_matching_blobs(self) -> None:
+        paths = adapter.controller_asset_paths()
+        commit = "a" * 40
+
+        def clean_git(*args: str) -> bytes:
+            if args == ("status", "--porcelain", "--untracked-files=normal"):
+                return b""
+            if args == ("rev-parse", "HEAD"):
+                return (commit + "\n").encode()
+            if args[:2] == ("show", f"{commit}:"):
+                raise AssertionError("unexpected split show arguments")
+            if args[0] == "show":
+                relative = args[1].split(":", 1)[1]
+                for path in paths.values():
+                    if path.relative_to(adapter.CONTROL_ROOT.parent).as_posix() == relative:
+                        return path.read_bytes()
+            raise AssertionError(args)
+
+        with mock.patch.object(adapter, "_controller_git", side_effect=clean_git):
+            self.assertEqual(adapter.verified_controller_commit(), commit)
+
+        def drifted_git(*args: str) -> bytes:
+            value = clean_git(*args)
+            if args[0] == "show" and args[1].endswith("claude_worker_adapter.py"):
+                return value + b"drift"
+            return value
+
+        with mock.patch.object(adapter, "_controller_git", side_effect=drifted_git):
+            with self.assertRaises(adapter.AdapterError):
+                adapter.verified_controller_commit()
+
+        with mock.patch.object(adapter, "_controller_git", return_value=b"?? unexpected"):
+            with self.assertRaisesRegex(adapter.AdapterError, "not clean"):
+                adapter.verified_controller_commit()
+
+    def test_controller_git_disables_replacement_objects(self) -> None:
+        with mock.patch.object(adapter.subprocess, "check_output", return_value=b"") as check_output:
+            adapter._controller_git("status", "--porcelain")
+        self.assertEqual(check_output.call_args.kwargs["env"]["GIT_NO_REPLACE_OBJECTS"], "1")
+        self.assertIn("core.fsmonitor=false", " ".join(check_output.call_args.args[0]))
+
     def test_secret_shaped_worker_output_is_rejected_before_publication(self) -> None:
         with self.assertRaises(adapter.AdapterError):
             adapter.validate_output_text("worker printed ghp_abcdabcdabcdabcdabcdabcd")
+
+    def test_github_fine_grained_pat_shape_is_rejected_everywhere(self) -> None:
+        synthetic = "github_pat_" + "A" * 64
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_output_text(f"worker printed {synthetic}")
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_request_content({"task": f"use {synthetic}"})
+
+        with mock.patch.object(adapter, "_ssh_script", return_value="CONTENT_SCAN_PASS\n") as ssh_script:
+            adapter.scan_changed_files(
+                "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+                ["app/lib/a.dart"],
+            )
+        self.assertIn("github_pat_", ssh_script.call_args.args[0])
+        with mock.patch.object(adapter, "_ssh_script", side_effect=adapter.AdapterError("command failed")):
+            with self.assertRaises(adapter.AdapterError):
+                adapter.scan_changed_files(
+                    "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001",
+                    ["app/lib/a.dart"],
+                )
 
     def test_implementation_requires_changed_files_before_controller_commit(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
@@ -430,8 +555,74 @@ class AtomicPublicationTests(unittest.TestCase):
                 adapter.atomic_write_json(target, {"verdict": "PASS"})
             self.assertEqual(target.read_text(), '{"verdict":"PASS"}\n')
 
+    def test_atomic_write_rejects_symlinked_ancestor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            outside = root / "outside"
+            outside.mkdir()
+            (root / "redirect").symlink_to(outside, target_is_directory=True)
+            with self.assertRaises((adapter.AdapterError, OSError)):
+                adapter.atomic_write_json(root / "redirect" / "result.json", {"verdict": "PASS"})
+            self.assertFalse((outside / "result.json").exists())
+
+    def test_atomic_write_path_swap_cannot_redirect_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            evidence = root / "evidence"
+            original = root / "evidence-original"
+            outside = root / "outside"
+            evidence.mkdir()
+            outside.mkdir()
+            real_link = os.link
+            swapped = False
+
+            def swap_then_link(src: str, dst: str, **kwargs: object) -> None:
+                nonlocal swapped
+                if not swapped:
+                    evidence.rename(original)
+                    evidence.symlink_to(outside, target_is_directory=True)
+                    swapped = True
+                real_link(src, dst, **kwargs)
+
+            with mock.patch.object(adapter.os, "link", side_effect=swap_then_link):
+                adapter.atomic_write_json(evidence / "result.json", {"verdict": "PASS"})
+            self.assertFalse((outside / "result.json").exists())
+            self.assertEqual((original / "result.json").read_text(), '{"verdict":"PASS"}\n')
+
+    def test_orphaned_legacy_raw_sidecar_does_not_block_canonical_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "result.json"
+            output.with_suffix(".claude.raw.json").write_text("legacy orphan\n")
+            self.assertEqual(
+                adapter._validate_output_path(str(output), allow_test_output=True),
+                output,
+            )
+
 
 class CliFailureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        patcher = mock.patch.object(adapter, "verified_controller_commit", return_value="a" * 40)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_malformed_worker_json_is_retained_only_inside_canonical_block(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "evidence.json"
+            request = implementation_request(str(output))
+            process = subprocess.CompletedProcess(["claude"], 0, "not-json", "")
+            with mock.patch.object(adapter, "load_and_validate_request", return_value=request), mock.patch.object(
+                adapter, "preflight", return_value=preflight_result()
+            ), mock.patch.object(
+                adapter,
+                "prepare_worktree",
+                return_value={"path": "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001", "start_commit": BASE, "start_tree": "4" * 40},
+            ), mock.patch.object(adapter, "invoke_claude", return_value=process):
+                result = adapter.execute(Path("request.json"), allow_test_output=True)
+            self.assertEqual(result["verdict"], "BLOCK")
+            self.assertEqual(base64.b64decode(result["raw_claude_b64"]), b"not-json")
+            self.assertFalse(output.with_suffix(".claude.raw.json").exists())
+            self.assertEqual(json.loads(output.read_text())["raw_claude_b64"], result["raw_claude_b64"])
+
     def test_undeclared_changed_path_blocks_before_checks_or_commit(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "evidence.json"

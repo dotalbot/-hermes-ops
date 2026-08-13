@@ -22,6 +22,7 @@ JellySSH work may be implemented or advised on by Claude Code, but Claude Code i
 - Claude's repository-scoped GitHub deploy key is read-only. A pinned per-session settings policy denies the model's file tools access to SSH, Claude-authentication, GitHub-authentication, backup-authentication, and `.env` paths.
 - Claude receives no Bash tool in either mode. `--tools` restricts the built-in inventory to `Read,Glob,Grep,Edit,Write,Skill` for implementation and `Read,Glob,Grep,Skill` for review. `--allowedTools` only pre-approves the same bounded set; it is not treated as an inventory restriction. Strict MCP configuration plus an explicit `mcp__*` deny prevents MCP tools from bypassing that boundary. The adapter alone runs fixed Git, formatting, analysis, and test commands; an account-level `PreToolUse` hook remains defense in depth for interactive account use.
 - The adapter never mutates Kanban, opens a PR, merges, releases, deploys, signs, sideloads, or claims physical-device acceptance.
+- The controller must run from a clean Git checkout. Before any attempt it records the exact 40-character controller commit and verifies that every governed adapter/schema/hook/settings byte matches the blob at that revision; a dirty or unidentifiable controller blocks before remote execution.
 
 ## Modes
 
@@ -76,6 +77,8 @@ The adapter rejects paths outside the repository, arbitrary commands, caller-sel
 
 ## Result contract
 
+The current result contract is schema version `2` and adapter version `0.2.0`; it is intentionally incompatible with the historical two-artifact `0.1.0` result shape.
+
 The canonical JSON result includes:
 
 - adapter version and attempt ID;
@@ -89,9 +92,12 @@ The canonical JSON result includes:
 - requested check results;
 - verdict: `PASS`, `BLOCK`, or `TIMEOUT`;
 - blockers;
-- SHA-256 of retained raw Claude JSON.
+- exact verified controller commit and controller-asset SHA-256 values;
+- SHA-256 and base64 encoding of non-secret raw Claude JSON when Claude was invoked.
 
-Evidence publication uses an exclusive atomic hard link as its commit point. Errors before the link fail publication. Temporary-file cleanup and directory synchronization after valid immutable evidence becomes visible are best-effort and cannot make the controller report failure after publication.
+Raw Claude output is retained inside the canonical result rather than published as a separate sidecar. This gives an attempt one publication commit point: validation stages the complete evidence object first, then an exclusive atomic hard link publishes that one immutable file. Malformed worker JSON therefore produces one canonical `BLOCK` result rather than an orphaned raw artifact that prevents retry.
+
+Evidence paths are direct filenames below the fixed evidence root. Publication opens every existing directory component with `O_NOFOLLOW`, retains the trusted parent directory descriptor, and creates/links the temporary and final names relative to that descriptor. A symlinked ancestor is rejected, while replacement of a validated pathname cannot redirect publication. Errors before the hard link fail publication. Temporary-file cleanup and directory synchronization after valid immutable evidence becomes visible are best-effort and cannot make the controller report failure after publication.
 
 A `PASS` means the adapter contract completed. It is implementation evidence or advisory review evidence, not product acceptance.
 
@@ -108,7 +114,10 @@ Tests must prove:
 - implementation clean/commit/base checks;
 - review before/after immutability checks;
 - malformed JSON, timeout and nonzero exit fail closed;
-- atomic result publication;
+- structurally valid synthetic credential shapes are rejected in worker output and changed-file content;
+- exact controller-commit/byte binding and dirty-controller rejection;
+- one-artifact atomic result publication, including malformed-output retention;
+- symlink-ancestor rejection and path-swap confinement through a retained directory descriptor;
 - no reported failure after the atomic publication commit point;
 - live preflight against `agent-claude`;
 - one no-edit Claude smoke in a disposable worktree.
