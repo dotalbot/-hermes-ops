@@ -4,6 +4,10 @@
   "mode": "implementation",
   "base_commit": "0000000000000000000000000000000000000000",
   "branch": "feat/replace-with-feature-slug",
+  "allowed_paths": [
+    "app/lib/replace_me.dart",
+    "app/test/replace_me_test.dart"
+  ],
   "specification": {
     "path": "docs/specifications/SPEC-NNN-replace-me.md",
     "sha256": "0000000000000000000000000000000000000000000000000000000000000000"

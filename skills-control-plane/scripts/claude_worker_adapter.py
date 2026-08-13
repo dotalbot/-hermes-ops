@@ -196,6 +196,10 @@ def load_and_validate_request(path: Path, *, allow_test_output: bool = False) ->
     specification = PurePosixPath(str(request["specification"]["path"]))
     if specification.is_absolute() or ".." in specification.parts:
         raise AdapterError("specification path escapes the repository")
+    for allowed in request.get("allowed_paths", []):
+        normalized = PurePosixPath(str(allowed).rstrip("/"))
+        if normalized.is_absolute() or not normalized.parts or any(part in {".", "..", ".git"} for part in normalized.parts):
+            raise AdapterError("allowed path is unsafe")
     return request
 
 
@@ -213,7 +217,10 @@ Requested checks: {', '.join(request['checks']) or 'none'}
 Never push, merge, open a PR, deploy, sign, sideload, use sudo, access another user's home, or expand scope.
 """
     if request["mode"] == "implementation":
-        return common + """Use /implement and /tdd where a pre-agreed public behavior seam exists. Work only in the current worktree using the file tools. Do not commit; the controller will run fixed checks and create the local commit mechanically. Finish with a concise summary of changed files, tests, and remaining risks. The controller will independently verify every claim.\n"""
+        allowed = "\n".join(f"- {path}" for path in request["allowed_paths"])
+        return common + f"""Declared changed-path boundary:
+{allowed}
+Use /implement and /tdd where a pre-agreed public behavior seam exists. Work only in the current worktree using the file tools and change only the declared paths. Do not commit; the controller will run fixed checks and create the local commit mechanically. Finish with a concise summary of changed files, tests, and remaining risks. The controller will independently verify every claim and reject undeclared changed paths.\n"""
     files = "\n".join(f"- {path}" for path in (review_files or [])) or "- none"
     return common + f"""Target commit: {request['target_commit']}
 Controller-observed files changed from base to target:
@@ -451,8 +458,21 @@ def prepare_worktree(request: dict[str, Any]) -> dict[str, str]:
 mkdir -p {shlex.quote(REMOTE_WORKTREE_ROOT)}
 test ! -e {shlex.quote(worktree)}
 {add}
-actual=$(sha256sum {shlex.quote(worktree + '/' + spec_path)} | cut -d' ' -f1)
-test "$actual" = {shlex.quote(expected_spec)}
+python3 - {shlex.quote(worktree)} {shlex.quote(spec_path)} {shlex.quote(expected_spec)} <<'PY'
+import hashlib,pathlib,sys
+root=pathlib.Path(sys.argv[1]).resolve(strict=True)
+relative=pathlib.PurePosixPath(sys.argv[2])
+path=root.joinpath(*relative.parts)
+current=root
+for part in relative.parts:
+    current=current/part
+    if current.is_symlink(): raise SystemExit(2)
+resolved=path.resolve(strict=True)
+try: resolved.relative_to(root)
+except ValueError: raise SystemExit(2)
+if not resolved.is_file(): raise SystemExit(2)
+if hashlib.sha256(resolved.read_bytes()).hexdigest() != sys.argv[3]: raise SystemExit(2)
+PY
 printf '{{"path":"%s","branch":"%s","start_commit":"%s","start_tree":"%s"}}\\n' \\
  {shlex.quote(worktree)} {shlex.quote(branch)} \\
  "$(git -C {shlex.quote(worktree)} rev-parse HEAD)" \\
@@ -572,6 +592,30 @@ def validate_precommit_state(request: dict[str, Any], state: dict[str, Any]) -> 
         raise AdapterError("implementation branch drifted")
     if not state["status"] or not state["changed"]:
         raise AdapterError("implementation produced no changed files")
+
+
+def validate_changed_paths(request: dict[str, Any], changed_files: list[str]) -> None:
+    allowed = [str(item) for item in request["allowed_paths"]]
+    unexpected: list[str] = []
+    for changed in changed_files:
+        candidate = PurePosixPath(changed)
+        if candidate.is_absolute() or any(part in {".", "..", ".git"} for part in candidate.parts):
+            unexpected.append(changed)
+            continue
+        matched = False
+        for declared in allowed:
+            if declared.endswith("/"):
+                prefix = declared.rstrip("/")
+                if changed.startswith(prefix + "/"):
+                    matched = True
+                    break
+            elif changed == declared:
+                matched = True
+                break
+        if not matched:
+            unexpected.append(changed)
+    if unexpected:
+        raise AdapterError(f"implementation changed undeclared paths: {', '.join(sorted(unexpected))}")
 
 
 def validate_checks_preserved_state(before: dict[str, Any], after: dict[str, Any]) -> None:
@@ -766,6 +810,7 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         validate_requested_model(str(request["model"]), result["claude"])
         if request["mode"] == "implementation":
             precommit = inspect_precommit_worktree(request, worktree)
+            validate_changed_paths(request, precommit["changed"])
             result["checks"] = run_checks(request, worktree)
             after_checks = inspect_precommit_worktree(request, worktree)
             validate_checks_preserved_state(precommit, after_checks)

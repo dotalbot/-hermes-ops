@@ -43,6 +43,7 @@ Read-only checks must verify:
 - Validate a schema-bound request with no unknown fields or secret-shaped values.
 - Require a full lowercase base commit reachable from `origin/main`.
 - Create one isolated worktree and one new feature/fix/docs/test/refactor/chore branch.
+- Require exact file paths or segment-bounded directory prefixes for intended implementation changes, and block before checks or commit if any changed path is undeclared.
 - Pass prompt text to Claude through stdin, not argv.
 - Use non-interactive structured JSON output in Claude's guarded `auto` mode without `--dangerously-skip-permissions` or Bash access.
 - Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and creates the local commit with a fixed message; neither Claude nor the adapter pushes.
@@ -65,7 +66,7 @@ A JSON request binds:
 - schema version and unique attempt ID;
 - mode;
 - exact base and optional target commits;
-- branch for implementation;
+- branch and declared changed-path boundary for implementation;
 - specification path and SHA-256;
 - bounded task text;
 - fixed-enum checks;

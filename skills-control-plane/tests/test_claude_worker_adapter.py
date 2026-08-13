@@ -24,6 +24,25 @@ TARGET = "2" * 40
 SPEC_SHA = "3" * 64
 
 
+def preflight_result() -> dict[str, object]:
+    return {
+        "status": "PASS",
+        "ssh_target": "agent-claude",
+        "identity": "jellyclaude@jellybase",
+        "repository": "/home/jellyclaude/dev_projects/jellyssh",
+        "origin": "git@github-jellyssh:dotalbot/jellyssh.git",
+        "github_access": "read-only",
+        "skill_digests": {"code-review": "a" * 64},
+        "hook_sha256": "b" * 64,
+        "session_settings_sha256": "c" * 64,
+        "versions": {
+            "claude": "2.1.228 (Claude Code)",
+            "flutter": "Flutter 3.44.9 stable",
+            "dart": "Dart SDK version: 3.12.2 stable",
+        },
+    }
+
+
 def implementation_request(output: str) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -31,6 +50,7 @@ def implementation_request(output: str) -> dict[str, object]:
         "mode": "implementation",
         "base_commit": BASE,
         "branch": "feat/example-change",
+        "allowed_paths": ["app/lib/example.dart", "app/test/example_test.dart"],
         "specification": {"path": "docs/specifications/SPEC-001-example.md", "sha256": SPEC_SHA},
         "task": "Implement the accepted specification using TDD.",
         "checks": ["format", "analyze", "test"],
@@ -52,6 +72,7 @@ class RequestValidationTests(unittest.TestCase):
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
         request["mode"] = "review"
         request.pop("branch")
+        request.pop("allowed_paths")
         request["target_commit"] = TARGET
         jsonschema.validate(request, self.schema)
 
@@ -64,6 +85,21 @@ class RequestValidationTests(unittest.TestCase):
     def test_review_cannot_supply_branch(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
         request["mode"] = "review"
+        request.pop("allowed_paths")
+        request["target_commit"] = TARGET
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(request, self.schema)
+
+    def test_implementation_requires_declared_changed_paths(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request.pop("allowed_paths")
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(request, self.schema)
+
+    def test_review_cannot_supply_declared_changed_paths(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
+        request["mode"] = "review"
+        request.pop("branch")
         request["target_commit"] = TARGET
         with self.assertRaises(jsonschema.ValidationError):
             jsonschema.validate(request, self.schema)
@@ -83,6 +119,18 @@ class RequestValidationTests(unittest.TestCase):
 
 
 class CommandConstructionTests(unittest.TestCase):
+    def test_worktree_preparation_rejects_symlinked_specification(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        with mock.patch.object(adapter, "_ssh_script", side_effect=adapter.AdapterError("command failed")) as ssh_script, mock.patch.object(
+            adapter, "cleanup_worktree"
+        ):
+            with self.assertRaises(adapter.AdapterError):
+                adapter.prepare_worktree(request)
+        script = ssh_script.call_args.args[0]
+        self.assertIn("is_symlink()", script)
+        self.assertIn("relative_to(root)", script)
+        self.assertNotIn("actual=$(sha256sum", script)
+
     def test_prompt_is_stdin_and_fixed_route_is_used(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
         command = adapter.build_claude_command(request, "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001")
@@ -103,6 +151,7 @@ class CommandConstructionTests(unittest.TestCase):
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
         request["mode"] = "review"
         request.pop("branch")
+        request.pop("allowed_paths")
         request["target_commit"] = TARGET
         command = adapter.build_claude_command(request, "/home/jellyclaude/dev_projects/jellyssh-worktrees/review-feature-001")
         self.assertIn("--permission-mode plan", " ".join(command.argv))
@@ -131,6 +180,54 @@ class CommandConstructionTests(unittest.TestCase):
 
 
 class ResultValidationTests(unittest.TestCase):
+    def test_result_schema_is_closed_and_review_pass_requires_review_verdict(self) -> None:
+        schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
+        evidence = {
+            "schema_version": 1,
+            "adapter_version": "0.1.0",
+            "attempt_id": "review-001",
+            "mode": "review",
+            "request_sha256": "a" * 64,
+            "started_at": "2026-08-13T00:00:00Z",
+            "finished_at": "2026-08-13T00:01:00Z",
+            "route": {"ssh_target": "agent-claude", "identity": "jellyclaude@jellybase", "repository": "/home/jellyclaude/dev_projects/jellyssh"},
+            "controller_digests": {name: "b" * 64 for name in ["adapter", "hook", "request_schema", "result_schema", "session_settings"]},
+            "verdict": "PASS",
+            "blockers": [],
+            "checks": [],
+            "preflight": {
+                "status": "PASS", "ssh_target": "agent-claude", "identity": "jellyclaude@jellybase",
+                "repository": "/home/jellyclaude/dev_projects/jellyssh", "origin": "git@github-jellyssh:dotalbot/jellyssh.git",
+                "github_access": "read-only", "skill_digests": {"code-review": "c" * 64},
+                "hook_sha256": "d" * 64, "session_settings_sha256": "e" * 64,
+                "versions": {"claude": "2.1.228 (Claude Code)", "flutter": "Flutter 3.44.9 stable", "dart": "Dart SDK version: 3.12.2 stable"},
+            },
+            "worktree": "/home/jellyclaude/dev_projects/jellyssh-worktrees/review-001",
+            "start_commit": TARGET, "start_tree": "f" * 40, "raw_claude_sha256": "1" * 64,
+            "claude": {"session_id": "s", "terminal_reason": "completed", "models": ["claude-sonnet-5"], "summary": "ok"},
+            "final_commit": TARGET, "final_tree": "f" * 40, "branch": None, "changed_files": ["app/lib/a.dart"],
+        }
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(evidence, schema)
+        evidence["review_verdict"] = "PASS"
+        jsonschema.validate(evidence, schema)
+        evidence["forged"] = True
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(evidence, schema)
+
+    def test_implementation_changed_files_must_stay_in_declared_paths(self) -> None:
+        request = implementation_request("/tmp/result.json")
+        adapter.validate_changed_paths(request, ["app/lib/example.dart"])
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_changed_paths(request, ["app/lib/unexpected.dart"])
+
+    def test_declared_directory_prefix_is_segment_bounded(self) -> None:
+        request = implementation_request("/tmp/result.json")
+        request["allowed_paths"] = ["docs/adapter/"]
+        adapter.validate_changed_paths(request, ["docs/adapter/result.md"])
+        with self.assertRaises(adapter.AdapterError):
+            adapter.validate_changed_paths(request, ["docs/adapter-escape/result.md"])
+
     def test_tool_versions_reject_flutter_lock_chatter(self) -> None:
         valid = {
             "claude": "2.1.228 (Claude Code)",
@@ -280,16 +377,53 @@ class AtomicPublicationTests(unittest.TestCase):
 
 
 class CliFailureTests(unittest.TestCase):
+    def test_undeclared_changed_path_blocks_before_checks_or_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "evidence.json"
+            request = implementation_request(str(output))
+            claude = {
+                "session_id": "s",
+                "terminal_reason": "completed",
+                "models": ["claude-sonnet-5"],
+                "summary": "done",
+                "_full_text": "done",
+            }
+            unexpected = {
+                "commit": BASE,
+                "tree": "4" * 40,
+                "branch": request["branch"],
+                "status": "?? app/lib/unexpected.dart",
+                "changed": ["app/lib/unexpected.dart"],
+            }
+            with mock.patch.object(adapter, "load_and_validate_request", return_value=request), mock.patch.object(
+                adapter, "preflight", return_value=preflight_result()
+            ), mock.patch.object(
+                adapter,
+                "prepare_worktree",
+                return_value={"path": "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001", "start_commit": BASE, "start_tree": "4" * 40},
+            ), mock.patch.object(
+                adapter, "invoke_claude", return_value=subprocess.CompletedProcess(["claude"], 0, "{}", "")
+            ), mock.patch.object(adapter, "parse_claude_result", return_value=claude), mock.patch.object(
+                adapter, "inspect_precommit_worktree", return_value=unexpected
+            ), mock.patch.object(adapter, "run_checks") as run_checks, mock.patch.object(
+                adapter, "commit_implementation"
+            ) as commit:
+                result = adapter.execute(Path("request.json"), allow_test_output=True)
+            self.assertEqual(result["verdict"], "BLOCK")
+            self.assertIn("undeclared paths", result["blockers"][0])
+            run_checks.assert_not_called()
+            commit.assert_not_called()
+
     def test_timeout_returns_timeout_verdict(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "evidence.json"
             request = implementation_request(str(output))
             with mock.patch.object(adapter, "load_and_validate_request", return_value=request), mock.patch.object(
-                adapter, "preflight", return_value={"status": "PASS"}
+                adapter, "preflight", return_value=preflight_result()
             ), mock.patch.object(
                 adapter,
                 "prepare_worktree",
-                return_value={"path": "/tmp/work", "start_commit": BASE, "start_tree": "4" * 40},
+                return_value={"path": "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001", "start_commit": BASE, "start_tree": "4" * 40},
             ), mock.patch.object(
                 adapter, "invoke_claude", side_effect=subprocess.TimeoutExpired(["claude"], 600)
             ):
@@ -303,6 +437,7 @@ class CliFailureTests(unittest.TestCase):
             request = implementation_request(str(output))
             request["mode"] = "review"
             request.pop("branch")
+            request.pop("allowed_paths")
             request["target_commit"] = TARGET
             request["checks"] = []
             claude = {
@@ -313,11 +448,11 @@ class CliFailureTests(unittest.TestCase):
                 "_full_text": "finding\nREVIEW_VERDICT=BLOCK",
             }
             with mock.patch.object(adapter, "load_and_validate_request", return_value=request), mock.patch.object(
-                adapter, "preflight", return_value={"status": "PASS"}
+                adapter, "preflight", return_value=preflight_result()
             ), mock.patch.object(
                 adapter,
                 "prepare_worktree",
-                return_value={"path": "/tmp/work", "start_commit": TARGET, "start_tree": "4" * 40},
+                return_value={"path": "/home/jellyclaude/dev_projects/jellyssh-worktrees/feature-001", "start_commit": TARGET, "start_tree": "4" * 40},
             ), mock.patch.object(
                 adapter, "invoke_claude", return_value=subprocess.CompletedProcess(["claude"], 0, "{}", "")
             ), mock.patch.object(adapter, "parse_claude_result", return_value=claude), mock.patch.object(
