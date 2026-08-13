@@ -6,7 +6,7 @@
 
 ## Problem
 
-JellySSH work may be implemented or advised on by Claude Code, but Claude Code is not a Hermes profile or Kanban authority. A bounded adapter is required so Jellyberry can validate the route, create an isolated Jellybase worktree, invoke Claude without putting task text in the process list, and return structured evidence. Missing, malformed, stale, wrong-commit, dirty-worktree, timeout, or unverifiable output must block.
+JellySSH work may be implemented or advised on by Claude Code, but Claude Code is not a Hermes profile or Kanban authority. A bounded adapter is required so Jellyberry can validate the route, create a disposable Jellybase clone, invoke Claude without putting task text in the process list, and return structured evidence. Missing, malformed, stale, wrong-commit, dirty-workspace, timeout, or unverifiable output must block.
 
 ## Fixed boundary
 
@@ -14,13 +14,16 @@ JellySSH work may be implemented or advised on by Claude Code, but Claude Code i
 - SSH alias: `agent-claude`.
 - Execution identity: `jellyclaude@jellybase`.
 - Coordinator clone: `/home/jellyclaude/dev_projects/jellyssh`.
-- Worktree root: `/home/jellyclaude/dev_projects/jellyssh-worktrees`.
+- Disposable sandbox root: `/home/jellyclaude/.cache/jellyssh-claude-sandboxes`.
 - Git origin: `git@github-jellyssh:dotalbot/jellyssh.git`.
 - Claude executable: `/home/jellyclaude/.local/bin/claude`.
-- Toolchain file: `/home/jellyclaude/.config/jellyssh/toolchain.env`.
+- Fixed executables: Claude and the Flutter inventory wrapper are authenticated by absolute path. Controller checks bypass the mutable Flutter/Dart wrappers and invoke the versioned Dart ELF plus the exact `flutter_tools.snapshot`; no mutable toolchain file is sourced.
 - The account has no `sudo` and no credentials from `jellydev`.
 - Claude's repository-scoped GitHub deploy key is read-only. A pinned per-session settings policy denies the model's file tools access to SSH, Claude-authentication, GitHub-authentication, backup-authentication, and `.env` paths.
 - Claude receives no Bash tool in either mode. `--tools` restricts the built-in inventory to `Read,Glob,Grep,Edit,Write,Skill` for implementation and `Read,Glob,Grep,Skill` for review. `--allowedTools` only pre-approves the same bounded set; it is not treated as an inventory restriction. Strict MCP configuration plus an explicit `mcp__*` deny prevents MCP tools from bypassing that boundary. The adapter alone runs fixed Git, formatting, analysis, and test commands; an account-level `PreToolUse` hook remains defense in depth for interactive account use.
+- Every attempt uses a `--no-hardlinks` disposable clone with a separate Git directory. A Landlock ABI 4 policy gives Claude read access only to required system runtime paths, read-only `/proc` and `/sys` metadata, its exact executable, and the disposable clone/home. Implementation writes are limited to exact declared file inodes or declared directory prefixes plus disposable Claude cache/session paths. The original account home, shared repository, SSH/GitHub files, toolchain, controller assets, and disposable Git metadata are outside the kernel read/write allowlist. `env -i` removes inherited credentials and agent variables. Read-only procfs/sysfs are required by the native Claude runtime; the dedicated account must not host unrelated workloads.
+- Before Claude and after Claude/check execution, the controller binds the shared repository path, Git/common directory, HEAD, all refs, replace refs, effective system/global/local/worktree Git configuration, cleanliness, and resolved Claude/Flutter/Dart executable identities and hashes. Any drift blocks.
+- Fixed checks run in a second disposable source copy under the same Landlock implementation. Only that copy, its scratch home, and `/dev/null` are writable; the validated Claude source, separate Git directory, shared repository, account paths, and SDK remain read-only. Check artifacts are deleted before publication.
 - The adapter never mutates Kanban, opens a PR, merges, releases, deploys, signs, sideloads, or claims physical-device acceptance.
 - The controller must run from a clean Git checkout. At process startup it records the adapter source digest, then captures one authenticated snapshot from exact Git objects: the 40-character controller commit, request/result schemas, hook/settings assets, and approved skill-release metadata and bundle bytes. The startup adapter digest must equal the committed adapter blob. All later schema validation, policy hashing, skill expectations, and result validation consume this snapshot rather than mutable live paths; a dirty, ABA-restored, or unidentifiable controller blocks before remote execution.
 
@@ -37,23 +40,24 @@ Read-only checks must verify:
 - repository origin, clean coordinator clone and requested base commit;
 - repository-scoped GitHub read access and a dry-run proof that write access is denied;
 - Git author and committer identity;
-- no conflicting worktree or branch.
+- no conflicting sandbox or branch.
 
 ### `run implementation`
 
 - Validate a schema-bound request with no unknown fields or secret-shaped values.
 - Require a full lowercase base commit reachable from `origin/main`.
-- Create one isolated worktree and one new feature/fix/docs/test/refactor/chore branch.
+- Create one disposable independent clone and one new feature/fix/docs/test/refactor/chore branch inside it. Claude cannot read or write the clone's separate Git directory.
 - Require exact file paths or segment-bounded directory prefixes for intended implementation changes, and block before checks or commit if any changed path is undeclared.
 - Pass prompt text to Claude through stdin, not argv.
 - Use non-interactive structured JSON output in Claude's guarded `auto` mode without `--dangerously-skip-permissions` or Bash access.
-- Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and creates the local commit with a fixed message; neither Claude nor the adapter pushes. Commit creation rejects configured Git filters, disables hooks/signing, captures each post-check changed path once into controller-owned memory, verifies its state/content digest and secret/path policy, writes exact blobs with `hash-object --no-filters`, constructs a private-index tree, validates the immutable tree, creates the commit with `commit-tree`, then compare-and-swaps the expected branch ref. The real worktree index is hard-reset and inspected only after the private index is removed.
+- Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and prepares an unreferenced local commit with a fixed message; neither Claude nor the adapter pushes. Commit preparation rejects configured Git filters, disables hooks/signing, captures each post-check changed path once into controller-owned memory, verifies its state/content digest and secret/path policy, writes exact blobs with `hash-object --no-filters`, constructs a private-index tree, validates the immutable tree, and creates the commit with `commit-tree` without advancing a ref or resetting the workspace.
+- Final publication first schema-validates and fsyncs hidden canonical evidence under a retained no-follow directory descriptor, then transfers and verifies the unreferenced objects, creates the shared branch with a create-only compare-and-swap, and atomically hard-links the evidence. Any uncertain ref/evidence failure invokes idempotent exact-value ref deletion before publishing `BLOCK`; rollback uncertainty publishes no misleading evidence and fails closed.
 - Return evidence; never treat Claude prose as approval.
 - Block if the process or a fixed check times out, output is malformed or secret-shaped, HEAD does not descend from the base, the pre-commit state has no changes, the committed tree has no net changes, or the branch/ref is wrong.
 
 ### `run review`
 
-- Materialize a detached worktree at the exact target commit.
+- Materialize a detached disposable clone at the exact target commit.
 - Use Claude `plan` permission mode with no edit tools.
 - Require an exact specification path and digest.
 - Capture before/after commit, tree and status.
@@ -77,7 +81,7 @@ The adapter rejects paths outside the repository, arbitrary commands, caller-sel
 
 ## Result contract
 
-The current result contract is schema version `2` and adapter version `0.3.0`; it is intentionally incompatible with the historical two-artifact `0.1.0` result shape.
+The current result contract is schema version `2` and adapter version `0.4.0`; it is intentionally incompatible with historical adapter versions.
 
 The canonical JSON result includes:
 
@@ -95,7 +99,7 @@ The canonical JSON result includes:
 - exact verified controller commit and controller-asset SHA-256 values;
 - SHA-256 and base64 encoding of non-secret raw Claude JSON when Claude was invoked.
 
-Raw Claude output is retained inside the canonical result rather than published as a separate sidecar. This gives an attempt one publication commit point: validation stages the complete evidence object first, then an exclusive atomic hard link publishes that one immutable file. Malformed worker JSON therefore produces one canonical `BLOCK` result rather than an orphaned raw artifact that prevents retry.
+Raw Claude output is retained inside the canonical result rather than published as a separate sidecar. For implementation `PASS`, complete evidence is validated and durably staged before branch creation, then an exclusive atomic hard link publishes it after the branch compare-and-swap. Evidence-link failure rolls the exact branch value back before canonical `BLOCK` evidence is written. Malformed worker JSON therefore produces one canonical `BLOCK` result rather than an orphaned raw artifact.
 
 Evidence paths are direct filenames below the fixed evidence root. Publication opens every existing directory component with `O_NOFOLLOW`, retains the trusted parent directory descriptor, and creates/links the temporary and final names relative to that descriptor. A symlinked ancestor is rejected, while replacement of a validated pathname cannot redirect publication. Errors before the hard link fail publication. Temporary-file cleanup and directory synchronization after valid immutable evidence becomes visible are best-effort and cannot make the controller report failure after publication.
 
@@ -111,6 +115,9 @@ Tests must prove:
 - prompt supplied over stdin;
 - no bypass-permissions or push flags;
 - exact mode-specific built-in tool inventory restriction and MCP denial;
+- live Landlock enforcement for declared writes, undeclared sibling/Git denial, original-account denial, and shared-repository denial;
+- sanitized `env -i` worker environment and fixed executable identities;
+- protected shared Git/config/ref/executable before/after snapshot equality;
 - implementation clean/commit/base checks;
 - review before/after immutability checks;
 - malformed JSON, timeout and nonzero exit fail closed;
@@ -122,12 +129,13 @@ Tests must prove:
 - one-artifact atomic result publication, including malformed-output retention;
 - symlink-ancestor rejection and path-swap confinement through a retained directory descriptor;
 - no reported failure after the atomic publication commit point;
+- staged-evidence/ref ordering plus fault-injected exact-value rollback after uncertain ref or evidence failure;
 - live preflight against `agent-claude`;
-- one no-edit Claude smoke in a disposable worktree.
+- one no-edit Claude smoke in a disposable sandbox.
 
 ## Rollback
 
-- Remove only the adapter-created worktree and branch after confirming no unpushed work is needed.
+- Remove only the adapter-created disposable sandbox and branch after confirming no unpushed work is needed.
 - Remove `~/.claude/skills/<approved-name>` and the managed hook entry from the dedicated account if this lane is retired.
 - Revoke GitHub deploy key `jellybase-jellyclaude` and remove the Jellyberry `agent-claude` SSH block/key to revoke access.
 - Do not alter the existing `jellydev` implementation or reviewer profiles.

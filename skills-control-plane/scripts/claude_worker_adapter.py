@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.3.0"
+ADAPTER_VERSION = "0.4.0"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -85,11 +85,13 @@ SSH_TARGET = "agent-claude"
 REMOTE_USER = "jellyclaude"
 REMOTE_HOST = "jellybase"
 REMOTE_REPOSITORY = "/home/jellyclaude/dev_projects/jellyssh"
-REMOTE_WORKTREE_ROOT = "/home/jellyclaude/dev_projects/jellyssh-worktrees"
 REMOTE_ORIGIN = "git@github-jellyssh:dotalbot/jellyssh.git"
 REMOTE_CLAUDE = "/home/jellyclaude/.local/bin/claude"
-REMOTE_TOOLCHAIN = "/home/jellyclaude/.config/jellyssh/toolchain.env"
+REMOTE_FLUTTER = "/home/jellyclaude/dev/sdk/flutter/bin/flutter"
+REMOTE_DART = "/home/jellyclaude/dev/sdk/flutter-3.44.9/bin/cache/dart-sdk/bin/dart"
+REMOTE_FLUTTER_SNAPSHOT = "/home/jellyclaude/dev/sdk/flutter-3.44.9/bin/cache/flutter_tools.snapshot"
 REMOTE_SESSION_SETTINGS = "/home/jellyclaude/.claude/adapter-session-settings.json"
+REMOTE_SANDBOX_ROOT = "/home/jellyclaude/.cache/jellyssh-claude-sandboxes"
 ALLOWED_OUTPUT_ROOT = Path("/home/jellybot/projects/jellyssh-claude-adapter/evidence")
 SECRET_KEY_RE = re.compile(r"(?i)(password|passwd|passphrase|secret|token|api[_-]?key|private[_-]?key|credential)")
 SECRET_VALUE_RE = re.compile(
@@ -99,9 +101,9 @@ SECRET_VALUE_RE = re.compile(
 )
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 CHECK_COMMANDS = {
-    "format": "dart format --output=none --set-exit-if-changed lib/ test/",
-    "analyze": "flutter analyze",
-    "test": "flutter test",
+    "format": f"{REMOTE_DART} format --output=none --set-exit-if-changed lib/ test/",
+    "analyze": f"{REMOTE_DART} {REMOTE_FLUTTER_SNAPSHOT} analyze",
+    "test": f"{REMOTE_DART} {REMOTE_FLUTTER_SNAPSHOT} test",
 }
 
 
@@ -124,6 +126,14 @@ class ControllerSnapshot:
     request_schema: dict[str, Any]
     result_schema: dict[str, Any]
     skill_digests: dict[str, str]
+
+
+@dataclass
+class StagedEvidence:
+    parent_fd: int
+    temporary: str
+    destination: str
+    published: bool = False
 
 
 def utc_now() -> str:
@@ -293,12 +303,11 @@ def _open_directory_no_symlinks(path: Path) -> int:
         raise
 
 
-def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None:
+def stage_evidence_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> StagedEvidence:
     if not path.is_absolute() or path.name in {"", ".", ".."}:
         raise AdapterError("evidence path must be an absolute file path")
     parent = _open_directory_no_symlinks(path.parent)
     temporary = f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
-    published = False
     try:
         descriptor = os.open(
             temporary,
@@ -310,39 +319,68 @@ def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        # Hard-link publication is atomic and refuses to overwrite an immutable
-        # attempt if another process won the same-path race after preflight.
-        os.link(
-            temporary,
-            path.name,
-            src_dir_fd=parent,
-            dst_dir_fd=parent,
-            follow_symlinks=False,
-        )
-        published = True
-        # The link is the publication commit point. Everything after it is
-        # best-effort housekeeping: never report failure after valid evidence
-        # has become visible at the immutable destination.
+        return StagedEvidence(parent_fd=parent, temporary=temporary, destination=path.name)
+    except Exception:
         try:
             os.unlink(temporary, dir_fd=parent)
-        except Exception:
+        except FileNotFoundError:
             pass
-        try:
-            os.fsync(parent)
-        except Exception:
-            pass
-    except Exception:
-        if not published:
-            try:
-                os.unlink(temporary, dir_fd=parent)
-            except FileNotFoundError:
-                pass
+        os.close(parent)
         raise
+
+
+def publish_staged_evidence(staged: StagedEvidence) -> None:
+    if staged.published:
+        raise AdapterError("evidence stage is already published")
+    # Hard-link publication is atomic and refuses replacement. The held
+    # directory descriptor prevents ancestor/path swaps during remote CAS.
+    os.link(
+        staged.temporary,
+        staged.destination,
+        src_dir_fd=staged.parent_fd,
+        dst_dir_fd=staged.parent_fd,
+        follow_symlinks=False,
+    )
+    staged.published = True
+    # The link is the publication commit point. Everything after it is
+    # best-effort housekeeping: never report failure after valid evidence
+    # has become visible at the immutable destination.
+    try:
+        os.unlink(staged.temporary, dir_fd=staged.parent_fd)
+    except Exception:
+        pass
+    try:
+        os.fsync(staged.parent_fd)
+    except Exception:
+        pass
     finally:
         try:
-            os.close(parent)
+            os.close(staged.parent_fd)
         except OSError:
             pass
+
+
+def abort_staged_evidence(staged: StagedEvidence) -> None:
+    if staged.published:
+        return
+    try:
+        os.unlink(staged.temporary, dir_fd=staged.parent_fd)
+    except FileNotFoundError:
+        pass
+    finally:
+        try:
+            os.close(staged.parent_fd)
+        except OSError:
+            pass
+
+
+def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None:
+    staged = stage_evidence_bytes(path, payload, mode=mode)
+    try:
+        publish_staged_evidence(staged)
+    except Exception:
+        abort_staged_evidence(staged)
+        raise
 
 
 def atomic_write_json(path: Path, value: dict[str, Any], *, mode: int = 0o600) -> None:
@@ -455,14 +493,47 @@ Controller-observed files changed from base to target:
 This is read-only advisory review. Use the two independent Standards and Specification axes from /code-review. Inspect the listed files and any directly relevant context with read-only file tools. Do not edit, commit, push, or run commands. End with exactly one machine-readable line: REVIEW_VERDICT=PASS or REVIEW_VERDICT=BLOCK. The controller will independently verify immutability.\n"""
 
 
+LANDLOCK_LAUNCHER = r'''import argparse,ctypes,os
+p=argparse.ArgumentParser(add_help=False); p.add_argument('--read-dir',action='append',default=[]); p.add_argument('--read-file',action='append',default=[]); p.add_argument('--write-dir',action='append',default=[]); p.add_argument('--write-file',action='append',default=[]); p.add_argument('command',nargs=argparse.REMAINDER); a=p.parse_args()
+if not a.command or a.command[0] != '--': raise SystemExit(2)
+command=a.command[1:]
+libc=ctypes.CDLL(None,use_errno=True)
+CREATE,ADD,RESTRICT=444,445,446
+EXECUTE,WRITE_FILE,READ_FILE,READ_DIR=1<<0,1<<1,1<<2,1<<3
+REMOVE_DIR,REMOVE_FILE,MAKE_CHAR,MAKE_DIR=1<<4,1<<5,1<<6,1<<7
+MAKE_REG,MAKE_SOCK,MAKE_FIFO,MAKE_BLOCK,MAKE_SYM=1<<8,1<<9,1<<10,1<<11,1<<12
+REFER,TRUNCATE=1<<13,1<<14
+WRITE=WRITE_FILE|REMOVE_DIR|REMOVE_FILE|MAKE_CHAR|MAKE_DIR|MAKE_REG|MAKE_SOCK|MAKE_FIFO|MAKE_BLOCK|MAKE_SYM|REFER|TRUNCATE
+HANDLED=EXECUTE|READ_FILE|READ_DIR|WRITE
+class Ruleset(ctypes.Structure): _fields_=[('handled_access_fs',ctypes.c_uint64)]
+class PathRule(ctypes.Structure): _fields_=[('allowed_access',ctypes.c_uint64),('parent_fd',ctypes.c_int32)]
+fd=libc.syscall(CREATE,ctypes.byref(Ruleset(HANDLED)),ctypes.sizeof(Ruleset),0)
+if fd < 0: raise OSError(ctypes.get_errno(),'landlock_create_ruleset')
+def rule(path,rights):
+ child=os.open(path,os.O_PATH|os.O_CLOEXEC)
+ try:
+  if libc.syscall(ADD,fd,1,ctypes.byref(PathRule(rights,child)),0) < 0: raise OSError(ctypes.get_errno(),'landlock_add_rule')
+ finally: os.close(child)
+for path in a.read_dir:
+ if os.path.exists(path): rule(path,EXECUTE|READ_FILE|READ_DIR)
+for path in a.read_file: rule(path,EXECUTE|READ_FILE)
+for path in a.write_dir: rule(path,READ_FILE|READ_DIR|EXECUTE|WRITE)
+for path in a.write_file: rule(path,READ_FILE|WRITE_FILE|TRUNCATE)
+PR_SET_NO_NEW_PRIVS=38
+if libc.prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0) < 0: raise OSError(ctypes.get_errno(),'prctl')
+if libc.syscall(RESTRICT,fd,0) < 0: raise OSError(ctypes.get_errno(),'landlock_restrict_self')
+os.close(fd); os.chdir(os.environ['WORKSPACE']); os.execvpe(command[0],command,os.environ)
+'''
+
+
 def build_claude_command(
     request: dict[str, Any],
     worktree: str,
     review_files: list[str] | None = None,
 ) -> WorkerCommand:
     worktree_path = PurePosixPath(worktree)
-    expected_root = PurePosixPath(REMOTE_WORKTREE_ROOT)
-    if expected_root not in worktree_path.parents:
+    fixed_root = PurePosixPath(REMOTE_SANDBOX_ROOT)
+    if fixed_root not in worktree_path.parents:
         raise AdapterError("worktree is outside the fixed remote root")
     if request["mode"] == "implementation":
         permission = "auto"
@@ -470,6 +541,9 @@ def build_claude_command(
     else:
         permission = "plan"
         tools = "Read,Glob,Grep,Skill"
+    sandbox = worktree_path.parent
+    sandbox_home = sandbox / "home"
+    settings = sandbox_home / ".claude/adapter-session-settings.json"
     remote_argv = [
         REMOTE_CLAUDE,
         "-p",
@@ -477,7 +551,7 @@ def build_claude_command(
         "json",
         "--no-session-persistence",
         "--settings",
-        REMOTE_SESSION_SETTINGS,
+        str(settings),
         "--permission-mode",
         permission,
         "--model",
@@ -492,11 +566,45 @@ def build_claude_command(
         "--disallowedTools",
         "mcp__*",
     ]
+    writable_files: list[str] = []
+    writable_directories = [
+        str(sandbox_home / ".cache"),
+        str(sandbox_home / ".claude/projects"),
+        str(sandbox_home / ".claude/sessions"),
+        str(sandbox_home / ".claude/session-env"),
+        str(sandbox_home / ".claude/shell-snapshots"),
+    ]
+    if request["mode"] == "implementation":
+        for allowed in request["allowed_paths"]:
+            target = worktree_path.joinpath(*PurePosixPath(str(allowed).rstrip("/")).parts)
+            if str(allowed).endswith("/"):
+                writable_directories.append(str(target))
+            else:
+                writable_files.append(str(target))
+    readable_directories = [
+        "/usr", "/bin", "/lib", "/lib64", "/etc", "/dev", "/proc", "/sys",
+        str(worktree_path), str(sandbox / "git"), str(sandbox_home),
+    ]
+    readable_files = [REMOTE_CLAUDE]
+    landlock = LANDLOCK_LAUNCHER
+    launcher = ["python3", "-c", landlock]
+    for path in readable_directories:
+        launcher.extend(["--read-dir", path])
+    for path in readable_files:
+        launcher.extend(["--read-file", path])
+    for path in sorted(set(writable_directories)):
+        launcher.extend(["--write-dir", path])
+    for path in sorted(set(writable_files)):
+        launcher.extend(["--write-file", path])
+    launcher.extend(["--", "/usr/bin/timeout", "--signal=TERM", "--kill-after=30", str(int(request["timeout_seconds"])), *remote_argv])
     command = (
         "set -euo pipefail; "
-        f". {shlex.quote(REMOTE_TOOLCHAIN)}; "
-        f"cd {shlex.quote(worktree)}; "
-        f"exec timeout --signal=TERM --kill-after=30 {int(request['timeout_seconds'])} {shlex.join(remote_argv)}"
+        "exec env -i "
+        f"HOME={shlex.quote(str(sandbox_home))} "
+        f"XDG_CACHE_HOME={shlex.quote(str(sandbox_home / '.cache'))} "
+        f"WORKSPACE={shlex.quote(worktree)} "
+        "PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=dumb "
+        f"{shlex.join(launcher)}"
     )
     return WorkerCommand(
         ssh_target=SSH_TARGET,
@@ -581,16 +689,17 @@ def preflight(
     branch = str(request.get("branch", "")) if request else ""
     attempt = str(request.get("attempt_id", "")) if request else ""
     script = f"""set -euo pipefail
-export PATH="$HOME/.local/bin:$HOME/dev/sdk/flutter/bin:$PATH"
 test "$(id -un)" = {shlex.quote(REMOTE_USER)}
 test "$(hostname -s)" = {shlex.quote(REMOTE_HOST)}
-test "$(command -v claude)" = {shlex.quote(REMOTE_CLAUDE)}
-claude auth status --text >/dev/null
+test -x {shlex.quote(REMOTE_CLAUDE)}
+test -x {shlex.quote(REMOTE_FLUTTER)}
+test -x {shlex.quote(REMOTE_DART)}
+test -f {shlex.quote(REMOTE_FLUTTER_SNAPSHOT)}
+sha256sum {shlex.quote(REMOTE_CLAUDE)} {shlex.quote(REMOTE_FLUTTER)} {shlex.quote(REMOTE_DART)} {shlex.quote(REMOTE_FLUTTER_SNAPSHOT)} >/dev/null
+! pgrep -u "$(id -u)" -x claude >/dev/null
+{shlex.quote(REMOTE_CLAUDE)} auth status --text >/dev/null
 test -x "$(command -v tmux)"
 test -x "$(command -v git)"
-test -x "$(command -v flutter)"
-test -x "$(command -v dart)"
-test -r {shlex.quote(REMOTE_TOOLCHAIN)}
 test "$(git -C {shlex.quote(REMOTE_REPOSITORY)} remote get-url origin)" = {shlex.quote(REMOTE_ORIGIN)}
 if git -C {shlex.quote(REMOTE_REPOSITORY)} config --get-regexp '^filter[.]' >/dev/null; then exit 2; fi
 test -z "$(git -C {shlex.quote(REMOTE_REPOSITORY)} status --porcelain)"
@@ -627,8 +736,8 @@ PY
     if branch:
         script += f"! git -C {shlex.quote(REMOTE_REPOSITORY)} show-ref --verify --quiet refs/heads/{shlex.quote(branch)}\n"
     if attempt:
-        worktree = f"{REMOTE_WORKTREE_ROOT}/{attempt}"
-        script += f"test ! -e {shlex.quote(worktree)}\n"
+        sandbox = f"{REMOTE_SANDBOX_ROOT}/{attempt}"
+        script += f"test ! -e {shlex.quote(sandbox)}\n"
     script += f"""python3 - <<'PY'
 import hashlib,json,pathlib,struct
 expected=json.loads({expected_json})
@@ -652,8 +761,7 @@ printf 'PREFLIGHT_PASS\\n'
     output = _ssh_script(script, timeout=180)
     if output.strip() != "PREFLIGHT_PASS":
         raise AdapterError("unexpected preflight response")
-    versions_script = """set -euo pipefail
-export PATH="$HOME/.local/bin:$HOME/dev/sdk/flutter/bin:$PATH"
+    versions_script = f"""set -euo pipefail
 mkdir -p "$HOME/.cache"
 python3 - <<'PY'
 import json,pathlib,subprocess
@@ -661,8 +769,7 @@ def run(*argv):
     lines=subprocess.run(argv,check=True,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT).stdout.strip().splitlines()
     if not lines: raise SystemExit(2)
     return lines[0]
-lock=str(pathlib.Path.home()/'.cache/jellyssh-flutter-version.lock')
-print(json.dumps({'claude':run('claude','--version'),'flutter':run('flock','-w','120',lock,'flutter','--version'),'dart':run('dart','--version')},sort_keys=True))
+print(json.dumps({{'claude':run({REMOTE_CLAUDE!r},'--version'),'flutter':run({REMOTE_DART!r},{REMOTE_FLUTTER_SNAPSHOT!r},'--version'),'dart':run({REMOTE_DART!r},'--version')}},sort_keys=True))
 PY
 """
     try:
@@ -686,21 +793,57 @@ PY
 
 def prepare_worktree(request: dict[str, Any]) -> dict[str, str]:
     attempt = str(request["attempt_id"])
-    worktree = f"{REMOTE_WORKTREE_ROOT}/{attempt}"
+    sandbox = f"{REMOTE_SANDBOX_ROOT}/{attempt}"
+    worktree = f"{sandbox}/source"
+    gitdir = f"{sandbox}/git"
+    home = f"{sandbox}/home"
     base = str(request["base_commit"])
     if request["mode"] == "implementation":
         branch = str(request["branch"])
-        add = f"git -C {shlex.quote(REMOTE_REPOSITORY)} worktree add -q -b {shlex.quote(branch)} {shlex.quote(worktree)} {shlex.quote(base)}"
+        checkout = f"git -C \"$source\" checkout -q -b {shlex.quote(branch)} {shlex.quote(base)}"
     else:
         branch = "DETACHED"
         target = str(request["target_commit"])
-        add = f"git -C {shlex.quote(REMOTE_REPOSITORY)} worktree add -q --detach {shlex.quote(worktree)} {shlex.quote(target)}"
+        checkout = f"git -C \"$source\" checkout -q --detach {shlex.quote(target)}"
     spec_path = str(request["specification"]["path"])
     expected_spec = str(request["specification"]["sha256"])
     script = f"""set -euo pipefail
-mkdir -p {shlex.quote(REMOTE_WORKTREE_ROOT)}
-test ! -e {shlex.quote(worktree)}
-{add}
+umask 077
+sandbox={shlex.quote(sandbox)}
+source={shlex.quote(worktree)}
+gitdir={shlex.quote(gitdir)}
+home={shlex.quote(home)}
+mkdir -p {shlex.quote(REMOTE_SANDBOX_ROOT)}
+test ! -e "$sandbox"
+mkdir "$sandbox"
+git clone --no-hardlinks --no-checkout --separate-git-dir "$gitdir" {shlex.quote(REMOTE_REPOSITORY)} "$source" >/dev/null 2>&1
+test -f "$source/.git"
+test ! -L "$source/.git"
+test -d "$gitdir"
+test ! -e "$gitdir/objects/info/alternates"
+test ! -e "$gitdir/refs/replace"
+{checkout}
+mkdir -p "$home/.claude" "$home/.cache" "$home/.claude/projects" "$home/.claude/sessions" "$home/.claude/session-env" "$home/.claude/shell-snapshots" "$sandbox/check-home/.cache" "$sandbox/check-home/tmp"
+for credential in "$HOME/.claude.json" "$HOME/.claude/.credentials.json"; do
+  if test -f "$credential"; then cp --preserve=mode,timestamps "$credential" "$home/${{credential#$HOME/}}"; fi
+done
+cp {shlex.quote(REMOTE_SESSION_SETTINGS)} "$home/.claude/adapter-session-settings.json"
+if test -d "$HOME/.claude/skills"; then cp -a "$HOME/.claude/skills" "$home/.claude/skills"; fi
+python3 - "$source" {shlex.quote(json.dumps(request.get('allowed_paths', [])))} <<'PY'
+import json,os,pathlib,sys
+root=pathlib.Path(sys.argv[1]).resolve(strict=True)
+for declared in json.loads(sys.argv[2]):
+    relative=pathlib.PurePosixPath(declared.rstrip('/'))
+    current=root
+    for part in relative.parts[:-1]:
+        current=current/part
+        if current.is_symlink(): raise SystemExit(2)
+    target=root.joinpath(*relative.parts)
+    if declared.endswith('/'):
+        if target.is_symlink() or not target.is_dir(): raise SystemExit(2)
+    else:
+        if target.is_symlink() or not target.is_file(): raise SystemExit(2)
+PY
 python3 - {shlex.quote(worktree)} {shlex.quote(spec_path)} {shlex.quote(expected_spec)} <<'PY'
 import hashlib,pathlib,sys
 root=pathlib.Path(sys.argv[1]).resolve(strict=True)
@@ -734,10 +877,24 @@ printf '{{"path":"%s","branch":"%s","start_commit":"%s","start_tree":"%s"}}\\n' 
 
 
 def cleanup_worktree(worktree: str, branch: str | None = None) -> None:
-    script = f"git -C {shlex.quote(REMOTE_REPOSITORY)} worktree remove --force {shlex.quote(worktree)} >/dev/null 2>&1 || true\n"
-    if branch:
-        script += f"git -C {shlex.quote(REMOTE_REPOSITORY)} branch -D {shlex.quote(branch)} >/dev/null 2>&1 || true\n"
+    sandbox = str(PurePosixPath(worktree).parent)
+    if PurePosixPath(REMOTE_SANDBOX_ROOT) not in PurePosixPath(worktree).parents:
+        return
+    script = f"rm -rf -- {shlex.quote(sandbox)} >/dev/null 2>&1 || true\n"
     _run(["ssh", SSH_TARGET, "bash", "-s"], input_text=script, timeout=60, check=False)
+
+
+def purge_sandbox_sensitive_state(worktree: str) -> None:
+    sandbox = str(PurePosixPath(worktree).parent)
+    if PurePosixPath(REMOTE_SANDBOX_ROOT) not in PurePosixPath(worktree).parents:
+        raise AdapterError("sandbox cleanup path is outside the fixed remote root")
+    script = f"""set -euo pipefail
+sandbox={shlex.quote(sandbox)}
+rm -rf -- "$sandbox/home" "$sandbox/check-home"
+test ! -e "$sandbox/home"
+test ! -e "$sandbox/check-home"
+"""
+    _ssh_script(script, timeout=60)
 
 
 def list_changed_files(base: str, target: str) -> list[str]:
@@ -764,6 +921,47 @@ def invoke_claude(
         timeout=int(request["timeout_seconds"]) + 45,
         check=False,
     )
+
+
+def capture_remote_protected_state() -> dict[str, Any]:
+    script = f"""set -euo pipefail
+python3 - {shlex.quote(REMOTE_REPOSITORY)} {shlex.quote(REMOTE_CLAUDE)} {shlex.quote(REMOTE_FLUTTER)} {shlex.quote(REMOTE_DART)} {shlex.quote(REMOTE_FLUTTER_SNAPSHOT)} <<'PY'
+import hashlib,json,pathlib,subprocess,sys
+repository=pathlib.Path(sys.argv[1]).resolve(strict=True)
+def git(*args): return subprocess.check_output(['git','-c','core.useReplaceRefs=false','-C',str(repository),*args],stderr=subprocess.DEVNULL)
+def file_identity(raw):
+ path=pathlib.Path(raw); resolved=path.resolve(strict=True); metadata=resolved.stat()
+ return {'path':str(path),'resolved':str(resolved),'sha256':hashlib.sha256(resolved.read_bytes()).hexdigest(),'mode':metadata.st_mode,'uid':metadata.st_uid,'gid':metadata.st_gid}
+config=[]
+for scope in ('--system','--global','--local','--worktree'):
+ try: payload=git('config',scope,'--null','--list','--show-origin')
+ except subprocess.CalledProcessError: payload=''
+ config.append([scope,hashlib.sha256(payload if isinstance(payload,bytes) else payload.encode()).hexdigest()])
+print(json.dumps({
+ 'repository':str(repository),
+ 'git_dir':git('rev-parse','--absolute-git-dir').decode().strip(),
+ 'common_dir':git('rev-parse','--git-common-dir').decode().strip(),
+ 'head':git('rev-parse','HEAD').decode().strip(),
+ 'status':git('status','--porcelain=v1','-z').decode(),
+ 'refs':sorted(git('for-each-ref','--format=%(refname) %(objectname)').decode().splitlines()),
+ 'replace_refs':sorted(git('for-each-ref','--format=%(refname) %(objectname)','refs/replace').decode().splitlines()),
+ 'config':config,
+ 'executables':[file_identity(x) for x in sys.argv[2:]],
+},sort_keys=True))
+PY
+"""
+    try:
+        value = json.loads(_ssh_script(script, timeout=60))
+    except (AdapterError, json.JSONDecodeError) as exc:
+        raise AdapterError("remote protected-state snapshot is malformed") from exc
+    if value.get("status") or value.get("replace_refs"):
+        raise AdapterError("remote protected state is not clean")
+    return value
+
+
+def verify_remote_protected_state(expected: dict[str, Any]) -> None:
+    if capture_remote_protected_state() != expected:
+        raise AdapterError("remote protected repository/toolchain state changed")
 
 
 def parse_claude_result(process: subprocess.CompletedProcess[str]) -> dict[str, Any]:
@@ -835,6 +1033,22 @@ def validate_precommit_state(request: dict[str, Any], state: dict[str, Any]) -> 
         raise AdapterError("implementation branch drifted")
     if not state["status"] or not state["changed"]:
         raise AdapterError("implementation produced no changed files")
+
+
+def validate_prepared_implementation(
+    request: dict[str, Any],
+    state: dict[str, Any],
+    expected_state: dict[str, Any],
+) -> None:
+    if state["commit"] == request["base_commit"]:
+        raise AdapterError("prepared implementation did not create a commit")
+    if state["branch"] != request["branch"]:
+        raise AdapterError("prepared implementation branch drifted")
+    if state["changed"] != expected_state["changed"]:
+        raise AdapterError("prepared commit paths differ from validated paths")
+    if not state["status"]:
+        raise AdapterError("prepared source unexpectedly lost validated changes")
+    validate_changed_paths(request, state["changed"])
 
 
 def validate_changed_paths(request: dict[str, Any], changed_files: list[str]) -> None:
@@ -1017,17 +1231,18 @@ PY
 commit=$(printf '%s\n' 'chore: apply governed Claude implementation' | git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" commit-tree "$tree" -p "$base")
 unset GIT_INDEX_FILE
 rm -f "$index"
-git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" update-ref "refs/heads/$branch" "$commit" "$base"
-git -c core.hooksPath=/dev/null -c commit.gpgSign=false -C "$worktree" reset --hard -q "$commit"
-python3 - "$worktree" "$base" <<'PY'
+python3 - "$worktree" "$base" "$commit" "$tree" "$branch" <<'PY'
 import json,subprocess,sys
-worktree,base=sys.argv[1:]
+worktree,base,commit,tree,branch=sys.argv[1:]
 def git(*args): return subprocess.check_output(['git','-c','core.hooksPath=/dev/null','-c','commit.gpgSign=false','-C',worktree,*args])
-changed=[x for x in git('diff','--name-only','-z',base+'...HEAD','--').decode().split('\\0') if x]
+changed=[x for x in git('diff','--name-only','-z',base,commit,'--').decode().split('\\0') if x]
+if git('rev-parse','HEAD').decode().strip() != base: raise SystemExit(2)
+if git('branch','--show-current').decode().strip() != branch: raise SystemExit(2)
+if git('rev-parse',commit+'^{{tree}}').decode().strip() != tree: raise SystemExit(2)
 print(json.dumps({{
- 'commit':git('rev-parse','HEAD').decode().strip(),
- 'tree':git('rev-parse','HEAD^{{tree}}').decode().strip(),
- 'branch':git('branch','--show-current').decode().strip(),
+ 'commit':commit,
+ 'tree':tree,
+ 'branch':branch,
  'status':git('status','--porcelain=v1','-z').decode(),
  'changed':sorted(changed),
 }},sort_keys=True))
@@ -1037,6 +1252,47 @@ PY
         return json.loads(_ssh_script(script, timeout=120))
     except (json.JSONDecodeError, AdapterError) as exc:
         raise AdapterError("controller commit returned malformed Git state") from exc
+
+
+def publish_implementation_ref(request: dict[str, Any], worktree: str, state: dict[str, Any]) -> None:
+    base = str(request["base_commit"])
+    branch = str(request["branch"])
+    commit = str(state["commit"])
+    tree = str(state["tree"])
+    script = f"""set -euo pipefail
+source={shlex.quote(worktree)}
+shared={shlex.quote(REMOTE_REPOSITORY)}
+base={shlex.quote(base)}
+branch={shlex.quote(branch)}
+commit={shlex.quote(commit)}
+tree={shlex.quote(tree)}
+test "$(git -C "$source" rev-parse "$commit^{{commit}}")" = "$commit"
+test "$(git -C "$source" rev-parse "$commit^{{tree}}")" = "$tree"
+test "$(git -C "$shared" rev-parse "$base^{{commit}}")" = "$base"
+test "$(git -C "$source" rev-parse "$commit^")" = "$base"
+printf '%s\n^%s\n' "$commit" "$base" | git -C "$source" pack-objects --stdout --revs | git -C "$shared" unpack-objects -r
+test "$(git -C "$shared" rev-parse "$commit^{{commit}}")" = "$commit"
+test "$(git -C "$shared" rev-parse "$commit^{{tree}}")" = "$tree"
+git -C "$shared" update-ref "refs/heads/$branch" "$commit" 0000000000000000000000000000000000000000
+test "$(git -C "$shared" rev-parse "refs/heads/$branch")" = "$commit"
+"""
+    _ssh_script(script, timeout=120)
+
+
+def rollback_implementation_ref(request: dict[str, Any], state: dict[str, Any]) -> None:
+    branch = str(request["branch"])
+    commit = str(state["commit"])
+    script = f"""set -euo pipefail
+shared={shlex.quote(REMOTE_REPOSITORY)}
+branch={shlex.quote(branch)}
+commit={shlex.quote(commit)}
+if git -C "$shared" show-ref --verify --quiet "refs/heads/$branch"; then
+  test "$(git -C "$shared" rev-parse "refs/heads/$branch")" = "$commit"
+  git -C "$shared" update-ref -d "refs/heads/$branch" "$commit"
+fi
+! git -C "$shared" show-ref --verify --quiet "refs/heads/$branch"
+"""
+    _ssh_script(script, timeout=60)
 
 
 def inspect_worktree(request: dict[str, Any], worktree: str, start: dict[str, str]) -> dict[str, Any]:
@@ -1064,24 +1320,67 @@ printf '{{"commit":"%s","tree":"%s","branch":"%s","status":%s,"changed":%s}}\\n'
 
 def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
-    for name in request["checks"]:
-        command = CHECK_COMMANDS[str(name)]
-        remote = (
-            f"set -euo pipefail; . {shlex.quote(REMOTE_TOOLCHAIN)}; "
-            f"cd {shlex.quote(worktree + '/app')}; "
-            f"exec timeout --signal=TERM --kill-after=30 {min(int(request['timeout_seconds']), 1200)} {command}"
-        )
-        process = _run(
-            ["ssh", SSH_TARGET, "bash", "-lc", shlex.quote(remote)],
-            timeout=min(int(request["timeout_seconds"]), 1200) + 45,
+    if not request["checks"]:
+        return results
+    workspace = PurePosixPath(worktree)
+    sandbox = workspace.parent
+    check_home = sandbox / "check-home"
+    check_root = sandbox / "check-source"
+    flutter_root = "/home/jellyclaude/dev/sdk/flutter-3.44.9"
+    pub_cache = "/home/jellyclaude/.cache/dart-pub"
+    prepare = f"""set -euo pipefail
+source={shlex.quote(worktree + '/app')}
+target={shlex.quote(str(check_root / 'app'))}
+test -d "$source"
+test ! -L "$source"
+test ! -e {shlex.quote(str(check_root))}
+mkdir -p {shlex.quote(str(check_root))}
+cp -a --reflink=auto -- "$source" "$target"
+"""
+    _ssh_script(prepare, timeout=120)
+    read_dirs = [
+        "/usr", "/bin", "/lib", "/lib64", "/etc", "/dev", "/proc", "/sys",
+        str(check_root), flutter_root, pub_cache,
+    ]
+    try:
+        for name in request["checks"]:
+            command = CHECK_COMMANDS[str(name)]
+            launcher = ["python3", "-c", LANDLOCK_LAUNCHER]
+            for path in read_dirs:
+                launcher.extend(["--read-dir", path])
+            launcher.extend(["--read-file", REMOTE_DART, "--read-file", REMOTE_FLUTTER_SNAPSHOT])
+            launcher.extend(["--write-file", "/dev/null"])
+            launcher.extend(["--write-dir", str(check_home), "--write-dir", str(check_root)])
+            launcher.extend([
+                "--", "/usr/bin/timeout", "--signal=TERM", "--kill-after=30",
+                str(min(int(request["timeout_seconds"]), 1200)), "/bin/bash", "-lc", command,
+            ])
+            remote = (
+                "set -euo pipefail; exec env -i "
+                f"HOME={shlex.quote(str(check_home))} XDG_CACHE_HOME={shlex.quote(str(check_home / '.cache'))} "
+                f"TMPDIR={shlex.quote(str(check_home / 'tmp'))} WORKSPACE={shlex.quote(str(check_root / 'app'))} "
+                f"PUB_CACHE={shlex.quote(pub_cache)} FLUTTER_ALREADY_LOCKED=true "
+                "PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=dumb "
+                f"{shlex.join(launcher)}"
+            )
+            process = _run(
+                ["ssh", SSH_TARGET, "bash", "-lc", shlex.quote(remote)],
+                timeout=min(int(request["timeout_seconds"]), 1200) + 45,
+                check=False,
+            )
+            combined = ((process.stdout or "") + (process.stderr or ""))[-4000:]
+            validate_output_text(combined)
+            results.append({"name": name, "exit_code": process.returncode, "passed": process.returncode == 0, "output": combined})
+            if process.returncode != 0:
+                raise AdapterError(f"independent check failed: {name}")
+        return results
+    finally:
+        _run(
+            ["ssh", SSH_TARGET, "bash", "-s"],
+            input_text=f"rm -rf -- {shlex.quote(str(check_root))}\n",
+            timeout=60,
             check=False,
         )
-        combined = ((process.stdout or "") + (process.stderr or ""))[-4000:]
-        validate_output_text(combined)
-        results.append({"name": name, "exit_code": process.returncode, "passed": process.returncode == 0, "output": combined})
-        if process.returncode != 0:
-            raise AdapterError(f"independent check failed: {name}")
-    return results
 
 
 def _result_base(
@@ -1119,6 +1418,35 @@ def _validate_result(result: dict[str, Any], *, snapshot: ControllerSnapshot | N
         raise AdapterError(f"internal result schema failure: {exc.message}") from exc
 
 
+def finalize_implementation_publication(
+    request: dict[str, Any],
+    worktree: str,
+    state: dict[str, Any],
+    output_path: Path,
+    result: dict[str, Any],
+    snapshot: ControllerSnapshot,
+) -> dict[str, Any]:
+    staged = stage_evidence_bytes(output_path, canonical_json(result) + b"\n")
+    try:
+        publish_implementation_ref(request, worktree, state)
+        publish_staged_evidence(staged)
+        return result
+    except Exception as publication_error:
+        abort_staged_evidence(staged)
+        try:
+            rollback_implementation_ref(request, state)
+        except Exception as rollback_error:
+            raise AdapterError(
+                "implementation publication failed and exact ref rollback could not be verified"
+            ) from rollback_error
+        result["verdict"] = "BLOCK"
+        result["blockers"] = [f"implementation publication failed: {type(publication_error).__name__}"]
+        result["finished_at"] = utc_now()
+        _validate_result(result, snapshot=snapshot)
+        atomic_write_json(output_path, result)
+        return result
+
+
 def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str, Any]:
     started = utc_now()
     snapshot = capture_controller_snapshot()
@@ -1131,6 +1459,7 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
     request_digest = sha256_bytes(canonical_json(request))
     result = _result_base(request, request_digest, started, snapshot)
     worktree: str | None = None
+    prepared_state: dict[str, Any] | None = None
     try:
         result["preflight"] = preflight(request, snapshot=snapshot)
         start = prepare_worktree(request)
@@ -1138,7 +1467,11 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         result["worktree"] = worktree
         result["start_commit"] = start["start_commit"]
         result["start_tree"] = start["start_tree"]
-        process = invoke_claude(request, worktree, start.get("review_files"))
+        protected_state = capture_remote_protected_state()
+        try:
+            process = invoke_claude(request, worktree, start.get("review_files"))
+        finally:
+            verify_remote_protected_state(protected_state)
         validate_output_text(process.stdout or "")
         validate_output_text(process.stderr or "")
         raw_payload = process.stdout.encode("utf-8")
@@ -1152,15 +1485,22 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         if request["mode"] == "implementation":
             precommit = inspect_precommit_worktree(request, worktree)
             validate_changed_paths(request, precommit["changed"])
-            result["checks"] = run_checks(request, worktree)
+            try:
+                result["checks"] = run_checks(request, worktree)
+            finally:
+                verify_remote_protected_state(protected_state)
             after_checks = inspect_precommit_worktree(request, worktree)
             validate_checks_preserved_state(precommit, after_checks)
             scan_changed_files(worktree, after_checks["changed"])
             state = commit_implementation(request, worktree, after_checks)
-            validate_git_state(request, state, start)
+            validate_prepared_implementation(request, state, after_checks)
+            prepared_state = state
         else:
             state = inspect_worktree(request, worktree, start)
-            result["checks"] = run_checks(request, worktree)
+            try:
+                result["checks"] = run_checks(request, worktree)
+            finally:
+                verify_remote_protected_state(protected_state)
             state = inspect_worktree(request, worktree, start)
             result["review_verdict"] = validate_review_verdict(full_worker_text)
             if result["review_verdict"] != "PASS":
@@ -1169,6 +1509,8 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
         result["final_tree"] = state["tree"]
         result["branch"] = state["branch"] or None
         result["changed_files"] = state["changed"]
+        if protected_state is not None:
+            verify_remote_protected_state(protected_state)
         result["verdict"] = "PASS"
     except subprocess.TimeoutExpired as exc:
         result["verdict"] = "TIMEOUT"
@@ -1179,10 +1521,23 @@ def execute(request_path: Path, *, allow_test_output: bool = False) -> dict[str,
     except Exception as exc:  # defensive fail-closed boundary
         result["verdict"] = "BLOCK"
         result["blockers"].append(f"unexpected adapter failure: {type(exc).__name__}")
-    result["finished_at"] = utc_now()
-    _validate_result(result, snapshot=snapshot)
-    atomic_write_json(output_path, result)
-    return result
+    try:
+        if worktree:
+            purge_sandbox_sensitive_state(worktree)
+        result["finished_at"] = utc_now()
+        _validate_result(result, snapshot=snapshot)
+        if result["verdict"] == "PASS" and request["mode"] == "implementation":
+            if prepared_state is None or worktree is None:
+                raise AdapterError("PASS implementation lacks prepared publication state")
+            result = finalize_implementation_publication(
+                request, worktree, prepared_state, output_path, result, snapshot
+            )
+        else:
+            atomic_write_json(output_path, result)
+        return result
+    finally:
+        if worktree:
+            cleanup_worktree(worktree)
 
 
 def _parser() -> argparse.ArgumentParser:
