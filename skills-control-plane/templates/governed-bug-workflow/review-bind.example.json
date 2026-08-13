@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "work_item": "BUG-000",
+  "review_card_id": "t_00000000",
+  "capability_evidence_sha256": "sha256:REPLACE_64_HEX",
+  "authority": {
+    "repository": "git@github.com:dotalbot/jellyssh.git",
+    "base_commit": "REPLACE_FULL_BASE_COMMIT",
+    "specification_commit": "REPLACE_FULL_SPECIFICATION_COMMIT",
+    "specification_path": "docs/bugs/REPLACE.md",
+    "approved_specification_sha256": "sha256:REPLACE_64_HEX",
+    "target_commit": "REPLACE_FULL_TARGET_COMMIT",
+    "target_tree": "REPLACE_FULL_TARGET_TREE"
+  },
+  "required_axes": ["standards", "specification"],
+  "expected_workspace_kind": "scratch",
+  "expected_max_runtime_seconds": 1200,
+  "expected_max_retries": 1,
+  "kanban_board": "jellyssh",
+  "expected_reviewer_profile": "jellybase_jellyssh_reviewer"
+}

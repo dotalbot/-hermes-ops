@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
+from typing import Any
 from unittest import mock
 
 import yaml
@@ -54,6 +58,177 @@ class ControlPlaneTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(
             any("project authority manifest hash drift" in error for error in result["errors"]),
+            result["errors"],
+        )
+
+    def test_static_scan_detects_current_controller_source_drift(self) -> None:
+        boundary = self.root / "scripts/review_boundary.py"
+        boundary.write_text(boundary.read_text(encoding="utf-8") + "\n# drift\n", encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "controller implementation hash drift: review_boundary.py",
+            result["errors"],
+        )
+
+    def test_static_scan_rejects_controller_source_changed_during_validation(self) -> None:
+        boundary = self.root / "scripts/review_boundary.py"
+        original_file_sha256 = projectctl.file_sha256
+        changed = False
+
+        def racing_file_sha256(path: Path) -> str:
+            nonlocal changed
+            digest = original_file_sha256(path)
+            if path == boundary and not changed:
+                boundary.write_text(
+                    boundary.read_text(encoding="utf-8") + "\n# concurrent drift\n",
+                    encoding="utf-8",
+                )
+                changed = True
+            return digest
+
+        with mock.patch.object(projectctl, "file_sha256", side_effect=racing_file_sha256):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "authority changed during validation: controller implementation review_boundary.py",
+            result["errors"],
+        )
+
+    def test_static_scan_rejects_compact_evidence_changed_during_validation(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        original_file_sha256 = projectctl.file_sha256
+        changed = False
+
+        def racing_file_sha256(path: Path) -> str:
+            nonlocal changed
+            digest = original_file_sha256(path)
+            if path == evidence and not changed:
+                evidence.write_text(
+                    evidence.read_text(encoding="utf-8") + "\n",
+                    encoding="utf-8",
+                )
+                changed = True
+            return digest
+
+        with mock.patch.object(projectctl, "file_sha256", side_effect=racing_file_sha256):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "authority changed during validation: compact Flutter test evidence",
+            result["errors"],
+        )
+
+    def test_static_scan_never_consumes_transient_unpinned_compact_evidence(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
+        original_bytes = evidence.read_bytes()
+        transient = json.loads(original_bytes.decode("utf-8"))
+        transient["generated_at"] = "transient-unpinned-value"
+        transient_bytes = (json.dumps(transient, indent=2) + "\n").encode("utf-8")
+        original_read_bytes = Path.read_bytes
+        original_validate = projectctl._validate_compact_flutter_evidence
+        injected = False
+        observed_generated_at: list[object] = []
+
+        def racing_read_bytes(path: Path) -> bytes:
+            nonlocal injected
+            content = original_read_bytes(path)
+            if path == evidence and not injected:
+                path.write_bytes(transient_bytes)
+                injected = True
+            return content
+
+        def observing_validate(value: object, producer_hashes: object) -> list[str]:
+            if isinstance(value, dict):
+                observed_generated_at.append(value.get("generated_at"))
+            evidence.write_bytes(original_bytes)
+            return original_validate(value, producer_hashes)
+
+        with (
+            mock.patch.object(Path, "read_bytes", racing_read_bytes),
+            mock.patch.object(
+                projectctl,
+                "_validate_compact_flutter_evidence",
+                side_effect=observing_validate,
+            ),
+        ):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        original = json.loads(original_bytes.decode("utf-8"))
+        self.assertTrue(injected)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(observed_generated_at, [original["generated_at"]])
+        self.assertNotEqual(observed_generated_at, [transient["generated_at"]])
+        self.assertEqual(evidence.read_bytes(), original_bytes)
+
+    def test_static_scan_never_consumes_transient_unpinned_quality_evidence(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-quality-gate.json"
+        original_bytes = evidence.read_bytes()
+        transient = json.loads(original_bytes.decode("utf-8"))
+        transient["project"] = "transient-unpinned-project"
+        transient_bytes = (json.dumps(transient, indent=2) + "\n").encode("utf-8")
+        original_read_bytes = Path.read_bytes
+        original_load_pinned_json = projectctl._load_pinned_json
+        injected = False
+        observed_projects: list[object] = []
+
+        def racing_read_bytes(path: Path) -> bytes:
+            nonlocal injected
+            content = original_read_bytes(path)
+            if path == evidence and not injected:
+                path.write_bytes(transient_bytes)
+                injected = True
+            return content
+
+        def observing_load(path: Path, expected: object, error: str) -> dict[str, object]:
+            value = original_load_pinned_json(path, expected, error)
+            if path == evidence:
+                observed_projects.append(value.get("project"))
+                evidence.write_bytes(original_bytes)
+            return value
+
+        with (
+            mock.patch.object(Path, "read_bytes", racing_read_bytes),
+            mock.patch.object(projectctl, "_load_pinned_json", side_effect=observing_load),
+        ):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        original = json.loads(original_bytes.decode("utf-8"))
+        self.assertTrue(injected)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(observed_projects, [original["project"]])
+        self.assertNotEqual(observed_projects, [transient["project"]])
+        self.assertEqual(evidence.read_bytes(), original_bytes)
+
+    def test_static_scan_rejects_quality_evidence_changed_during_validation(self) -> None:
+        evidence = self.root / "projects/jellyssh/evidence/flutter-quality-gate.json"
+        original_file_sha256 = projectctl.file_sha256
+        changed = False
+
+        def racing_file_sha256(path: Path) -> str:
+            nonlocal changed
+            digest = original_file_sha256(path)
+            if path == evidence and not changed:
+                evidence.write_text(
+                    evidence.read_text(encoding="utf-8") + "\n",
+                    encoding="utf-8",
+                )
+                changed = True
+            return digest
+
+        with mock.patch.object(projectctl, "file_sha256", side_effect=racing_file_sha256):
+            result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(result["ok"])
+        self.assertIn(
+            "authority changed during validation: Flutter quality evidence",
             result["errors"],
         )
 
@@ -115,17 +290,66 @@ class ControlPlaneTests(unittest.TestCase):
         with self.assertRaises(projectctl.ControlPlaneError):
             projectctl.write_generated(Path(self.temp.name) / "outside.md", "unsafe")
 
-    def test_generated_write_cleans_temp_file_on_replace_failure(self) -> None:
+    def test_generated_write_has_single_commit_point(self) -> None:
         original_root = projectctl.CONTROL_ROOT
         projectctl.CONTROL_ROOT = self.root
         generated = self.root / "generated"
+        target = generated / "status.json"
+        real_open = os.open
+        real_fsync = os.fsync
+        real_close = os.close
         try:
             with mock.patch.object(Path, "replace", side_effect=OSError("fixture")):
                 with self.assertRaises(OSError):
-                    projectctl.write_generated(generated / "status.md", "content")
+                    projectctl.write_generated(target, '{"verdict":"PASS"}\n')
             self.assertEqual(list(generated.iterdir()), [])
+
+            def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
+                if Path(path) == generated:
+                    raise OSError("directory open fixture")
+                return real_open(path, flags, *args)
+
+            with mock.patch.object(projectctl.os, "open", side_effect=fail_directory_open):
+                with self.assertRaisesRegex(OSError, "directory open fixture"):
+                    projectctl.write_generated(target, '{"verdict":"PASS"}\n')
+            self.assertFalse(target.exists())
+
+            def fail_directory_fsync(fd: int) -> None:
+                if stat.S_ISDIR(os.fstat(fd).st_mode):
+                    raise OSError("directory fsync fixture")
+                real_fsync(fd)
+
+            with mock.patch.object(projectctl.os, "fsync", side_effect=fail_directory_fsync):
+                projectctl.write_generated(target, '{"verdict":"PASS"}\n')
+            self.assertEqual(json.loads(target.read_text())["verdict"], "PASS")
+            target.unlink()
+
+            def close_then_fail(fd: int) -> None:
+                is_directory = stat.S_ISDIR(os.fstat(fd).st_mode)
+                real_close(fd)
+                if is_directory:
+                    raise OSError("directory close fixture")
+
+            with mock.patch.object(projectctl.os, "close", side_effect=close_then_fail):
+                projectctl.write_generated(target, '{"verdict":"PASS"}\n')
+            self.assertEqual(json.loads(target.read_text())["verdict"], "PASS")
         finally:
             projectctl.CONTROL_ROOT = original_root
+
+    def test_public_status_write_failure_is_structured_block(self) -> None:
+        target = CONTROL_ROOT / "generated" / "fault-fixture.json"
+        scan_result = {"ok": True, "project": "jellyssh", "skills": {}}
+        plan_result = {"ok": True, "actions": [], "blockers": []}
+        with (
+            mock.patch.object(projectctl, "scan", return_value=scan_result),
+            mock.patch.object(projectctl, "plan", return_value=plan_result),
+            mock.patch.object(projectctl, "write_generated", side_effect=OSError("directory open fixture")),
+            mock.patch("builtins.print") as printed,
+        ):
+            rc = projectctl.main(["status", "--format", "json", "--output", str(target)])
+        self.assertEqual(rc, 2)
+        self.assertFalse(target.exists())
+        self.assertTrue(any("BLOCK:" in str(call) for call in printed.call_args_list))
 
     def test_missing_runtime_returns_structured_block(self) -> None:
         runtime = self.project.parent / "runtime.yaml"
@@ -279,6 +503,19 @@ class ControlPlaneTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("compact Flutter test evidence contract drift", result["errors"])
 
+    def test_compact_flutter_evidence_producer_hash_drift_is_rejected(self) -> None:
+        runtime_path = self.root / "projects/jellyssh/runtime.yaml"
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+        runtime["review_boundary"]["flutter_test_compact_producer_sha256"][
+            "review_boundary.py"
+        ] = "sha256:" + "1" * 64
+        runtime_path.write_text(yaml.safe_dump(runtime, sort_keys=False), encoding="utf-8")
+
+        result = projectctl.scan(self.project, self.root, live_discovery=False)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("compact Flutter test evidence contract drift", result["errors"])
+
     def test_compact_flutter_evidence_incomplete_protocol_is_rejected(self) -> None:
         evidence_path = self.root / "projects/jellyssh/evidence/flutter-test-compact-summary.json"
         evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
@@ -322,6 +559,103 @@ class ControlPlaneTests(unittest.TestCase):
 
 
 class ReviewControlTests(unittest.TestCase):
+    def test_review_spec_requires_exact_specification_commit(self) -> None:
+        valid = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "c" * 40,
+            "expected_tree": "c" * 40,
+            "base_commit": "a" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
+            "review_type": "final",
+            "paths": ["docs/spec.md"],
+            "focus": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "review.json"
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            self.assertEqual(reviewctl.load_spec(path), valid)
+            for mutation in (
+                {key: value for key, value in valid.items() if key != "specification_commit"},
+                {key: value for key, value in valid.items() if key != "specification_path"},
+                {**valid, "specification_commit": "not-a-sha"},
+                {**valid, "specification_path": "../spec.md"},
+                {**valid, "specification_path": "docs/other.md"},
+                {**valid, "additional_ref": "d" * 40},
+            ):
+                path.write_text(json.dumps(mutation), encoding="utf-8")
+                with self.assertRaises(reviewctl.ReviewControlError):
+                    reviewctl.load_spec(path)
+
+    def test_repository_binding_admits_only_base_specification_and_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            root.mkdir()
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Review Test"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "review@example.invalid"], check=True)
+            commits = []
+            for index in range(4):
+                (root / "spec.md").write_text(f"version {index}\n", encoding="utf-8")
+                subprocess.run(["git", "-C", str(root), "add", "spec.md"], check=True)
+                subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", f"commit {index}"], check=True)
+                commits.append(
+                    subprocess.run(
+                        ["git", "-C", str(root), "rev-parse", "HEAD"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout.strip()
+                )
+            config = {
+                "mcp_servers": {
+                    "jellyssh_review": {
+                        "env": {
+                            "JELLYSSH_REVIEW_ROOT": str(root),
+                        }
+                    }
+                }
+            }
+            repository = reviewctl._repository_from_config(
+                config,
+                commits[2],
+                commits[0],
+                commits[1],
+            )
+            for ref in commits[:3]:
+                self.assertTrue(repository.git_show(ref, "spec.md").startswith("version "))
+            subprocess.run(["git", "-C", str(root), "branch", "approved-target-alias", commits[2]], check=True)
+            subprocess.run(["git", "-C", str(root), "tag", "approved-spec-alias", commits[1]], check=True)
+            for alias in ("approved-target-alias", "approved-spec-alias"):
+                with self.assertRaises(ReviewBoundaryError):
+                    repository._validate_ref(alias)
+            with self.assertRaises(ReviewBoundaryError):
+                repository._validate_ref("HEAD")
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", commits[2]], check=True)
+            self.assertEqual(repository._validate_ref("HEAD"), commits[2])
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", commits[1]], check=True)
+            with self.assertRaises(ReviewBoundaryError):
+                repository._validate_ref("HEAD")
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", commits[2]], check=True)
+            with self.assertRaises(ReviewBoundaryError):
+                repository.git_show(commits[3], "spec.md")
+            with self.assertRaises(ReviewBoundaryError):
+                reviewctl._repository_from_config(
+                    config,
+                    commits[1],
+                    commits[0],
+                    commits[2],
+                )
+            with self.assertRaises(ReviewBoundaryError):
+                ReviewRepository(
+                    root,
+                    commits[2],
+                    allowed_refs=set(commits),
+                    base_commit=commits[0],
+                    specification_commit=commits[1],
+                )
+
     def test_final_review_requires_sandbox_and_quality_checks(self) -> None:
         self.assertEqual(
             reviewctl._required_checks("final"),
@@ -332,6 +666,7 @@ class ReviewControlTests(unittest.TestCase):
                 "submodule-status",
                 "dart-format-check",
                 "flutter-analyze",
+                "sftp-browser-test",
                 "flutter-test",
             ],
         )
@@ -341,7 +676,10 @@ class ReviewControlTests(unittest.TestCase):
             "schema_version": 1,
             "project": "jellyssh",
             "expected_commit": "a" * 40,
+            "expected_tree": "a" * 40,
             "base_commit": "b" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
             "review_type": "code",
             "paths": [],
             "focus": [],
@@ -350,34 +688,145 @@ class ReviewControlTests(unittest.TestCase):
             "verdict": "PASS",
             "project": "jellyssh",
             "expected_commit": "a" * 40,
+            "expected_tree": "a" * 40,
+            "base_commit": "b" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
+            "approved_specification_sha256": "sha256:" + "1" * 64,
             "review_type": "code",
             "findings": [{"severity": "high", "path": "lib/a.dart", "line": 1, "summary": "problem"}],
-            "checks": [],
+            "checks": ["controller:PASS"],
         }
         with self.assertRaises(reviewctl.ReviewControlError):
-            reviewctl.parse_result(json.dumps(result), spec)
+            reviewctl.parse_result(json.dumps(result), spec, "sha256:" + "1" * 64)
 
     def test_prompt_explicitly_denies_kanban_and_writes(self) -> None:
         spec = {
             "schema_version": 1,
             "project": "jellyssh",
             "expected_commit": "a" * 40,
+            "expected_tree": "a" * 40,
             "base_commit": "b" * 40,
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/spec.md",
             "review_type": "final",
             "paths": [],
             "focus": [],
         }
-        prompt = reviewctl.build_prompt(spec, {"controller": "test"})
+        evidence = {
+            "controller": "test",
+            "approved_specification": {"sha256": "sha256:" + "1" * 64, "content": "approved"},
+        }
+        prompt = reviewctl.build_prompt(spec, evidence)
         self.assertIn("Do not claim to edit", prompt)
         self.assertIn("update Kanban", prompt)
         self.assertIn("authoritative-procedure", prompt)
         self.assertIn("jellyssh-controller-evidence-review", prompt)
+        self.assertIn(spec["specification_commit"], prompt)
+        self.assertIn(spec["specification_path"], prompt)
+        self.assertIn(evidence["approved_specification"]["sha256"], prompt)
+        other_prompt = reviewctl.build_prompt(
+            {**spec, "specification_commit": "c" * 40},
+            evidence,
+        )
+        self.assertNotEqual(prompt, other_prompt)
+
+    def test_mcp_facade_requires_full_base_specification_and_target_shas(self) -> None:
+        script = SCRIPTS / "jellyssh_review_mcp.py"
+        base_env = {
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+            "JELLYSSH_REVIEW_ROOT": str(CONTROL_ROOT),
+            "JELLYSSH_EXPECTED_COMMIT": "a" * 40,
+            "JELLYSSH_REVIEW_BASE_COMMIT": "b" * 40,
+            "JELLYSSH_REVIEW_SPECIFICATION_COMMIT": "c" * 40,
+        }
+        for key in (
+            "JELLYSSH_EXPECTED_COMMIT",
+            "JELLYSSH_REVIEW_BASE_COMMIT",
+            "JELLYSSH_REVIEW_SPECIFICATION_COMMIT",
+        ):
+            env = dict(base_env)
+            env.pop(key)
+            proc = subprocess.run(
+                ["/home/jellybot/.hermes/hermes-agent/venv/bin/python", str(script)],
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=2,
+            )
+            self.assertNotEqual(proc.returncode, 0, key)
+            self.assertIn(key, proc.stderr)
+
+    def test_result_contract_binds_base_and_authenticated_specification_identity(self) -> None:
+        spec = {
+            "project": "jellyssh",
+            "expected_commit": "a" * 40,
+            "expected_tree": "a" * 40,
+            "base_commit": "b" * 40,
+            "specification_commit": "c" * 40,
+            "specification_path": "docs/spec.md",
+            "review_type": "code",
+        }
+        approved_digest = "sha256:" + "1" * 64
+        result = {
+            "verdict": "PASS",
+            **{key: spec[key] for key in ("project", "expected_commit", "expected_tree", "base_commit", "specification_commit", "specification_path", "review_type")},
+            "approved_specification_sha256": approved_digest,
+            "findings": [],
+            "checks": ["controller:PASS"],
+        }
+        self.assertEqual(reviewctl.parse_result(json.dumps(result), spec, approved_digest)["verdict"], "PASS")
+        for key, replacement in (
+            ("base_commit", "d" * 40),
+            ("specification_commit", "d" * 40),
+            ("specification_path", "docs/other.md"),
+            ("approved_specification_sha256", "sha256:" + "2" * 64),
+        ):
+            mutated = {**result, key: replacement}
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.parse_result(json.dumps(mutated), spec, approved_digest)
+        missing_path = dict(result)
+        del missing_path["specification_path"]
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl.parse_result(json.dumps(missing_path), spec, approved_digest)
+
+    def test_approved_specification_evidence_uses_exact_ref_path_and_bytes(self) -> None:
+        approved = "approved immutable specification\n"
+        target_mutated = approved + "implementation evidence appended\n"
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        async def call(name: str, arguments: dict[str, object]) -> tuple[bool, str]:
+            calls.append((name, arguments))
+            return True, approved
+
+        spec = {
+            "specification_commit": "b" * 40,
+            "specification_path": "docs/bugs/BUG-009.md",
+        }
+        evidence = asyncio.run(reviewctl._approved_specification_evidence(spec, call))
+        self.assertEqual(
+            calls,
+            [("review_git_show", {"ref": "b" * 40, "relative_path": "docs/bugs/BUG-009.md"})],
+        )
+        self.assertEqual(evidence["content"], approved)
+        self.assertEqual(evidence["sha256"], "sha256:" + hashlib.sha256(approved.encode()).hexdigest())
+        self.assertNotEqual(evidence["sha256"], "sha256:" + hashlib.sha256(target_mutated.encode()).hexdigest())
+
+        async def empty_call(name: str, arguments: dict[str, object]) -> tuple[bool, str]:
+            return True, ""
+
+        with self.assertRaises(reviewctl.ReviewControlError):
+            asyncio.run(reviewctl._approved_specification_evidence(spec, empty_call))
 
     def test_review_procedure_hash_drift_blocks_prompt(self) -> None:
         spec = {
             "review_type": "final",
             "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "expected_tree": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "base_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_path": "app/spec.md",
             "paths": ["app"],
             "focus": [],
         }
@@ -390,8 +839,11 @@ class ReviewControlTests(unittest.TestCase):
             "schema_version": 1,
             "project": "jellyssh",
             "expected_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "expected_tree": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
             "review_type": "final",
             "base_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_commit": "7f612d96bd35fcaa336956d7922a82513d2e9e0d",
+            "specification_path": "app/spec.md",
             "paths": ["app"],
             "focus": [],
         }
@@ -399,8 +851,12 @@ class ReviewControlTests(unittest.TestCase):
         name = project["skill_layers"]["bundles"]["final-review"][0]
         overlay = next(item for item in project["skill_layers"]["project_overlays"] if item["name"] == name)
         captured = b"# exact captured procedure bytes\n"
+        evidence = {
+            "controller": "test",
+            "approved_specification": {"sha256": "sha256:" + "1" * 64, "content": "approved"},
+        }
         with mock.patch.object(reviewctl, "tree_snapshot", return_value=(overlay["bundle_sha256"], {"SKILL.md": captured})):
-            prompt = reviewctl.build_prompt(spec, {"controller": "test"})
+            prompt = reviewctl.build_prompt(spec, evidence)
         self.assertIn(captured.decode("utf-8"), prompt)
 
     def test_mobile_ux_uses_exact_conditional_gemini_model(self) -> None:
@@ -451,6 +907,309 @@ class ReviewControlTests(unittest.TestCase):
                 reviewctl._validate_check_output("flutter-test", True, output)
         with self.assertRaises(reviewctl.ReviewControlError):
             reviewctl._validate_check_output("flutter-test", False, json.dumps(valid))
+
+    def test_focused_sftp_check_requires_exact_compact_identity(self) -> None:
+        valid = {
+            "schema_version": 1,
+            "check": "sftp-browser-test",
+            "reporter": "json",
+            "protocol_version": "0.1.1",
+            "exit_code": 0,
+            "success": True,
+            "terminal": "done",
+            "passed": 19,
+            "failed": 0,
+            "skipped": 0,
+            "total": 19,
+            "diagnostics": [],
+        }
+
+        reviewctl._validate_check_output("sftp-browser-test", True, json.dumps(valid))
+
+        for identity in ("flutter-test", "caller-supplied-test"):
+            with self.subTest(identity=identity), self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl._validate_check_output(
+                    "sftp-browser-test",
+                    True,
+                    json.dumps({**valid, "check": identity}),
+                )
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl._validate_check_output("sftp-browser-test", False, json.dumps(valid))
+    def test_capability_schema_is_part_of_authenticated_controller_snapshot(self) -> None:
+        sources = reviewctl._verified_control_sources()
+        self.assertEqual(
+            set(sources),
+            set(reviewctl.CONTROL_COMPONENTS) | set(reviewctl.CONTROL_SCHEMAS) | {"project.yaml"},
+        )
+        schema = reviewctl.CONTROL_SCHEMAS["reviewer-capability-evidence.schema.json"]
+        original = schema.read_bytes()
+        original_read_bytes = Path.read_bytes
+        with mock.patch.object(Path, "read_bytes", autospec=True) as read_bytes:
+            def changed(path: Path) -> bytes:
+                if path == schema:
+                    return original + b" "
+                return original_read_bytes(path)
+            read_bytes.side_effect = changed
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl._verified_control_sources()
+
+    def test_capability_repository_allows_exact_detached_head_but_not_other_branches(self) -> None:
+        spec = {"expected_commit": "3" * 40, "expected_tree": "4" * 40}
+        metadata = {
+            "expected_commit_matches": True,
+            "head": spec["expected_commit"],
+            "expected_commit": spec["expected_commit"],
+            "head_tree": spec["expected_tree"],
+            "branch": "",
+            "root": reviewctl.EXPECTED_ROOT,
+            "transport": "ssh",
+            "ssh_target": reviewctl.EXPECTED_SSH_TARGET,
+            "origin": reviewctl.EXPECTED_REMOTE,
+            "remote_hostname": reviewctl.EXPECTED_REMOTE_HOSTNAME,
+            "remote_machine_id_sha256": reviewctl.EXPECTED_REMOTE_MACHINE_ID_SHA256,
+            "status": "## HEAD (no branch)",
+        }
+        reviewctl._validate_repository_metadata(spec, metadata)
+        with self.assertRaises(reviewctl.ReviewControlError):
+            reviewctl._validate_repository_metadata(
+                spec, {**metadata, "branch": "fix/untrusted", "status": "## fix/untrusted"}
+            )
+
+    def test_capability_profile_allows_worker_injected_kanban_while_cli_stays_restricted(self) -> None:
+        spec = {
+            "expected_commit": "3" * 40,
+            "base_commit": "1" * 40,
+            "specification_commit": "2" * 40,
+        }
+        config = {
+            "fallback_providers": [],
+            "platform_toolsets": {"cli": ["jellyssh_review"]},
+            "agent": {"disabled_toolsets": sorted(reviewctl.CAPABILITY_REQUIRED_DISABLED_TOOLSETS | {"kanban"})},
+            "terminal": {
+                "backend": "local", "cwd": reviewctl.EXPECTED_BRIDGE,
+                "persistent_shell": False, "timeout": 330,
+            },
+        }
+        with (
+            mock.patch.object(reviewctl, "_verify_mcp_server_binding"),
+            mock.patch.object(reviewctl, "_verify_reviewer_memory"),
+            mock.patch.object(reviewctl, "_verify_pinned_host_key"),
+        ):
+            reviewctl.verify_capability_profile_binding(spec, Path("/profile"), config)
+        config["agent"]["disabled_toolsets"].remove("terminal")
+        with (
+            mock.patch.object(reviewctl, "_verify_mcp_server_binding"),
+            mock.patch.object(reviewctl, "_verify_reviewer_memory"),
+            mock.patch.object(reviewctl, "_verify_pinned_host_key"),
+            self.assertRaises(reviewctl.ReviewControlError),
+        ):
+            reviewctl.verify_capability_profile_binding(spec, Path("/profile"), config)
+
+    def test_capability_preflight_is_non_semantic_and_exact_attempt_bound(self) -> None:
+        spec = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "3" * 40,
+            "expected_tree": "3" * 40,
+            "base_commit": "1" * 40,
+            "specification_commit": "2" * 40,
+            "specification_path": "docs/bugs/BUG-010.md",
+            "review_type": "final",
+            "paths": ["docs/bugs/BUG-010.md", "app/lib"],
+            "focus": ["single flight"],
+        }
+        evidence = {
+            "metadata": {"head": "3" * 40},
+            "approved_specification": {"sha256": "sha256:" + hashlib.sha256(b"approved bytes").hexdigest(), "content": "approved bytes"},
+            "checks": {"head-clean": {"ok": True, "output": "CLEAN"}},
+        }
+        sources = {name: name.encode() for name in reviewctl.CONTROL_COMPONENTS}
+        sources.update({name: path.read_bytes() for name, path in reviewctl.CONTROL_SCHEMAS.items()})
+        sources["project.yaml"] = b"project bytes"
+        with (
+            mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+            mock.patch.object(reviewctl, "verify_capability_profile_binding"),
+            mock.patch.object(reviewctl, "verify_repository_binding"),
+            mock.patch.object(reviewctl, "build_evidence", return_value=evidence) as evidence_builder,
+            mock.patch.object(reviewctl.urllib.request, "urlopen") as semantic_model,
+        ):
+            envelope = reviewctl.build_capability_envelope(
+                spec, Path("/profile"), {"config": True}, "t_abcdef12", "2026-08-12T00:00:00+00:00"
+            )
+        semantic_model.assert_not_called()
+        evidence_builder.assert_called_once_with(
+            spec, {"config": True}, ["sandbox-self-check", "head-clean", "submodule-status"]
+        )
+        self.assertEqual(envelope["capability_verdict"], "PASS")
+        self.assertIsNone(envelope["semantic_verdict"])
+        self.assertEqual(envelope["attempt_id"], "t_abcdef12")
+        self.assertEqual(envelope["approved_specification"]["path"], spec["specification_path"])
+
+    def test_capability_envelope_rejects_tamper_or_replay_across_attempt_and_spec(self) -> None:
+        spec = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "3" * 40,
+            "expected_tree": "3" * 40,
+            "base_commit": "1" * 40,
+            "specification_commit": "2" * 40,
+            "specification_path": "docs/bugs/BUG-010.md",
+            "review_type": "final",
+            "paths": ["docs/bugs/BUG-010.md"],
+            "focus": [],
+        }
+        evidence = {
+            "metadata": {"head": "3" * 40},
+            "approved_specification": {"sha256": "sha256:" + hashlib.sha256(b"approved bytes").hexdigest(), "content": "approved bytes"},
+            "checks": {"head-clean": {"ok": True, "output": "CLEAN"}},
+        }
+        sources = {name: name.encode() for name in reviewctl.CONTROL_COMPONENTS}
+        sources.update({name: path.read_bytes() for name, path in reviewctl.CONTROL_SCHEMAS.items()})
+        sources["project.yaml"] = b"project bytes"
+        with (
+            mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+            mock.patch.object(reviewctl, "verify_capability_profile_binding"),
+            mock.patch.object(reviewctl, "verify_repository_binding"),
+            mock.patch.object(reviewctl, "build_evidence", return_value=evidence),
+        ):
+            envelope = reviewctl.build_capability_envelope(
+                spec, Path("/profile"), {}, "t_abcdef12", "2026-08-12T00:00:00+00:00"
+            )
+            accepted = reviewctl.validate_capability_envelope(envelope, spec, "t_abcdef12", {})
+            self.assertEqual(accepted, evidence)
+            secret_envelope = copy.deepcopy(envelope)
+            secret_envelope["mcp_evidence"]["metadata"]["notes"] = "github_pat_" + "a" * 30
+            secret_envelope["mcp_evidence_sha256"] = reviewctl._canonical_sha256(secret_envelope["mcp_evidence"])
+            secret_envelope["envelope_sha256"] = reviewctl._document_sha256(secret_envelope, "envelope_sha256")
+            with self.assertRaisesRegex(reviewctl.ReviewControlError, "secret-shaped material"):
+                reviewctl.validate_capability_envelope(secret_envelope, spec, "t_abcdef12", {})
+            for name, changed in {
+                "attempt": {**envelope, "attempt_id": "t_deadbeef"},
+                "spec-path": {**envelope, "approved_specification": {**envelope["approved_specification"], "path": "docs/bugs/other.md"}},
+                "mcp": {**envelope, "mcp_evidence": {"metadata": {"head": "f" * 40}}},
+                "semantic": {**envelope, "semantic_verdict": "PASS"},
+            }.items():
+                with self.subTest(name=name), self.assertRaises(reviewctl.ReviewControlError):
+                    reviewctl.validate_capability_envelope(changed, spec, "t_abcdef12", {})
+            changed_spec = {**spec, "expected_commit": "5" * 40, "expected_tree": "5" * 40}
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.validate_capability_envelope(envelope, changed_spec, "t_abcdef12", {})
+
+    def test_capability_file_uses_one_authenticated_snapshot_and_safe_atomic_path(self) -> None:
+        spec = {
+            "schema_version": 1,
+            "project": "jellyssh",
+            "expected_commit": "3" * 40,
+            "expected_tree": "3" * 40,
+            "base_commit": "1" * 40,
+            "specification_commit": "2" * 40,
+            "specification_path": "docs/bugs/BUG-010.md",
+            "review_type": "final",
+            "paths": ["docs/bugs/BUG-010.md"],
+            "focus": [],
+        }
+        evidence = {
+            "metadata": {"head": "3" * 40},
+            "approved_specification": {"sha256": "sha256:" + hashlib.sha256(b"approved bytes").hexdigest(), "content": "approved bytes"},
+            "checks": {"head-clean": {"ok": True, "output": "CLEAN"}},
+        }
+        sources = {name: name.encode() for name in reviewctl.CONTROL_COMPONENTS}
+        sources.update({name: path.read_bytes() for name, path in reviewctl.CONTROL_SCHEMAS.items()})
+        sources["project.yaml"] = b"project bytes"
+        with (
+            mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+            mock.patch.object(reviewctl, "verify_capability_profile_binding"),
+            mock.patch.object(reviewctl, "verify_repository_binding"),
+            mock.patch.object(reviewctl, "build_evidence", return_value=evidence),
+        ):
+            envelope = reviewctl.build_capability_envelope(spec, Path("/profile"), {}, "t_abcdef12", "2026-08-12T00:00:00+00:00")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "capability.json"
+            published_digest = reviewctl.write_capability_envelope(target, envelope)
+            original = target.read_bytes()
+            self.assertEqual(published_digest, "sha256:" + hashlib.sha256(original).hexdigest())
+            with (
+                mock.patch.object(Path, "read_bytes", return_value=original) as one_read,
+                mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+                mock.patch.object(reviewctl, "verify_capability_profile_binding"),
+                mock.patch.object(reviewctl, "verify_repository_binding"),
+            ):
+                loaded, loaded_digest = reviewctl.load_capability_snapshot(target, spec, "t_abcdef12", {})
+            self.assertEqual(loaded, evidence)
+            self.assertEqual(loaded_digest, "sha256:" + hashlib.sha256(original).hexdigest())
+            one_read.assert_called_once_with()
+            link = Path(temporary) / "link.json"
+            link.symlink_to(target)
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.load_capability_envelope(link, spec, "t_abcdef12", {})
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.write_capability_envelope(Path("relative.json"), envelope)
+            outside = Path(temporary) / "outside"
+            outside.mkdir()
+            ancestor = Path(temporary) / "ancestor"
+            ancestor.symlink_to(outside, target_is_directory=True)
+            escaped = ancestor / "nested" / "capability.json"
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.write_capability_envelope(escaped, envelope)
+            self.assertFalse((outside / "nested" / "capability.json").exists())
+            outside_input = outside / "input.json"
+            outside_input.write_bytes(original)
+            with self.assertRaises(reviewctl.ReviewControlError):
+                reviewctl.load_capability_snapshot(ancestor / "input.json", spec, "t_abcdef12", {})
+
+            real_fsync = os.fsync
+            real_open = os.open
+            real_close = os.close
+
+            def fail_directory_fsync(fd: int) -> None:
+                if stat.S_ISDIR(os.fstat(fd).st_mode):
+                    raise OSError("directory fsync fixture")
+                real_fsync(fd)
+
+            failed = Path(temporary) / "failed-capability.json"
+            with (
+                mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+                mock.patch.object(reviewctl.os, "fsync", side_effect=fail_directory_fsync),
+            ):
+                digest = reviewctl.write_capability_envelope(failed, envelope)
+            self.assertEqual(digest, "sha256:" + hashlib.sha256(failed.read_bytes()).hexdigest())
+            self.assertEqual(json.loads(failed.read_text(encoding="utf-8"))["capability_verdict"], "PASS")
+
+            failed.unlink()
+            with (
+                mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+                mock.patch.object(Path, "replace", side_effect=OSError("replace fixture")),
+            ):
+                with self.assertRaisesRegex(reviewctl.ReviewControlError, "publication failed"):
+                    reviewctl.write_capability_envelope(failed, envelope)
+            self.assertFalse(failed.exists())
+
+            def fail_directory_open(path: Any, flags: int, *args: Any) -> int:
+                if Path(path) == failed.parent and flags & getattr(os, "O_DIRECTORY", 0):
+                    raise OSError("directory open fixture")
+                return real_open(path, flags, *args)
+
+            with (
+                mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+                mock.patch.object(reviewctl.os, "open", side_effect=fail_directory_open),
+            ):
+                with self.assertRaisesRegex(reviewctl.ReviewControlError, "publication failed"):
+                    reviewctl.write_capability_envelope(failed, envelope)
+            self.assertFalse(failed.exists())
+
+            def close_then_fail(fd: int) -> None:
+                is_directory = stat.S_ISDIR(os.fstat(fd).st_mode)
+                real_close(fd)
+                if is_directory:
+                    raise OSError("directory close fixture")
+
+            with (
+                mock.patch.object(reviewctl, "_verified_control_sources", return_value=sources),
+                mock.patch.object(reviewctl.os, "close", side_effect=close_then_fail),
+            ):
+                digest = reviewctl.write_capability_envelope(failed, envelope)
+            self.assertEqual(digest, "sha256:" + hashlib.sha256(failed.read_bytes()).hexdigest())
+            self.assertEqual(json.loads(failed.read_text(encoding="utf-8"))["capability_verdict"], "PASS")
 
 
 class ReviewBoundaryTests(unittest.TestCase):
@@ -671,7 +1430,14 @@ class ReviewBoundaryTests(unittest.TestCase):
             yaml.safe_dump({"mcp_servers": {"jellyssh_review": {"env": {"JELLYSSH_REVIEW_ROOT": str(self.root)}}}}),
             encoding="utf-8",
         )
-        spec = {"expected_commit": self.head, "base_commit": self.head, "paths": ["lib"]}
+        spec = {
+            "expected_commit": self.head,
+            "expected_tree": self.head,
+            "base_commit": self.head,
+            "specification_commit": self.head,
+            "specification_path": "lib/spec.md",
+            "paths": ["lib"],
+        }
         result = {"findings": [{"path": "outside/file.txt"}]}
         with self.assertRaises(reviewctl.ReviewControlError):
             config = yaml.safe_load((profile / "config.yaml").read_text(encoding="utf-8"))

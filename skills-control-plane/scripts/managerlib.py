@@ -115,6 +115,11 @@ def _reject_secret_keys(value: Any, path: str = "<root>") -> None:
         raise ManagerError(f"secret-shaped value is forbidden in manager input: {path}")
 
 
+def reject_secret_material(value: Any, path: str = "<root>") -> None:
+    """Reject secret-bearing keys and secret-shaped scalar values recursively."""
+    _reject_secret_keys(value, path)
+
+
 def _contains_secret(value: Any) -> bool:
     try:
         _reject_secret_keys(value)
@@ -298,6 +303,8 @@ def _atomic_write(path: Path, content: bytes, mode: int = 0o600) -> None:
     if path.is_symlink():
         raise ManagerError(f"managed target cannot be a symlink: {path}")
     temp: Path | None = None
+    directory_fd: int | None = None
+    committed = False
     try:
         with tempfile.NamedTemporaryFile("wb", dir=path.parent, delete=False) as handle:
             temp = Path(handle.name)
@@ -305,15 +312,25 @@ def _atomic_write(path: Path, content: bytes, mode: int = 0o600) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temp, mode)
-        temp.replace(path)
         directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        temp.replace(path)
+        committed = True
         try:
             os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        except OSError:
+            pass
     finally:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                if not committed:
+                    raise
         if temp is not None:
-            temp.unlink(missing_ok=True)
+            try:
+                temp.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 class HermesAdapter:

@@ -152,6 +152,7 @@
         "controller_verdict",
         "flutter_test_compact_evidence",
         "flutter_test_compact_evidence_sha256",
+        "flutter_test_compact_producer_sha256",
         "exposed_tools",
         "forbidden_toolsets",
         "sampling_enabled",
@@ -164,6 +165,7 @@
         "ssh_host_key_fingerprint",
         "pinned_known_hosts_path",
         "implementation_sha256",
+        "schema_sha256",
         "conditional_ui_model",
         "conditional_ui_routing_state",
         "conditional_ui_evidence",
@@ -257,6 +259,19 @@
         "flutter_test_compact_evidence_sha256": {
           "$ref": "#/$defs/nonZeroSha256"
         },
+        "flutter_test_compact_producer_sha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["review_boundary.py", "reviewctl.py"],
+          "properties": {
+            "review_boundary.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "reviewctl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            }
+          }
+        },
         "sandbox_image_digest": {
           "const": "sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4"
         },
@@ -285,7 +300,10 @@
             "reviewctl.py",
             "review_boundary.py",
             "jellyssh_review_mcp.py",
-            "projectctl.py"
+            "projectctl.py",
+            "governancectl.py",
+            "managerctl.py",
+            "managerlib.py"
           ],
           "properties": {
             "reviewctl.py": {
@@ -299,7 +317,32 @@
             },
             "projectctl.py": {
               "$ref": "#/$defs/nonZeroSha256"
+            },
+            "governancectl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "managerctl.py": {
+              "$ref": "#/$defs/nonZeroSha256"
+            },
+            "managerlib.py": {
+              "$ref": "#/$defs/nonZeroSha256"
             }
+          }
+        },
+        "schema_sha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewer-capability-evidence.schema.json",
+            "governance-timing.schema.json",
+            "governed-review-contract.schema.json",
+            "governed-acceptance-request.schema.json"
+          ],
+          "properties": {
+            "reviewer-capability-evidence.schema.json": {"$ref": "#/$defs/nonZeroSha256"},
+            "governance-timing.schema.json": {"$ref": "#/$defs/nonZeroSha256"},
+            "governed-review-contract.schema.json": {"$ref": "#/$defs/nonZeroSha256"},
+            "governed-acceptance-request.schema.json": {"$ref": "#/$defs/nonZeroSha256"}
           }
         },
         "conditional_ui_model": {

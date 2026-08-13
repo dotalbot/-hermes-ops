@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import sys
 
 from mcp.server.fastmcp import FastMCP
@@ -16,8 +17,16 @@ from review_boundary import ReviewRepository  # noqa: E402
 
 ROOT = os.environ.get("JELLYSSH_REVIEW_ROOT", "").strip()
 EXPECTED = os.environ.get("JELLYSSH_EXPECTED_COMMIT", "").strip()
-BASE = os.environ.get("JELLYSSH_REVIEW_BASE_COMMIT", EXPECTED).strip()
+BASE = os.environ.get("JELLYSSH_REVIEW_BASE_COMMIT", "").strip()
+SPECIFICATION = os.environ.get("JELLYSSH_REVIEW_SPECIFICATION_COMMIT", "").strip()
 SSH_TARGET = os.environ.get("JELLYSSH_REVIEW_SSH_TARGET", "").strip()
+for name, value in (
+    ("JELLYSSH_EXPECTED_COMMIT", EXPECTED),
+    ("JELLYSSH_REVIEW_BASE_COMMIT", BASE),
+    ("JELLYSSH_REVIEW_SPECIFICATION_COMMIT", SPECIFICATION),
+):
+    if not re.fullmatch(r"[0-9a-f]{40}", value):
+        raise RuntimeError(f"{name} must be a full lowercase commit SHA")
 if not ROOT:
     raise RuntimeError("JELLYSSH_REVIEW_ROOT is required")
 
@@ -25,8 +34,9 @@ repo = ReviewRepository(
     ROOT,
     EXPECTED or None,
     SSH_TARGET or None,
-    allowed_refs={value for value in (EXPECTED, BASE) if value},
+    allowed_refs={value for value in (EXPECTED, BASE, SPECIFICATION) if value},
     base_commit=BASE or None,
+    specification_commit=SPECIFICATION or None,
 )
 mcp = FastMCP("jellyssh-review-readonly")
 READ_ONLY = ToolAnnotations(

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/hermes/skills-control-plane/governed-acceptance-request.schema.json",
+  "title": "Fresh governed acceptance binder request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "work_item", "acceptance_card_id", "review_card_id", "review_authority_sha256", "authority", "checks", "kanban_board", "expected_acceptance_profile"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "work_item": {"type": "string", "pattern": "^[A-Z]+-[0-9]+$"},
+    "acceptance_card_id": {"$ref": "#/$defs/card"},
+    "review_card_id": {"$ref": "#/$defs/card"},
+    "review_authority_sha256": {"$ref": "#/$defs/sha256"},
+    "kanban_board": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"},
+    "expected_acceptance_profile": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"},
+        {"type": "null"}
+      ]
+    },
+    "authority": {"$ref": "#/$defs/authority"},
+    "checks": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "ok", "evidence"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+          "ok": {"const": true},
+          "evidence": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "card": {"type": "string", "pattern": "^t_[0-9a-f]{8}$"},
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "base_commit", "specification_commit", "specification_path", "approved_specification_sha256", "target_commit", "target_tree"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "base_commit": {"$ref": "#/$defs/sha"},
+        "specification_commit": {"$ref": "#/$defs/sha"},
+        "specification_path": {"type": "string", "pattern": "^docs/(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
+        "approved_specification_sha256": {"$ref": "#/$defs/sha256"},
+        "target_commit": {"$ref": "#/$defs/sha"},
+        "target_tree": {"$ref": "#/$defs/sha"}
+      }
+    }
+  }
+}

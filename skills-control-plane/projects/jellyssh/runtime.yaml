@@ -78,6 +78,9 @@ review_boundary:
   controller_verdict: BLOCK
   flutter_test_compact_evidence: skills-control-plane/projects/jellyssh/evidence/flutter-test-compact-summary.json
   flutter_test_compact_evidence_sha256: sha256:c2118f1a86e772448dfd53cc8789c67a2a0f84bc5e596275dfc5a6db1bae0134
+  flutter_test_compact_producer_sha256:
+    review_boundary.py: sha256:611df8c1fccd1edde7aa7b16308a9003950425b45af062c09cb800fbabc2752e
+    reviewctl.py: sha256:b12c27fa92fc9a52237323b4bf9aa40b4e9c2a1e204234833d02a1521273bfef
   sandbox_image_digest: sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
   project_state_commit: 7f612d96bd35fcaa336956d7922a82513d2e9e0d
   project_state_sha256: sha256:85ea70abf69c056069a1b3dfb74ec5d52ef789db14f8c703e5e7c6d8bab135f9
@@ -86,10 +89,13 @@ review_boundary:
   ssh_host_key_fingerprint: SHA256:MsKB6W/Pdd/0AU70/OvI8DnG9tFMyQvcEeYjaTLazR0
   pinned_known_hosts_path: /home/jellybot/.hermes/profiles/jellybase_jellyssh_reviewer/jellybase_known_hosts
   implementation_sha256:
-    reviewctl.py: sha256:b12c27fa92fc9a52237323b4bf9aa40b4e9c2a1e204234833d02a1521273bfef
-    review_boundary.py: sha256:611df8c1fccd1edde7aa7b16308a9003950425b45af062c09cb800fbabc2752e
-    jellyssh_review_mcp.py: sha256:a560a09bad07114bc2d084c5aabe8b628893f12b7f5976530d742c8ee7c36ed2
-    projectctl.py: sha256:4f2768943dfaed67bb0faefe16b251752801f117f9b17930b0d25ecee388d274
+    reviewctl.py: sha256:0747fe63ae29dfb76234e4b96fa668f9f00d1d8586d41bb70333b835bd976ceb
+    review_boundary.py: sha256:4161529f59e4d7a46b5f4085e74efe5cf18bfd23ac365e6934868b21913602a6
+    jellyssh_review_mcp.py: sha256:f307541c0337ef9849468ebf4838c50374553a27847d6841ce850555aaeb6bc9
+    projectctl.py: sha256:45183cc7d0ac5a82b0fb889f63f9ea00495809ac00e599260dcb1e185cfe1b1b
+    governancectl.py: sha256:a1383f9f4f51d058ce950cf4a8387e22722f9536aa26f59a2b5b902ab1c71cb0
+    managerctl.py: sha256:bde99448165886fe2f16436a303233ae4f6e9c9d2390a8d5c522251f81aac7ff
+    managerlib.py: sha256:a5d3ce1f7b817f197a4a37c011d3ca6601f9e8cc853c584bc4a2ef8b08fdc5b1
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
   conditional_ui_routing_state: verified
   conditional_ui_evidence: skills-control-plane/projects/jellyssh/evidence/ui-controller-smoke.json
@@ -97,6 +103,11 @@ review_boundary:
   ssh_host_address: 192.168.1.2
   ssh_identity_file: /home/jellybot/.ssh/id_ed25519
   project_manifest_sha256: sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899
+  schema_sha256:
+    reviewer-capability-evidence.schema.json: sha256:6a9c7a67dbf5a228b596e20b020cec4085032aa0d23ee0d71c7fecc9986d325a
+    governance-timing.schema.json: sha256:db9e7cdf6e4ecaeba94b142c6a2cdccc319c1188d09957787472f46bf9efdf60
+    governed-review-contract.schema.json: sha256:54c03e294896ce580a6a5b19208686c547e8ec87ac3c87fc4f2fb7f38e9c453b
+    governed-acceptance-request.schema.json: sha256:69f6d145309f8657f860738e190bdf5a24caee98d2ba9cdf4227a725ec748d2a
 repository_auth:
   remote: git@github.com:dotalbot/jellyssh.git
   jellybase_key_path: /home/jellydev/.ssh/jellyssh_github_ed25519
@@ -144,7 +155,8 @@ rollback:
   preexisting_target_profiles: absent
   source_baseline_archive: /home/jellybot/.hermes/backups/jellyssh-phase2-20260809T071058+0100/jellybase-hermes-source-baseline.tar.gz
   current_target_profiles_archive: /home/jellybot/.hermes/backups/jellyssh-phase2-20260809T075208+0100/jellyssh-target-profiles-verified.tar.gz
-  rollback_action: remove the two isolated target profiles, the empty JellySSH board, and /var/tmp/jellyssh-review-runtime; source profile was not modified
+  rollback_action: remove the two isolated target profiles, the empty JellySSH board,
+    and /var/tmp/jellyssh-review-runtime; source profile was not modified
   source_baseline_archive_sha256: sha256:bb269f0936c8fd4adefd09f86806920b6cd38b43c37388e44cecc8d9561876b6
   current_target_profiles_archive_sha256: sha256:a2c66f577bc45228326eab64da77921a2e345ee93c372225b2295eb24ac4af40
 skill_materialization:
@@ -153,14 +165,23 @@ skill_materialization:
   installed_copy_state: profile-local-hash-verified
 governance_decisions:
 - id: architecture-reviewer-profile-target
-  phase1_conflict: codebase-design listed default while architecture binding listed jellybase_jellyssh_reviewer
-  resolution: bind codebase-design only to isolated JellySSH reviewer for Phase 2 architecture reviews
+  phase1_conflict: codebase-design listed default while architecture binding listed
+    jellybase_jellyssh_reviewer
+  resolution: bind codebase-design only to isolated JellySSH reviewer for Phase 2
+    architecture reviews
   state: independently-reviewed
 - id: phase2-control-plane-overlay-authority
-  phase1_conflict: accepted lifecycle placed project overlays in the JellySSH repository, but Phase 2 is pinned to an accepted JellySSH commit and authorizes no project-repository commit
-  resolution: keep Phase 2 overlay authority versioned in hermes-ops and install hash-pinned profile copies; any future JellySSH .hermes-project mirror requires separate project-repository governance
+  phase1_conflict: accepted lifecycle placed project overlays in the JellySSH repository,
+    but Phase 2 is pinned to an accepted JellySSH commit and authorizes no project-repository
+    commit
+  resolution: keep Phase 2 overlay authority versioned in hermes-ops and install hash-pinned
+    profile copies; any future JellySSH .hermes-project mirror requires separate project-repository
+    governance
   state: independently-reviewed
 - id: phase2-project-profile-retention
-  phase1_conflict: earlier design allowed deliberate implementation retention while the accepted Phase 2 task requires automatic retention disabled
-  resolution: disable automatic retention for both JellySSH project profiles; implementation recall remains enabled and reviewer recall is disabled for fresh evidence-only review
+  phase1_conflict: earlier design allowed deliberate implementation retention while
+    the accepted Phase 2 task requires automatic retention disabled
+  resolution: disable automatic retention for both JellySSH project profiles; implementation
+    recall remains enabled and reviewer recall is disabled for fresh evidence-only
+    review
   state: independently-reviewed

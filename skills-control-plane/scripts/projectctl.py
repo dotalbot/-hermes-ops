@@ -164,6 +164,53 @@ def file_sha256_or_none(path: Path) -> str | None:
         return None
 
 
+def _read_pinned_bytes(path: Path, expected: object, drift_error: str) -> bytes:
+    """Read once and authenticate the exact bytes returned to the caller."""
+    if path.is_symlink() or not path.is_file():
+        raise ControlPlaneError(drift_error)
+    content = path.read_bytes()
+    actual = "sha256:" + hashlib.sha256(content).hexdigest()
+    if actual != expected:
+        raise ControlPlaneError(drift_error)
+    return content
+
+
+def _load_pinned_json(path: Path, expected: object, drift_error: str) -> dict[str, Any]:
+    content = _read_pinned_bytes(path, expected, drift_error)
+    try:
+        value = json.loads(content.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ControlPlaneError(drift_error) from exc
+    if not isinstance(value, dict):
+        raise ControlPlaneError(drift_error)
+    return value
+
+
+def _authority_stability_errors(
+    authorities: dict[str, tuple[Path, object]],
+) -> list[str]:
+    """Require pinned authority paths to remain exact through validation."""
+    errors: set[str] = set()
+    snapshots: list[dict[str, str]] = []
+    for _ in range(2):
+        snapshot: dict[str, str] = {}
+        for label, (path, expected) in authorities.items():
+            try:
+                actual = file_sha256(path)
+            except (ControlPlaneError, OSError):
+                errors.add(f"authority unavailable during validation: {label}")
+                continue
+            snapshot[label] = actual
+            if actual != expected:
+                errors.add(f"authority changed during validation: {label}")
+        snapshots.append(snapshot)
+    for label in authorities:
+        observed = [snapshot.get(label) for snapshot in snapshots]
+        if None not in observed and len(set(observed)) != 1:
+            errors.add(f"authority changed during validation: {label}")
+    return sorted(errors)
+
+
 def canonical_sha256(value: Any) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
@@ -467,65 +514,38 @@ def write_lifecycle_evidence(control_root: Path, path: Path, content: str) -> No
     if path.is_symlink():
         raise ControlPlaneError("lifecycle evidence output cannot be a symlink")
     temp_path: Path | None = None
-    published = False
+    directory_fd: int | None = None
+    committed = False
     try:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=evidence_root, delete=False) as handle:
             temp_path = Path(handle.name)
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        temp_path.replace(target)
-        published = True
         directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        temp_path.replace(target)
+        committed = True
+        # Atomic replacement is the lifecycle publication commit point.
+        # Never report post-commit durability failure with PASS visible.
         try:
             os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        except OSError:
+            pass
     except (ControlPlaneError, OSError):
-        if published:
-            _invalidate_failed_lifecycle_evidence(target, evidence_root)
         raise
-    finally:
-        if temp_path is not None:
-            try:
-                temp_path.unlink(missing_ok=True)
-            except OSError:
-                # Publication commits after the target rename and directory fsync.
-                # Temp cleanup is housekeeping and must not change that outcome or
-                # mask an earlier publication failure.
-                pass
-
-
-def _invalidate_failed_lifecycle_evidence(target: Path, evidence_root: Path) -> None:
-    """Ensure a reported post-rename failure cannot leave PASS evidence."""
-    try:
-        target.unlink(missing_ok=True)
-    except OSError:
-        invalid = b'{"errors":["evidence durability failure"],"verdict":"BLOCK"}\n'
-        flags = os.O_WRONLY | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(target, flags)
-        try:
-            view = memoryview(invalid)
-            while view:
-                written = os.write(fd, view)
-                if written <= 0:
-                    raise OSError("failed to invalidate lifecycle evidence")
-                view = view[written:]
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-
-    directory_fd: int | None = None
-    try:
-        directory_fd = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        os.fsync(directory_fd)
-    except OSError:
-        pass
     finally:
         if directory_fd is not None:
             try:
                 os.close(directory_fd)
             except OSError:
+                if not committed:
+                    raise
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                # Temp cleanup is housekeeping and must not change a committed
+                # outcome or mask an earlier publication failure.
                 pass
 
 
@@ -658,7 +678,10 @@ def validate_descriptor(control_root: Path, descriptor_path: Path) -> tuple[dict
     return doc, errors
 
 
-def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> list[str]:
+def _validate_compact_flutter_evidence(
+    evidence: Any,
+    producer_hashes: Any,
+) -> list[str]:
     error = "compact Flutter test evidence contract drift"
     if not isinstance(evidence, dict) or set(evidence) != {
         "schema_version", "project", "evidence_type", "generated_at",
@@ -716,8 +739,9 @@ def _validate_compact_flutter_evidence(evidence: Any, control_root: Path) -> lis
         or len(evidence.get("sandbox_controls") or []) != len(EXPECTED_COMPACT_FLUTTER_SANDBOX_CONTROLS)
         or not isinstance(source_hashes, dict)
         or set(source_hashes) != {"review_boundary.py", "reviewctl.py"}
-        or source_hashes.get("review_boundary.py") != file_sha256(control_root / "scripts/review_boundary.py")
-        or source_hashes.get("reviewctl.py") != file_sha256(control_root / "scripts/reviewctl.py")
+        or not isinstance(producer_hashes, dict)
+        or set(producer_hashes) != {"review_boundary.py", "reviewctl.py"}
+        or source_hashes != producer_hashes
     ):
         return [error]
     canonical_output = json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n"
@@ -785,6 +809,7 @@ def _validate_quality_evidence(
     runtime: dict[str, Any],
     project: dict[str, Any],
     control_root: Path,
+    authority_files: dict[str, tuple[Path, object]],
 ) -> list[str]:
     errors: list[str] = []
     toolchain_data = runtime.get("toolchain", {})
@@ -796,9 +821,15 @@ def _validate_quality_evidence(
             raise ControlPlaneError("quality evidence path is unsafe")
         quality_path = (control_root.parent / quality_rel).resolve()
         quality_path.relative_to(control_root.parent.resolve())
-        if file_sha256(quality_path) != toolchain_data.get("quality_gate_evidence_sha256"):
-            errors.append("Flutter quality evidence hash drift")
-        quality = json.loads(quality_path.read_text(encoding="utf-8"))
+        authority_files["Flutter quality evidence"] = (
+            quality_path,
+            toolchain_data.get("quality_gate_evidence_sha256"),
+        )
+        quality = _load_pinned_json(
+            quality_path,
+            toolchain_data.get("quality_gate_evidence_sha256"),
+            "Flutter quality evidence hash drift",
+        )
         restricted = quality.get("restricted_controller", {})
         if (
             quality.get("project") != "jellyssh"
@@ -824,6 +855,7 @@ def validate_runtime(
     live_discovery: bool = True,
 ) -> list[str]:
     errors: list[str] = []
+    authority_files: dict[str, tuple[Path, object]] = {}
     declared_skills = declared_skills or {}
     runtime = load_yaml(runtime_path)
     lifecycle_by_runtime = {
@@ -903,29 +935,85 @@ def validate_runtime(
             "review_boundary.py": control_root / "scripts" / "review_boundary.py",
             "jellyssh_review_mcp.py": control_root / "scripts" / "jellyssh_review_mcp.py",
             "projectctl.py": control_root / "scripts" / "projectctl.py",
+            "governancectl.py": control_root / "scripts" / "governancectl.py",
+            "managerctl.py": control_root / "scripts" / "managerctl.py",
+            "managerlib.py": control_root / "scripts" / "managerlib.py",
         }
         component_hashes = boundary.get("implementation_sha256")
         if not isinstance(component_hashes, dict) or set(component_hashes) != set(component_paths):
             errors.append(f"{runtime_path}: controller implementation hash manifest shape drift")
         else:
             for name, component_path in component_paths.items():
+                authority_files[f"controller implementation {name}"] = (
+                    component_path,
+                    component_hashes.get(name),
+                )
                 if component_path.is_symlink() or not component_path.is_file():
                     errors.append(f"controller implementation component type drift: {name}")
-                elif file_sha256(component_path) != component_hashes.get(name):
-                    errors.append(f"controller implementation hash drift: {name}")
-        if boundary.get("project_manifest_sha256") != file_sha256(
-            control_root / "projects" / "jellyssh" / "project.yaml"
-        ):
-            errors.append(f"{runtime_path}: project authority manifest hash drift")
+                else:
+                    try:
+                        _read_pinned_bytes(
+                            component_path,
+                            component_hashes.get(name),
+                            f"controller implementation hash drift: {name}",
+                        )
+                    except ControlPlaneError as exc:
+                        errors.append(str(exc))
+        schema_paths = {
+            "reviewer-capability-evidence.schema.json": control_root / "schemas" / "reviewer-capability-evidence.schema.json",
+            "governance-timing.schema.json": control_root / "schemas" / "governance-timing.schema.json",
+            "governed-review-contract.schema.json": control_root / "schemas" / "governed-review-contract.schema.json",
+            "governed-acceptance-request.schema.json": control_root / "schemas" / "governed-acceptance-request.schema.json",
+        }
+        schema_hashes = boundary.get("schema_sha256")
+        if not isinstance(schema_hashes, dict) or set(schema_hashes) != set(schema_paths):
+            errors.append(f"{runtime_path}: controller schema hash manifest shape drift")
+        else:
+            for name, schema_path in schema_paths.items():
+                authority_files[f"controller schema {name}"] = (schema_path, schema_hashes.get(name))
+                if schema_path.is_symlink() or not schema_path.is_file():
+                    errors.append(f"controller schema type drift: {name}")
+                else:
+                    try:
+                        _read_pinned_bytes(
+                            schema_path,
+                            schema_hashes.get(name),
+                            f"controller schema hash drift: {name}",
+                        )
+                    except ControlPlaneError as exc:
+                        errors.append(str(exc))
+        authority_project_path = control_root / "projects" / "jellyssh" / "project.yaml"
+        authority_files["project authority manifest"] = (
+            authority_project_path,
+            boundary.get("project_manifest_sha256"),
+        )
+        try:
+            authority_project = yaml.safe_load(
+                _read_pinned_bytes(
+                    authority_project_path,
+                    boundary.get("project_manifest_sha256"),
+                    f"{runtime_path}: project authority manifest hash drift",
+                ).decode("utf-8")
+            )
+            if authority_project != project:
+                errors.append(f"{runtime_path}: project authority changed during validation")
+        except (ControlPlaneError, UnicodeError, yaml.YAMLError) as exc:
+            errors.append(str(exc))
         try:
             evidence_rel = Path(str(boundary.get("controller_evidence", "")))
             if evidence_rel.is_absolute() or ".." in evidence_rel.parts:
                 raise ControlPlaneError("controller evidence path is unsafe")
             evidence_path = (control_root.parent / evidence_rel).resolve()
             evidence_path.relative_to(control_root.parent.resolve())
-            if file_sha256(evidence_path) != boundary.get("controller_evidence_sha256"):
-                errors.append("controller review evidence hash drift")
-            evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+            authority_files["controller review evidence"] = (
+                evidence_path,
+                boundary.get("controller_evidence_sha256"),
+            )
+            evidence = _load_pinned_json(
+                evidence_path,
+                boundary.get("controller_evidence_sha256"),
+                "controller review evidence hash drift",
+            )
             expected_checks = EXPECTED_CONTROLLER_CHECKS
             if (
                 evidence.get("project") != "jellyssh"
@@ -943,10 +1031,21 @@ def validate_runtime(
                 raise ControlPlaneError("compact Flutter test evidence path is unsafe")
             compact_path = (control_root.parent / compact_rel).resolve()
             compact_path.relative_to(control_root.parent.resolve())
-            if file_sha256(compact_path) != boundary.get("flutter_test_compact_evidence_sha256"):
-                errors.append("compact Flutter test evidence hash drift")
-            compact_evidence = json.loads(compact_path.read_text(encoding="utf-8"))
-            errors.extend(_validate_compact_flutter_evidence(compact_evidence, control_root))
+            authority_files["compact Flutter test evidence"] = (
+                compact_path,
+                boundary.get("flutter_test_compact_evidence_sha256"),
+            )
+            compact_evidence = _load_pinned_json(
+                compact_path,
+                boundary.get("flutter_test_compact_evidence_sha256"),
+                "compact Flutter test evidence hash drift",
+            )
+            errors.extend(
+                _validate_compact_flutter_evidence(
+                    compact_evidence,
+                    boundary.get("flutter_test_compact_producer_sha256"),
+                )
+            )
         except (ControlPlaneError, OSError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"compact Flutter test evidence invalid: {type(exc).__name__}")
         try:
@@ -955,9 +1054,15 @@ def validate_runtime(
                 raise ControlPlaneError("conditional UI evidence path is unsafe")
             ui_path = (control_root.parent / ui_rel).resolve()
             ui_path.relative_to(control_root.parent.resolve())
-            if file_sha256(ui_path) != boundary.get("conditional_ui_evidence_sha256"):
-                errors.append("conditional UI review evidence hash drift")
-            ui_evidence = json.loads(ui_path.read_text(encoding="utf-8"))
+            authority_files["conditional UI review evidence"] = (
+                ui_path,
+                boundary.get("conditional_ui_evidence_sha256"),
+            )
+            ui_evidence = _load_pinned_json(
+                ui_path,
+                boundary.get("conditional_ui_evidence_sha256"),
+                "conditional UI review evidence hash drift",
+            )
             if (
                 boundary.get("conditional_ui_model") != "openrouter/google/gemini-3.1-pro-preview"
                 or boundary.get("conditional_ui_routing_state") != "verified"
@@ -995,7 +1100,7 @@ def validate_runtime(
                         f"{role} runtime skill set does not match authoritative bundle {bundle_name}: "
                         f"runtime={sorted(expected_skills)}, bundle={sorted(authoritative_skills)}"
                     )
-        errors.extend(_validate_quality_evidence(runtime, project, control_root))
+        errors.extend(_validate_quality_evidence(runtime, project, control_root, authority_files))
         if runtime.get("state") == "setup-verified-routing-blocked":
             profile_states = {
                 role: value.get("state") if isinstance(value, dict) else None
@@ -1009,6 +1114,7 @@ def validate_runtime(
                 or runtime.get("board", {}).get("state") != "verified-empty"
             ):
                 errors.append("setup-verified state lacks verified profiles, reviewer route, or empty board evidence")
+        errors.extend(_authority_stability_errors(authority_files))
         return errors
 
     if not isinstance(profile_specs, dict):
@@ -1135,18 +1241,22 @@ def validate_runtime(
                     errors.append("reviewer inert bootstrap workspace binding drift")
                 reviewer_expected_commit = project.get("authority", {}).get("commit")
                 reviewer_base_commit = reviewer_expected_commit
+                reviewer_specification_commit = reviewer_expected_commit
                 if lifecycle_contract is not None:
                     reviewer_expected_commit = lifecycle_by_runtime.get("reviewer_checkout", {}).get("commit")
                     reviewer_base_commit = lifecycle_contract.get("repository", {}).get("base_commit")
+                    reviewer_specification_commit = lifecycle_contract.get("repository", {}).get("specification_commit")
                 if (
                     server_env.get("JELLYSSH_REVIEW_ROOT") != runtime_paths.get("reviewer_checkout")
                     or server_env.get("JELLYSSH_REVIEW_SSH_TARGET") != "jellydev@jellybase-lan"
                     or server_env.get("JELLYSSH_EXPECTED_COMMIT") != reviewer_expected_commit
                     or server_env.get("JELLYSSH_REVIEW_BASE_COMMIT") != reviewer_base_commit
+                    or server_env.get("JELLYSSH_REVIEW_SPECIFICATION_COMMIT") != reviewer_specification_commit
                     or set(server_env) != {
                         "JELLYSSH_REVIEW_ROOT",
                         "JELLYSSH_EXPECTED_COMMIT",
                         "JELLYSSH_REVIEW_BASE_COMMIT",
+                        "JELLYSSH_REVIEW_SPECIFICATION_COMMIT",
                         "JELLYSSH_REVIEW_SSH_TARGET",
                     }
                 ):
@@ -1310,7 +1420,7 @@ def validate_runtime(
             errors.append("live Hindsight discovery did not find jellyssh-main")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         errors.append(f"live Hindsight bank discovery failed: {type(exc).__name__}")
-    errors.extend(_validate_quality_evidence(runtime, project, control_root))
+    errors.extend(_validate_quality_evidence(runtime, project, control_root, authority_files))
     board = runtime.get("board", {})
     board_root = Path.home() / ".hermes" / "kanban" / "boards" / str(board.get("slug", ""))
     if board.get("state") == "verified-empty" and lifecycle_contract is None:
@@ -1364,6 +1474,7 @@ def validate_runtime(
             or runtime.get("board", {}).get("state") != "verified-empty"
         ):
             errors.append("setup-verified state lacks verified profiles, reviewer route, or empty board evidence")
+    errors.extend(_authority_stability_errors(authority_files))
     return errors
 
 
@@ -1807,21 +1918,33 @@ def write_generated(path: Path, content: str) -> None:
     if path.is_symlink():
         raise ControlPlaneError("status output cannot be a symlink")
     temp_path: Path | None = None
+    directory_fd: int | None = None
+    committed = False
     try:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=generated, delete=False) as handle:
             temp_path = Path(handle.name)
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        temp_path.replace(target)
         directory_fd = os.open(generated, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        temp_path.replace(target)
+        committed = True
         try:
             os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        except OSError:
+            pass
     finally:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                if not committed:
+                    raise
         if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _emit(value: dict[str, Any], as_json: bool) -> None:
@@ -1880,7 +2003,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         try:
             write_generated(args.output, rendered)
-        except ControlPlaneError as exc:
+        except (ControlPlaneError, OSError) as exc:
             print(f"BLOCK: {exc}", file=sys.stderr)
             return 2
         print(args.output.resolve())

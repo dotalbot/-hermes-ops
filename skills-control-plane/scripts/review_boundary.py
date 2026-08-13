@@ -94,6 +94,15 @@ completed=set()
 event_count=0
 
 try:
+ check_name=sys.argv[4]
+except IndexError:
+ check_name="invalid"
+ structural_error=True
+if check_name not in {"flutter-test","sftp-browser-test"}:
+ check_name="invalid"
+ structural_error=True
+
+try:
  exit_code=int(sys.argv[2])
 except (IndexError,ValueError):
  exit_code=-1
@@ -304,7 +313,7 @@ success=(
 )
 summary={
  "schema_version":1,
- "check":"flutter-test",
+ "check":check_name,
  "reporter":"json",
  "protocol_version":protocol_version,
  "exit_code":exit_code,
@@ -325,6 +334,7 @@ _ALLOWED_CHECKS = {
     "submodule-status",
     "flutter-analyze",
     "flutter-test",
+    "sftp-browser-test",
     "dart-format-check",
 }
 
@@ -341,6 +351,7 @@ class ReviewRepository:
         ssh_target: str | None = None,
         allowed_refs: Iterable[str] | None = None,
         base_commit: str | None = None,
+        specification_commit: str | None = None,
     ):
         raw_root = Path(str(root)).expanduser()
         if not raw_root.is_absolute() or ".." in raw_root.parts:
@@ -365,9 +376,28 @@ class ReviewRepository:
         self.base_commit = (base_commit or "").strip()
         if self.base_commit and self.base_commit not in self.allowed_refs:
             raise ReviewBoundaryError("base commit must be one of the exact allowed refs")
+        self.specification_commit = (specification_commit or "").strip()
+        if self.specification_commit:
+            if not re.fullmatch(r"[0-9a-f]{40}", self.specification_commit):
+                raise ReviewBoundaryError("specification commit must be a full lowercase SHA-1")
+            if not self.base_commit:
+                raise ReviewBoundaryError("specification commit requires an exact base commit")
+            exact_review_refs = {
+                self.base_commit,
+                self.specification_commit,
+                self.expected_commit,
+            }
+            if self.allowed_refs != exact_review_refs:
+                raise ReviewBoundaryError("review refs must be exactly base, specification, and target")
         top = self._git(["rev-parse", "--show-toplevel"]).strip()
         if top != str(self.root):
             raise ReviewBoundaryError("review root must be the Git repository root")
+        if self.specification_commit:
+            try:
+                self._git(["merge-base", "--is-ancestor", self.base_commit, self.specification_commit])
+                self._git(["merge-base", "--is-ancestor", self.specification_commit, self.expected_commit])
+            except ReviewBoundaryError as exc:
+                raise ReviewBoundaryError("review commit chain must be base <= specification <= target") from exc
 
     @staticmethod
     def _bounded(raw: bytes, limit: int) -> str:
@@ -494,14 +524,16 @@ class ReviewRepository:
         return self._bounded(self._git_bytes(args, timeout), _MAX_GIT_BYTES)
 
     def _validate_ref(self, ref: str) -> str:
-        if not _REF_RE.fullmatch(ref):
-            raise ReviewBoundaryError("invalid Git ref")
+        if ref != "HEAD" and not re.fullmatch(r"[0-9a-f]{40}", ref):
+            raise ReviewBoundaryError("Git ref must be HEAD or a full lowercase SHA-1")
         if ref == "HEAD":
             resolved = self._git(["rev-parse", "HEAD"]).strip()
+            if resolved != self.expected_commit:
+                raise ReviewBoundaryError("HEAD does not resolve to the exact review target")
         else:
             resolved = self._git(["rev-parse", "--verify", ref + "^{commit}"]).strip()
         if resolved not in self.allowed_refs:
-            raise ReviewBoundaryError("ref is outside the exact review base/target set")
+            raise ReviewBoundaryError("ref is outside the exact review authority set")
         return resolved
 
     @staticmethod
@@ -556,6 +588,7 @@ class ReviewRepository:
 
     def metadata(self) -> dict[str, object]:
         head = self._git(["rev-parse", "HEAD"]).strip()
+        head_tree = self._git(["rev-parse", "HEAD^{tree}"]).strip()
         branch = self._git(["branch", "--show-current"]).strip()
         status = self._git(["status", "--short", "--branch", "--untracked-files=all"])
         try:
@@ -575,6 +608,7 @@ class ReviewRepository:
             "transport": "ssh" if self.ssh_target else "local",
             "ssh_target": self.ssh_target or None,
             "head": head,
+            "head_tree": head_tree,
             "branch": branch,
             "status": status,
             "origin": origin,
@@ -714,6 +748,13 @@ class ReviewRepository:
         check_command = {
             "flutter-analyze": [*flutter_tool, "analyze", "--no-pub"],
             "flutter-test": [*flutter_tool, "test", "--machine", "--no-pub"],
+            "sftp-browser-test": [
+                *flutter_tool,
+                "test",
+                "--machine",
+                "--no-pub",
+                "test/screens/sftp/sftp_browser_screen_test.dart",
+            ],
             "dart-format-check": [
                 "/opt/flutter/bin/cache/dart-sdk/bin/dart",
                 "format",
@@ -732,7 +773,7 @@ class ReviewRepository:
             "cp -a /review-input/tools /workspace/tools; "
             "cd /workspace/repo/app; "
         )
-        if name == "flutter-test":
+        if name in {"flutter-test", "sftp-browser-test"}:
             machine_output = "/workspace/flutter-test.machine.jsonl"
             diagnostic_output = "/workspace/flutter-test.stderr"
             sandbox_command = (
@@ -741,7 +782,8 @@ class ReviewRepository:
                 + f"{inner} >{shlex.quote(machine_output)} 2>{shlex.quote(diagnostic_output)}; "
                 + "flutter_exit=$?; set -e; "
                 + f"exec /usr/bin/python3 -c {shlex.quote(_FLUTTER_TEST_SUMMARY_CODE)} "
-                + f"{shlex.quote(machine_output)} \"$flutter_exit\" {shlex.quote(diagnostic_output)}"
+                + f"{shlex.quote(machine_output)} \"$flutter_exit\" "
+                + f"{shlex.quote(diagnostic_output)} {shlex.quote(name)}"
             )
         else:
             sandbox_command = sandbox_prefix + f"exec {inner}"
@@ -785,7 +827,7 @@ timeout --signal=TERM --kill-after=10 300 docker run --rm --pull=never --name "$
 """
         command = ["/bin/bash", "-c", script]
         output = self._run(command, timeout=330)
-        limit = 4096 if name == "flutter-test" else _MAX_GIT_BYTES
+        limit = 4096 if name in {"flutter-test", "sftp-browser-test"} else _MAX_GIT_BYTES
         return self._bounded(output, limit) or "PASS"
 
     def _run_sandbox_self_check(self) -> str:
@@ -817,7 +859,12 @@ printf 'SANDBOX_SELF_CHECK=PASS\n'
             raise ReviewBoundaryError("check is not allowlisted")
         if name == "sandbox-self-check":
             return self._run_sandbox_self_check()
-        if name in {"flutter-analyze", "flutter-test", "dart-format-check"}:
+        if name in {
+            "flutter-analyze",
+            "flutter-test",
+            "sftp-browser-test",
+            "dart-format-check",
+        }:
             return self._run_sandboxed_flutter_check(name)
         if name == "diff-check" and not self.base_commit:
             raise ReviewBoundaryError("diff-check requires an exact base commit")

@@ -26,6 +26,7 @@ class ReviewSandboxCommandTests(unittest.TestCase):
         events: Sequence[dict[str, object] | list[dict[str, object]] | str],
         exit_code: int,
         diagnostic_text: str = "",
+        check_name: str = "flutter-test",
     ) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
         with tempfile.TemporaryDirectory() as temp:
             stream = Path(temp) / "flutter-test.machine.jsonl"
@@ -47,6 +48,7 @@ class ReviewSandboxCommandTests(unittest.TestCase):
                     str(stream),
                     str(exit_code),
                     str(diagnostics),
+                    check_name,
                 ],
                 check=False,
                 stdout=subprocess.PIPE,
@@ -154,6 +156,24 @@ class ReviewSandboxCommandTests(unittest.TestCase):
                 "total": 4,
             },
         )
+
+    def test_focused_flutter_summary_preserves_fixed_check_identity(self) -> None:
+        process, summary = self._run_flutter_reporter(
+            self._successful_flutter_events(),
+            0,
+            check_name="sftp-browser-test",
+        )
+        invalid_process, invalid_summary = self._run_flutter_reporter(
+            self._successful_flutter_events(),
+            0,
+            check_name="caller-supplied-test",
+        )
+
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(summary["check"], "sftp-browser-test")
+        self.assertNotEqual(invalid_process.returncode, 0)
+        self.assertEqual(invalid_summary["check"], "invalid")
+        self.assertFalse(invalid_summary["success"])
 
     def test_flutter_machine_stream_requires_complete_protocol_version(self) -> None:
         valid_process, valid_summary = self._run_flutter_reporter(
@@ -300,6 +320,13 @@ class ReviewSandboxCommandTests(unittest.TestCase):
                 "/opt/flutter/bin/cache/dart-sdk/bin/dart "
                 "/opt/flutter/bin/cache/flutter_tools.snapshot "
                 "--no-version-check test --machine --no-pub",
+            ),
+            (
+                "sftp-browser-test",
+                "/opt/flutter/bin/cache/dart-sdk/bin/dart "
+                "/opt/flutter/bin/cache/flutter_tools.snapshot "
+                "--no-version-check test --machine --no-pub "
+                "test/screens/sftp/sftp_browser_screen_test.dart",
             ),
             (
                 "dart-format-check",

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "work_item": "BUG-000",
+  "acceptance_card_id": "t_00000000",
+  "review_card_id": "t_00000000",
+  "review_authority_sha256": "sha256:REPLACE_64_HEX",
+  "kanban_board": "jellyssh",
+  "expected_acceptance_profile": null,
+  "authority": {
+    "repository": "git@github.com:dotalbot/jellyssh.git",
+    "base_commit": "REPLACE_FULL_BASE_COMMIT",
+    "specification_commit": "REPLACE_FULL_SPECIFICATION_COMMIT",
+    "specification_path": "docs/bugs/REPLACE.md",
+    "approved_specification_sha256": "sha256:REPLACE_64_HEX",
+    "target_commit": "REPLACE_FULL_TARGET_COMMIT",
+    "target_tree": "REPLACE_FULL_TARGET_TREE"
+  },
+  "checks": [
+    {"name": "focused-tests", "ok": true, "evidence": "REPLACE"},
+    {"name": "full-tests", "ok": true, "evidence": "REPLACE"},
+    {"name": "exact-review", "ok": true, "evidence": "REPLACE_REVIEW_AUTHORITY_PATH_AND_DIGEST"},
+    {"name": "no-prohibited-side-effects", "ok": true, "evidence": "REPLACE"}
+  ]
+}
