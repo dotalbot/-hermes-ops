@@ -352,6 +352,159 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertNotIn("--write-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source", argv[-1])
         self.assertIn("--write-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/check-home", argv[-1])
 
+    def test_failed_independent_check_retains_bounded_diagnostics_and_stops(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze", "test"]
+        failed = subprocess.CompletedProcess(["ssh"], 1, "analyzer stdout\n", "analyzer stderr\n")
+        cleanup = subprocess.CompletedProcess(["ssh"], 0, "", "")
+        with mock.patch.object(adapter, "_ssh_script", return_value=""), mock.patch.object(
+            adapter, "_run", side_effect=[failed, cleanup]
+        ) as run:
+            with self.assertRaises(adapter.CheckFailure) as caught:
+                adapter.run_checks(
+                    request,
+                    "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                )
+        self.assertEqual(
+            caught.exception.checks,
+            [{
+                "name": "analyze",
+                "exit_code": 1,
+                "passed": False,
+                "output": "analyzer stdout\nanalyzer stderr\n",
+            }],
+        )
+        execution_calls = [
+            call for call in run.call_args_list
+            if call.args[0][:4] == ["ssh", "agent-claude", "bash", "-lc"]
+        ]
+        self.assertEqual(len(execution_calls), 1)
+
+    def test_secret_before_bounded_check_tail_is_rejected(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze"]
+        synthetic = "github_pat_" + "A" * 64
+        cleanup = subprocess.CompletedProcess(["ssh"], 0, "", "")
+        for returncode in [0, 1]:
+            process = subprocess.CompletedProcess(
+                ["ssh"], returncode, synthetic + "\n" + "x" * 4000, ""
+            )
+            with self.subTest(returncode=returncode), mock.patch.object(
+                adapter, "_ssh_script", return_value=""
+            ), mock.patch.object(adapter, "_run", side_effect=[process, cleanup]):
+                with self.assertRaisesRegex(adapter.AdapterError, "secret-shaped"):
+                    adapter.run_checks(
+                        request,
+                        "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                    )
+
+    def test_cleanup_nonzero_is_preserved_or_fails_closed(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze"]
+        cleanup = subprocess.CompletedProcess(["ssh"], 23, "", "rm: cleanup failed\n")
+        failed = subprocess.CompletedProcess(["ssh"], 1, "analyzer failed\n", "")
+        with mock.patch.object(adapter, "_ssh_script", return_value=""), mock.patch.object(
+            adapter, "_run", side_effect=[failed, cleanup]
+        ):
+            with self.assertRaises(adapter.CheckFailure) as caught:
+                adapter.run_checks(
+                    request,
+                    "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                )
+        self.assertEqual(caught.exception.checks[0]["output"], "analyzer failed\n")
+        self.assertEqual(
+            caught.exception.cleanup_blockers,
+            ["independent check cleanup failed: 23"],
+        )
+
+        passed = subprocess.CompletedProcess(["ssh"], 0, "analyzer clean\n", "")
+        with mock.patch.object(adapter, "_ssh_script", return_value=""), mock.patch.object(
+            adapter, "_run", side_effect=[passed, cleanup]
+        ):
+            with self.assertRaisesRegex(adapter.AdapterError, "cleanup failed: 23"):
+                adapter.run_checks(
+                    request,
+                    "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                )
+
+    def test_secret_shaped_cleanup_output_is_rejected(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze"]
+        passed = subprocess.CompletedProcess(["ssh"], 0, "analyzer clean\n", "")
+        synthetic = "github_pat_" + "A" * 64
+        cleanup = subprocess.CompletedProcess(["ssh"], 0, "", synthetic)
+        with mock.patch.object(adapter, "_ssh_script", return_value=""), mock.patch.object(
+            adapter, "_run", side_effect=[passed, cleanup]
+        ):
+            with self.assertRaisesRegex(adapter.AdapterError, "secret-shaped"):
+                adapter.run_checks(
+                    request,
+                    "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                )
+
+    def test_cleanup_failure_does_not_mask_failed_check_diagnostics(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze", "test"]
+        failed = subprocess.CompletedProcess(["ssh"], 1, "analyzer stdout\n", "analyzer stderr\n")
+        cleanup_failures = [
+            subprocess.TimeoutExpired(["ssh"], 60),
+            RuntimeError("cleanup failed"),
+        ]
+        for cleanup_failure in cleanup_failures:
+            with self.subTest(cleanup_failure=type(cleanup_failure).__name__), mock.patch.object(
+                adapter, "_ssh_script", return_value=""
+            ), mock.patch.object(adapter, "_run", side_effect=[failed, cleanup_failure]) as run:
+                with self.assertRaises(adapter.CheckFailure) as caught:
+                    adapter.run_checks(
+                        request,
+                        "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                    )
+                self.assertEqual(str(caught.exception), "independent check failed: analyze")
+                self.assertEqual(
+                    caught.exception.checks,
+                    [{
+                        "name": "analyze",
+                        "exit_code": 1,
+                        "passed": False,
+                        "output": "analyzer stdout\nanalyzer stderr\n",
+                    }],
+                )
+                self.assertEqual(run.call_count, 2)
+
+    def test_cleanup_failure_without_prior_failure_still_fails_closed(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze"]
+        passed = subprocess.CompletedProcess(["ssh"], 0, "analyzer clean\n", "")
+        cleanup_failures = [
+            subprocess.TimeoutExpired(["ssh"], 60),
+            RuntimeError("cleanup failed"),
+        ]
+        for cleanup_failure in cleanup_failures:
+            with self.subTest(cleanup_failure=type(cleanup_failure).__name__), mock.patch.object(
+                adapter, "_ssh_script", return_value=""
+            ), mock.patch.object(adapter, "_run", side_effect=[passed, cleanup_failure]):
+                with self.assertRaises(type(cleanup_failure)):
+                    adapter.run_checks(
+                        request,
+                        "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+                    )
+
+    def test_check_failure_is_recorded_in_block_result(self) -> None:
+        result = {"verdict": "PASS", "blockers": [], "checks": []}
+        check = {
+            "name": "analyze",
+            "exit_code": 1,
+            "passed": False,
+            "output": "bounded analyzer diagnostic",
+        }
+        adapter.record_adapter_failure(
+            result,
+            adapter.CheckFailure("analyze", [check]),
+        )
+        self.assertEqual(result["verdict"], "BLOCK")
+        self.assertEqual(result["blockers"], ["independent check failed: analyze"])
+        self.assertEqual(result["checks"], [check])
+
     def test_preflight_authenticates_fixed_claude_flutter_and_dart_executables(self) -> None:
         with mock.patch.object(adapter, "_ssh_script", side_effect=adapter.AdapterError("stop")) as ssh_script:
             with self.assertRaises(adapter.AdapterError):
@@ -387,7 +540,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.4.3",
+            "adapter_version": "0.4.4",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
@@ -1129,6 +1282,63 @@ class CliFailureTests(unittest.TestCase):
             self.assertEqual(result["verdict"], "BLOCK")
             self.assertIn("undeclared paths", result["blockers"][0])
             run_checks.assert_not_called()
+            commit.assert_not_called()
+
+    def test_failed_check_diagnostics_survive_canonical_block_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "evidence.json"
+            request = implementation_request(str(output))
+            request["checks"] = ["analyze", "test"]
+            claude = {
+                "session_id": "s",
+                "terminal_reason": "completed",
+                "models": ["claude-sonnet-5"],
+                "summary": "done",
+                "_full_text": "done",
+            }
+            precommit = {
+                "commit": BASE,
+                "tree": "4" * 40,
+                "branch": request["branch"],
+                "status": " M app/lib/example.dart",
+                "changed": ["app/lib/example.dart"],
+                "state_sha256": "5" * 64,
+            }
+            failed_check = subprocess.CompletedProcess(
+                ["ssh"], 1, "bounded analyzer diagnostic", ""
+            )
+            cleanup_timeout = subprocess.TimeoutExpired(["ssh"], 60)
+            final_cleanup = subprocess.CompletedProcess(["ssh"], 0, "", "")
+            with mock.patch.object(adapter, "load_and_validate_request", return_value=request), mock.patch.object(
+                adapter, "preflight", return_value=preflight_result()
+            ), mock.patch.object(
+                adapter,
+                "prepare_worktree",
+                return_value={"path": "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source", "start_commit": BASE, "start_tree": "4" * 40},
+            ), mock.patch.object(
+                adapter, "invoke_claude", return_value=subprocess.CompletedProcess(["claude"], 0, "{}", "")
+            ), mock.patch.object(adapter, "parse_claude_result", return_value=claude), mock.patch.object(
+                adapter, "inspect_precommit_worktree", return_value=precommit
+            ), mock.patch.object(adapter, "_ssh_script", return_value=""), mock.patch.object(
+                adapter, "_run", side_effect=[failed_check, cleanup_timeout, final_cleanup]
+            ), mock.patch.object(adapter, "commit_implementation") as commit:
+                result = adapter.execute(Path("request.json"), allow_test_output=True)
+            expected = {
+                "name": "analyze",
+                "exit_code": 1,
+                "passed": False,
+                "output": "bounded analyzer diagnostic",
+            }
+            self.assertEqual(result["verdict"], "BLOCK")
+            self.assertEqual(
+                result["blockers"],
+                [
+                    "independent check failed: analyze",
+                    "independent check cleanup timed out",
+                ],
+            )
+            self.assertEqual(result["checks"], [expected])
+            self.assertEqual(json.loads(output.read_text())["checks"], [expected])
             commit.assert_not_called()
 
     def test_timeout_returns_timeout_verdict(self) -> None:
