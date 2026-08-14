@@ -21,7 +21,7 @@
   ],
   "properties": {
     "schema_version": {"const": 2},
-    "adapter_version": {"const": "0.4.5"},
+    "adapter_version": {"const": "0.4.6"},
     "attempt_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$"},
     "mode": {"enum": ["implementation", "review"]},
     "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},

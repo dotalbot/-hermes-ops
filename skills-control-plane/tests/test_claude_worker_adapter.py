@@ -352,6 +352,36 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertNotIn("--write-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source", argv[-1])
         self.assertIn("--write-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/check-home", argv[-1])
 
+    def test_independent_checks_use_writable_flutter_root_overlay(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["analyze"]
+        passed = subprocess.CompletedProcess(["ssh"], 0, "No issues found!\n", "")
+        cleanup = subprocess.CompletedProcess(["ssh"], 0, "", "")
+        with mock.patch.object(adapter, "_ssh_script", return_value="") as ssh_script, mock.patch.object(
+            adapter, "_run", side_effect=[passed, cleanup]
+        ) as run:
+            adapter.run_checks(
+                request,
+                "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+            )
+        prepare = ssh_script.call_args.args[0]
+        self.assertIn("check-home/flutter-root", prepare)
+        self.assertIn("idevicescreenshot", prepare)
+        self.assertIn("idevicesyslog", prepare)
+        self.assertIn("iproxy", prepare)
+        execution = next(
+            call.args[0][-1]
+            for call in run.call_args_list
+            if call.args[0][:4] == ["ssh", "agent-claude", "bash", "-lc"]
+        )
+        self.assertIn(
+            "FLUTTER_ROOT=/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/check-home/flutter-root",
+            execution,
+        )
+        self.assertIn("--read-dir /home/jellyclaude/dev/sdk/flutter-3.44.9", execution)
+        self.assertNotIn("--write-dir /home/jellyclaude/dev/sdk/flutter-3.44.9", execution)
+        self.assertNotIn("--write-file /home/jellyclaude/dev/sdk/flutter-3.44.9", execution)
+
     def test_format_check_targets_only_scope_validated_allowed_paths(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
         request["checks"] = ["format"]
@@ -675,7 +705,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.4.5",
+            "adapter_version": "0.4.6",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,

@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.4.5"
+ADAPTER_VERSION = "0.4.6"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -1412,6 +1412,51 @@ def check_command(request: dict[str, Any], name: str) -> str:
     )
 
 
+def flutter_check_overlay_script(check_home: PurePosixPath, real_flutter_root: str) -> str:
+    overlay = check_home / "flutter-root"
+    return f"""
+real={shlex.quote(real_flutter_root)}
+overlay={shlex.quote(str(overlay))}
+rm -rf -- "$overlay"
+mkdir -p "$overlay/bin/cache/artifacts/libimobiledevice" "$overlay/bin/cache/artifacts/libusbmuxd"
+test -d "$real/packages"
+ln -s -- "$real/packages" "$overlay/packages"
+if test -e "$real/LICENSE"; then ln -s -- "$real/LICENSE" "$overlay/LICENSE"; fi
+if test -d "$real/bin/internal"; then ln -s -- "$real/bin/internal" "$overlay/bin/internal"; fi
+if test -e "$real/version"; then cp -a -- "$real/version" "$overlay/version"; else : > "$overlay/version"; fi
+for item in "$real/bin/cache/"* "$real/bin/cache/".[!.]*; do
+  test -e "$item" || continue
+  name=$(basename -- "$item")
+  if test "$name" = artifacts; then
+    continue
+  fi
+  if test -d "$item"; then
+    ln -s -- "$item" "$overlay/bin/cache/$name"
+  else
+    cp -a -- "$item" "$overlay/bin/cache/$name"
+  fi
+done
+for item in "$real/bin/cache/artifacts/"*; do
+  test -e "$item" || continue
+  name=$(basename -- "$item")
+  case "$name" in
+    libimobiledevice|libusbmuxd) continue ;;
+  esac
+  ln -s -- "$item" "$overlay/bin/cache/artifacts/$name"
+done
+if test -d "$real/bin/cache/artifacts/libimobiledevice"; then
+  cp -a -- "$real/bin/cache/artifacts/libimobiledevice/." "$overlay/bin/cache/artifacts/libimobiledevice/"
+fi
+if test -d "$real/bin/cache/artifacts/libusbmuxd"; then
+  cp -a -- "$real/bin/cache/artifacts/libusbmuxd/." "$overlay/bin/cache/artifacts/libusbmuxd/"
+fi
+: > "$overlay/bin/cache/artifacts/libimobiledevice/idevicescreenshot"
+: > "$overlay/bin/cache/artifacts/libimobiledevice/idevicesyslog"
+: > "$overlay/bin/cache/artifacts/libusbmuxd/iproxy"
+chmod a+rx -- "$overlay/bin/cache/artifacts/libimobiledevice/idevicescreenshot" "$overlay/bin/cache/artifacts/libimobiledevice/idevicesyslog" "$overlay/bin/cache/artifacts/libusbmuxd/iproxy"
+"""
+
+
 def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     if not request["checks"]:
@@ -1421,6 +1466,7 @@ def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
     check_home = sandbox / "check-home"
     check_root = sandbox / "check-source"
     flutter_root = "/home/jellyclaude/dev/sdk/flutter-3.44.9"
+    flutter_overlay = check_home / "flutter-root"
     pub_cache = "/home/jellyclaude/.cache/dart-pub"
     prepare = f"""set -euo pipefail
 source={shlex.quote(worktree + '/app')}
@@ -1428,8 +1474,9 @@ target={shlex.quote(str(check_root / 'app'))}
 test -d "$source"
 test ! -L "$source"
 test ! -e {shlex.quote(str(check_root))}
-mkdir -p {shlex.quote(str(check_root))}
+mkdir -p {shlex.quote(str(check_root))} {shlex.quote(str(check_home / '.cache'))} {shlex.quote(str(check_home / 'tmp'))}
 cp -a --reflink=auto -- "$source" "$target"
+{flutter_check_overlay_script(check_home, flutter_root)}
 """
     _ssh_script(prepare, timeout=120)
     read_dirs = [
@@ -1454,7 +1501,7 @@ cp -a --reflink=auto -- "$source" "$target"
                 "set -euo pipefail; exec env -i "
                 f"HOME={shlex.quote(str(check_home))} XDG_CACHE_HOME={shlex.quote(str(check_home / '.cache'))} "
                 f"TMPDIR={shlex.quote(str(check_home / 'tmp'))} WORKSPACE={shlex.quote(str(check_root / 'app'))} "
-                f"PUB_CACHE={shlex.quote(pub_cache)} FLUTTER_ALREADY_LOCKED=true "
+                f"PUB_CACHE={shlex.quote(pub_cache)} FLUTTER_ROOT={shlex.quote(str(flutter_overlay))} FLUTTER_ALREADY_LOCKED=true "
                 "PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=dumb "
                 f"{shlex.join(launcher)}"
             )
