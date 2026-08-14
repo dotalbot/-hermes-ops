@@ -81,7 +81,7 @@ The adapter rejects paths outside the repository, arbitrary commands, caller-sel
 
 ## Result contract
 
-The current result contract is schema version `2` and adapter version `0.4.5`; it is intentionally incompatible with historical adapter versions. BLOCK evidence from an independent check retains every completed check record through the first failure, including the bounded final 4,000 characters of combined stdout/stderr, while still stopping before later checks, commit construction, or publication.
+The current result contract is schema version `2` and adapter version `0.4.6`; it is intentionally incompatible with historical adapter versions. BLOCK evidence from an independent check retains every completed check record through the first failure, including the bounded final 4,000 characters of combined stdout/stderr, while still stopping before later checks, commit construction, or publication. Independent `analyze`/`test` commands run with a disposable `FLUTTER_ROOT` overlay under check-home so Flutter cache stamp writes cannot mutate the shared SDK.
 
 The canonical JSON result includes:
 
@@ -133,7 +133,8 @@ Tests must prove:
 - live preflight against `agent-claude`;
 - one no-edit Claude smoke in a disposable sandbox;
 - OAuth expiry gate rejection of non-finite, boolean, malformed, expired, and missing values without emitting token fields;
-- implementation formatter `--` termination for option-like allowed paths, with review-mode full-tree formatting unchanged.
+- implementation formatter `--` termination for option-like allowed paths, with review-mode full-tree formatting unchanged;
+- independent analyze/test use a disposable `FLUTTER_ROOT` overlay so Flutter cache stamps cannot be written in the shared SDK.
 
 ## Rollback
 
