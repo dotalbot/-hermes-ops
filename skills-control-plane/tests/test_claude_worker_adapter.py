@@ -352,6 +352,141 @@ class CommandConstructionTests(unittest.TestCase):
         self.assertNotIn("--write-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source", argv[-1])
         self.assertIn("--write-dir /home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/check-home", argv[-1])
 
+    def test_format_check_targets_only_scope_validated_allowed_paths(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["checks"] = ["format"]
+        passed = subprocess.CompletedProcess(["ssh"], 0, "Formatted 2 files (0 changed).\n", "")
+        cleanup = subprocess.CompletedProcess(["ssh"], 0, "", "")
+        with mock.patch.object(adapter, "_ssh_script", return_value=""), mock.patch.object(
+            adapter, "_run", side_effect=[passed, cleanup]
+        ) as run:
+            adapter.run_checks(
+                request,
+                "/home/jellyclaude/.cache/jellyssh-claude-sandboxes/feature-001/source",
+            )
+        execution = next(
+            call.args[0][-1]
+            for call in run.call_args_list
+            if call.args[0][:4] == ["ssh", "agent-claude", "bash", "-lc"]
+        )
+        self.assertIn(
+            "format --output=none --set-exit-if-changed -- lib/example.dart test/example_test.dart",
+            execution,
+        )
+        self.assertNotIn("--set-exit-if-changed lib/ test/", execution)
+        self.assertNotIn("--set-exit-if-changed lib/example.dart", execution)
+
+    def test_preflight_requires_oauth_validity_beyond_attempt_timeout(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        with mock.patch.object(adapter, "_ssh_script", side_effect=adapter.AdapterError("stop")) as ssh_script:
+            with self.assertRaises(adapter.AdapterError):
+                adapter.preflight(request)
+        script = ssh_script.call_args.args[0]
+        self.assertIn(".claude/.credentials.json", script)
+        self.assertIn("expiresAt", script)
+        self.assertIn("refreshTokenExpiresAt", script)
+        self.assertIn("minimum_validity_seconds=900", script)
+        self.assertNotIn("accessToken", script)
+        self.assertNotIn("refreshToken]", script)
+
+    def test_oauth_expiry_gate_executes_without_exposing_token_values(self) -> None:
+        gate = adapter.oauth_expiry_check_script(900)
+        with tempfile.TemporaryDirectory() as temp:
+            credentials = Path(temp) / ".claude/.credentials.json"
+            credentials.parent.mkdir()
+            for expiry, expected_exit in [(0, 2), (9_000_000_000_000_000, 0)]:
+                with self.subTest(expiry=expiry):
+                    credentials.write_text(json.dumps({
+                        "claudeAiOauth": {
+                            "expiresAt": expiry,
+                            "refreshTokenExpiresAt": expiry,
+                        }
+                    }))
+                    process = subprocess.run(
+                        ["bash", "-c", gate],
+                        env={**os.environ, "HOME": temp},
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=False,
+                    )
+                    self.assertEqual(process.returncode, expected_exit)
+                    self.assertEqual(process.stdout, "")
+                    self.assertEqual(process.stderr, "")
+
+    def test_oauth_expiry_gate_rejects_non_finite_malformed_and_boolean_values(self) -> None:
+        gate = adapter.oauth_expiry_check_script(900)
+        future = 9_000_000_000_000_000
+        cases = (
+            ("expired", "0", 2),
+            ("future", str(future), 0),
+            ("nan", "NaN", 2),
+            ("pos_inf", "Infinity", 2),
+            ("neg_inf", "-Infinity", 2),
+            ("string", '"soon"', 2),
+            ("null", "null", 2),
+            ("bool_true", "true", 2),
+            ("bool_false", "false", 2),
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            credentials = Path(temp) / ".claude/.credentials.json"
+            credentials.parent.mkdir()
+            for name, literal, expected_exit in cases:
+                for field in ("expiresAt", "refreshTokenExpiresAt"):
+                    other = "refreshTokenExpiresAt" if field == "expiresAt" else "expiresAt"
+                    with self.subTest(name=name, field=field):
+                        credentials.write_text(
+                            '{"claudeAiOauth":{"%s":%s,"%s":%s}}' % (field, literal, other, future)
+                        )
+                        process = subprocess.run(
+                            ["bash", "-c", gate],
+                            env={**os.environ, "HOME": temp},
+                            text=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            check=False,
+                        )
+                        self.assertEqual(process.returncode, expected_exit)
+                        self.assertEqual(process.stdout, "")
+                        self.assertEqual(process.stderr, "")
+                        self.assertNotIn("accessToken", process.stdout + process.stderr)
+                        self.assertNotIn("refreshToken", process.stdout + process.stderr)
+
+    def test_format_check_rejects_paths_outside_fixed_app_workspace(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+        request["allowed_paths"] = ["docs/adapter.md"]
+        with self.assertRaisesRegex(adapter.AdapterError, "outside the fixed app workspace"):
+            adapter.check_command(request, "format")
+
+    def test_format_check_inserts_end_of_options_before_option_like_paths(self) -> None:
+        schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-request.schema.json").read_text())
+        for declared, operand in (("app/--help", "--help"), ("app/-x", "-x")):
+            with self.subTest(declared=declared):
+                request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
+                request["allowed_paths"] = [declared]
+                jsonschema.validate(request, schema)
+                adapter.validate_request_content(request)
+                command = adapter.check_command(request, "format")
+                argv = shlex.split(command)
+                self.assertEqual(argv[0], adapter.REMOTE_DART)
+                self.assertEqual(argv[1:4], ["format", "--output=none", "--set-exit-if-changed"])
+                self.assertIn("--", argv)
+                terminator = argv.index("--")
+                self.assertEqual(argv[terminator + 1 :], [operand])
+                self.assertNotIn(operand, argv[1:terminator])
+
+    def test_review_format_check_keeps_full_tree_command(self) -> None:
+        request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/r.json")
+        request["mode"] = "review"
+        request.pop("branch")
+        request.pop("allowed_paths")
+        request["target_commit"] = TARGET
+        command = adapter.check_command(request, "format")
+        self.assertEqual(
+            command,
+            f"{adapter.REMOTE_DART} format --output=none --set-exit-if-changed lib/ test/",
+        )
+
     def test_failed_independent_check_retains_bounded_diagnostics_and_stops(self) -> None:
         request = implementation_request("/home/jellybot/projects/jellyssh-claude-adapter/evidence/a.json")
         request["checks"] = ["analyze", "test"]
@@ -540,7 +675,7 @@ class ResultValidationTests(unittest.TestCase):
         schema = json.loads((CONTROL_ROOT / "schemas/claude-worker-result.schema.json").read_text())
         evidence = {
             "schema_version": 2,
-            "adapter_version": "0.4.4",
+            "adapter_version": "0.4.5",
             "attempt_id": "review-001",
             "mode": "review",
             "request_sha256": "a" * 64,
