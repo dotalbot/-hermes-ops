@@ -34,7 +34,7 @@ JellySSH work may be implemented or advised on by Claude Code, but Claude Code i
 Read-only checks must verify:
 
 - exact host and OS user;
-- Claude Code installation and authentication;
+- Claude Code installation and account authentication, plus access-token and refresh-token expiry metadata that remains valid for the requested attempt timeout plus a five-minute safety margin; token values are never emitted;
 - tmux, Git, Flutter and Dart versions;
 - approved personal Matt skills and exact bundle hashes;
 - repository origin, clean coordinator clone and requested base commit;
@@ -53,7 +53,7 @@ Read-only checks must verify:
 - Require Claude to use the repository specification/ticket and TDD where a public seam exists. The controller independently runs requested fixed-enum checks and prepares an unreferenced local commit with a fixed message; neither Claude nor the adapter pushes. Commit preparation rejects configured Git filters, disables hooks/signing, captures each post-check changed path once into controller-owned memory, verifies its state/content digest and secret/path policy, writes exact blobs with `hash-object --no-filters`, constructs a private-index tree, validates the immutable tree, and creates the commit with `commit-tree` without advancing a ref or resetting the workspace.
 - Final publication first schema-validates and fsyncs hidden canonical evidence under a retained no-follow directory descriptor, then transfers and verifies the unreferenced objects, creates the shared branch with a create-only compare-and-swap, and atomically hard-links the evidence. Any uncertain ref/evidence failure invokes idempotent exact-value ref deletion before any fallible temporary-evidence cleanup and before publishing `BLOCK`; cleanup cannot mask or skip rollback, while rollback uncertainty publishes no misleading evidence and fails closed. Credential/session purge is mandatory before publication, while full sandbox cleanup after the publication commit point is best-effort and cannot change a successful result.
 - Return evidence; never treat Claude prose as approval.
-- Block if the process or a fixed check times out, output is malformed or secret-shaped, HEAD does not descend from the base, the pre-commit state has no changes, the committed tree has no net changes, or the branch/ref is wrong. Independent-check stdout/stderr is secret/control-scanned in full before only its final 4,000 characters are retained as bounded evidence. Check-source cleanup is verified: a timeout, exception, secret-shaped cleanup output, or nonzero cleanup exit fails closed when no earlier failure exists. If a failed check is already pending, cleanup faults cannot replace it; canonical `BLOCK` evidence retains the primary failed-check record and adds only a sanitized cleanup category or exit code, never raw cleanup output or arbitrary exception text.
+- Block if the process or a fixed check times out, output is malformed or secret-shaped, HEAD does not descend from the base, the pre-commit state has no changes, the committed tree has no net changes, or the branch/ref is wrong. After changed-path scope validation, implementation formatting checks target only the declared allowed paths; the already-authenticated base tree is not reformatted, and diagnostics are limited to the intended implementation scope. Independent-check stdout/stderr is secret/control-scanned in full before only its final 4,000 characters are retained as bounded evidence. Check-source cleanup is verified: a timeout, exception, secret-shaped cleanup output, or nonzero cleanup exit fails closed when no earlier failure exists. If a failed check is already pending, cleanup faults cannot replace it; canonical `BLOCK` evidence retains the primary failed-check record and adds only a sanitized cleanup category or exit code, never raw cleanup output or arbitrary exception text.
 
 ### `run review`
 
@@ -81,7 +81,7 @@ The adapter rejects paths outside the repository, arbitrary commands, caller-sel
 
 ## Result contract
 
-The current result contract is schema version `2` and adapter version `0.4.4`; it is intentionally incompatible with historical adapter versions. BLOCK evidence from an independent check retains every completed check record through the first failure, including the bounded final 4,000 characters of combined stdout/stderr, while still stopping before later checks, commit construction, or publication.
+The current result contract is schema version `2` and adapter version `0.4.5`; it is intentionally incompatible with historical adapter versions. BLOCK evidence from an independent check retains every completed check record through the first failure, including the bounded final 4,000 characters of combined stdout/stderr, while still stopping before later checks, commit construction, or publication.
 
 The canonical JSON result includes:
 

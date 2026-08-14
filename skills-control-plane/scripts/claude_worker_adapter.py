@@ -75,7 +75,7 @@ def _code_fingerprint(code: types.CodeType) -> str:
 
 
 EXECUTING_ADAPTER_CODE_SHA256 = _code_fingerprint(sys._getframe().f_code)
-ADAPTER_VERSION = "0.4.4"
+ADAPTER_VERSION = "0.4.5"
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-request.schema.json"
 RESULT_SCHEMA_PATH = CONTROL_ROOT / "schemas/claude-worker-result.schema.json"
@@ -108,7 +108,6 @@ SECRET_VALUE_RE = re.compile(
 )
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 CHECK_COMMANDS = {
-    "format": f"{REMOTE_DART} format --output=none --set-exit-if-changed lib/ test/",
     "analyze": f"{REMOTE_DART} {REMOTE_FLUTTER_SNAPSHOT} analyze",
     "test": f"{REMOTE_DART} {REMOTE_FLUTTER_SNAPSHOT} test",
 }
@@ -691,6 +690,21 @@ def validate_tool_versions(versions: dict[str, Any]) -> None:
             raise AdapterError(f"invalid {name} version evidence")
 
 
+def oauth_expiry_check_script(minimum_validity_seconds: int) -> str:
+    return f"""python3 - <<'PY'
+import json,pathlib,time
+minimum_validity_seconds={minimum_validity_seconds}
+credentials=json.loads((pathlib.Path.home()/'.claude/.credentials.json').read_text())
+oauth=credentials.get('claudeAiOauth')
+if not isinstance(oauth,dict): raise SystemExit(2)
+minimum_expiry_ms=(time.time()+minimum_validity_seconds)*1000
+for field in ('expiresAt','refreshTokenExpiresAt'):
+    value=oauth.get(field)
+    if not isinstance(value,(int,float)) or value <= minimum_expiry_ms: raise SystemExit(2)
+PY
+"""
+
+
 def preflight(
     request: dict[str, Any] | None = None,
     *,
@@ -705,6 +719,8 @@ def preflight(
         if snapshot
         else sha256_bytes(SESSION_SETTINGS_PATH.read_bytes())
     )
+    minimum_validity_seconds = int(request["timeout_seconds"]) + 300 if request else 300
+    oauth_expiry_check = oauth_expiry_check_script(minimum_validity_seconds)
     expected_json = shlex.quote(json.dumps(expected, sort_keys=True))
     executable_hash_checks = "\n".join(
         f"test \"$(sha256sum {shlex.quote(path)} | cut -d' ' -f1)\" = {shlex.quote(digest)}"
@@ -725,6 +741,7 @@ test "$(readlink -f /etc/resolv.conf)" = {shlex.quote(REMOTE_RESOLVER_CONFIG)}
 {executable_hash_checks}
 ! pgrep -u "$(id -u)" -x claude >/dev/null
 {shlex.quote(REMOTE_CLAUDE)} auth status --text >/dev/null
+{oauth_expiry_check}
 test -x "$(command -v tmux)"
 test -x "$(command -v git)"
 test "$(git -C {shlex.quote(REMOTE_REPOSITORY)} remote get-url origin)" = {shlex.quote(REMOTE_ORIGIN)}
@@ -1374,6 +1391,26 @@ printf '{{"commit":"%s","tree":"%s","branch":"%s","status":%s,"changed":%s}}\\n'
     return state
 
 
+def check_command(request: dict[str, Any], name: str) -> str:
+    if name != "format":
+        return CHECK_COMMANDS[name]
+    if request["mode"] != "implementation":
+        return f"{REMOTE_DART} format --output=none --set-exit-if-changed lib/ test/"
+    paths: list[str] = []
+    for declared in request["allowed_paths"]:
+        text = str(declared)
+        normalized = PurePosixPath(text.rstrip("/"))
+        if not normalized.parts or normalized.parts[0] != "app" or len(normalized.parts) == 1:
+            raise AdapterError("format check path is outside the fixed app workspace")
+        relative = PurePosixPath(*normalized.parts[1:]).as_posix()
+        if text.endswith("/"):
+            relative += "/"
+        paths.append(relative)
+    return shlex.join(
+        [REMOTE_DART, "format", "--output=none", "--set-exit-if-changed", *paths]
+    )
+
+
 def run_checks(request: dict[str, Any], worktree: str) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     if not request["checks"]:
@@ -1401,7 +1438,7 @@ cp -a --reflink=auto -- "$source" "$target"
     pending_failure: Exception | None = None
     try:
         for name in request["checks"]:
-            command = CHECK_COMMANDS[str(name)]
+            command = check_command(request, str(name))
             launcher = ["python3", "-c", LANDLOCK_LAUNCHER]
             for path in read_dirs:
                 launcher.extend(["--read-dir", path])
