@@ -692,7 +692,7 @@ def validate_tool_versions(versions: dict[str, Any]) -> None:
 
 def oauth_expiry_check_script(minimum_validity_seconds: int) -> str:
     return f"""python3 - <<'PY'
-import json,pathlib,time
+import json,math,pathlib,time
 minimum_validity_seconds={minimum_validity_seconds}
 credentials=json.loads((pathlib.Path.home()/'.claude/.credentials.json').read_text())
 oauth=credentials.get('claudeAiOauth')
@@ -700,7 +700,8 @@ if not isinstance(oauth,dict): raise SystemExit(2)
 minimum_expiry_ms=(time.time()+minimum_validity_seconds)*1000
 for field in ('expiresAt','refreshTokenExpiresAt'):
     value=oauth.get(field)
-    if not isinstance(value,(int,float)) or value <= minimum_expiry_ms: raise SystemExit(2)
+    if type(value) not in (int,float) or not math.isfinite(value) or value <= minimum_expiry_ms:
+        raise SystemExit(2)
 PY
 """
 
@@ -1407,7 +1408,7 @@ def check_command(request: dict[str, Any], name: str) -> str:
             relative += "/"
         paths.append(relative)
     return shlex.join(
-        [REMOTE_DART, "format", "--output=none", "--set-exit-if-changed", *paths]
+        [REMOTE_DART, "format", "--output=none", "--set-exit-if-changed", "--", *paths]
     )
 
 
