@@ -10,6 +10,7 @@
     "authority",
     "skill_layers",
     "profiles",
+    "execution_routes",
     "expert_policy",
     "execution_policy",
     "promotion"
@@ -120,6 +121,11 @@
       "additionalProperties": {
         "$ref": "#/$defs/profileBinding"
       }
+    },
+    "execution_routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/executionRoute"}
     },
     "expert_policy": {
       "type": "object",
@@ -426,6 +432,27 @@
         "auto_recall": {
           "type": "boolean"
         }
+      }
+    },
+    "executionRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "owner_profile", "engine", "host", "account", "model", "bundle", "workspace", "memory", "permissions", "preflight", "evidence", "fallback"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "role": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "owner_profile": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$"},
+        "engine": {"enum": ["hermes-worker", "claude-local", "claude-adapter", "opencode-adapter", "codex-adapter", "other-reviewed-adapter"]},
+        "host": {"type": "string", "minLength": 1, "maxLength": 120},
+        "account": {"type": "string", "minLength": 1, "maxLength": 120},
+        "model": {"$ref": "#/$defs/modelBinding"},
+        "bundle": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "workspace": {"type": "string", "pattern": "^/", "not": {"pattern": "(^|/)\\.\\.(/|$)"}},
+        "memory": {"type": "object", "additionalProperties": false, "required": ["bank", "auto_recall", "auto_retain"], "properties": {"bank": {"type": "string", "minLength": 1}, "auto_recall": {"type": "boolean"}, "auto_retain": {"type": "boolean"}}},
+        "permissions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["read-only", "repository-write", "tests", "git-commit", "git-push", "advisory-only"]}},
+        "preflight": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "evidence": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "fallback": {"const": "block"}
       }
     },
     "expertBinding": {

@@ -648,6 +648,32 @@ def build_project_plan(
         if isinstance(binding, dict) and binding.get("reviewer_write_boundary") in {"proposed", "verified"}
     }
     declared_bundles = set((manifest.get("skill_layers", {}).get("bundles") or {}).keys())
+    routes = manifest.get("execution_routes")
+    if not isinstance(routes, list) or not routes:
+        blockers.append("project setup manifest must declare one or more execution routes")
+        routes = []
+    for route in routes:
+        route_id = str(route.get("id", ""))
+        role = str(route.get("role", ""))
+        binding = declared_profiles.get(role)
+        if not isinstance(binding, dict):
+            blockers.append(f"execution route role is not declared: {route_id}")
+            continue
+        if route.get("owner_profile") != binding.get("name"):
+            blockers.append(f"execution route owner profile does not match role binding: {route_id}")
+        if route.get("bundle") != binding.get("bundle"):
+            blockers.append(f"execution route bundle does not match role binding: {route_id}")
+        if route.get("workspace") != binding.get("workspace"):
+            blockers.append(f"execution route workspace does not match role binding: {route_id}")
+        expected_memory = {
+            "bank": binding.get("bank"),
+            "auto_recall": binding.get("auto_recall"),
+            "auto_retain": binding.get("auto_retain"),
+        }
+        if route.get("memory") != expected_memory:
+            blockers.append(f"execution route memory does not match role binding: {route_id}")
+        if str(route.get("bundle", "")) not in declared_bundles:
+            blockers.append(f"execution route bundle is not declared: {route_id}")
     for expert, binding in sorted((manifest.get("expert_policy") or {}).items()):
         if expert == "risk_levels" or not isinstance(binding, dict):
             continue
@@ -1262,6 +1288,35 @@ def doctor_project(request_path: Path, control_root: Path, adapter: HermesAdapte
         error("runtime-project-mismatch", "runtime manifest project does not match setup request")
     if _runtime_is_routable(runtime_manifest):
         error("runtime-routable", "project setup runtime manifest must remain non-routable")
+
+    manifest = request["project_manifest"]
+    declared_bundles = set((manifest.get("skill_layers", {}).get("bundles") or {}).keys())
+    routes = manifest.get("execution_routes")
+    if not isinstance(routes, list) or not routes:
+        error("execution-routes-missing", "project setup manifest must declare one or more execution routes")
+    else:
+        for route in routes:
+            route_id = str(route.get("id", ""))
+            role = str(route.get("role", ""))
+            owner = (manifest.get("profiles") or {}).get(role)
+            if not isinstance(owner, dict):
+                error("execution-route-role", f"execution route role is not declared: {route_id}")
+                continue
+            if route.get("owner_profile") != owner.get("name"):
+                error("execution-route-owner", f"execution route owner profile does not match role binding: {route_id}")
+            if route.get("bundle") != owner.get("bundle"):
+                error("execution-route-bundle", f"execution route bundle does not match role binding: {route_id}")
+            if route.get("workspace") != owner.get("workspace"):
+                error("execution-route-workspace", f"execution route workspace does not match role binding: {route_id}")
+            expected_memory = {
+                "bank": owner.get("bank"),
+                "auto_recall": owner.get("auto_recall"),
+                "auto_retain": owner.get("auto_retain"),
+            }
+            if route.get("memory") != expected_memory:
+                error("execution-route-memory", f"execution route memory does not match role binding: {route_id}")
+            if str(route.get("bundle", "")) not in declared_bundles:
+                error("execution-route-bundle-source", f"execution route bundle is not declared: {route_id}")
 
     try:
         observed = observe_repository(repo)

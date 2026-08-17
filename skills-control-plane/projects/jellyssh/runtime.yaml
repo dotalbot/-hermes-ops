@@ -95,14 +95,14 @@ review_boundary:
     projectctl.py: sha256:45183cc7d0ac5a82b0fb889f63f9ea00495809ac00e599260dcb1e185cfe1b1b
     governancectl.py: sha256:830f866485b014d2ed696e284e8c3040f3263c15511cb9600cb16a2208c570a1
     managerctl.py: sha256:bde99448165886fe2f16436a303233ae4f6e9c9d2390a8d5c522251f81aac7ff
-    managerlib.py: sha256:a5d3ce1f7b817f197a4a37c011d3ca6601f9e8cc853c584bc4a2ef8b08fdc5b1
+    managerlib.py: sha256:8c398db6beb48a436757b96b1c530c7b423ddebe40b57fc5ccc9e927c4cce23d
   conditional_ui_model: openrouter/google/gemini-3.1-pro-preview
   conditional_ui_routing_state: verified
   conditional_ui_evidence: skills-control-plane/projects/jellyssh/evidence/ui-controller-smoke.json
   conditional_ui_evidence_sha256: sha256:b3dd35ce1a4484ae5abee865af2a8774eab3a95daf50833b9c9684eb3b4ad09b
   ssh_host_address: 192.168.1.2
   ssh_identity_file: /home/jellybot/.ssh/id_ed25519
-  project_manifest_sha256: sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899
+  project_manifest_sha256: sha256:bc014c69b4d9d46fef211394a047bed13078c5e996cb8ffc81079740580f264e
   schema_sha256:
     reviewer-capability-evidence.schema.json: sha256:9b3b114fbd1b90624b5645e1c449b2e74d036aec420bf8e6c8c56d4b8043d692
     governance-timing.schema.json: sha256:db9e7cdf6e4ecaeba94b142c6a2cdccc319c1188d09957787472f46bf9efdf60

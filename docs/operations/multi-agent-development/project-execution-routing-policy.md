@@ -94,7 +94,7 @@ Use a fresh reviewer or specialist selected for the required axis: standards/spe
 
 ## Project-setup requirement
 
-The Skill Control Plane is the mechanism for this policy. A project setup must produce a reviewed manifest that makes the selected execution routes explicit. It should not encode an unreviewed universal default.
+The Skill Control Plane is the mechanism for this policy. A project setup must produce a reviewed manifest with an `execution_routes` catalog. Each route has a closed schema and is cross-checked against the declared project profile, role, bundle, workspace, and `fallback: block` policy during setup planning and doctor checks. It should not encode an unreviewed universal default.
 
 For a new route, use a small capability proof before product dispatch:
 

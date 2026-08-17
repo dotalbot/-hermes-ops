@@ -136,6 +136,47 @@ profiles:
     bundle: reviewer-runtime
     reviewer_write_boundary: proposed
     auto_recall: false
+execution_routes:
+- id: implementation-hermes-jellybase
+  role: implementation
+  owner_profile: jellybase_jellyssh
+  engine: hermes-worker
+  host: jellybase
+  account: jellydev
+  model:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    fallback: block
+  bundle: implementation-runtime
+  workspace: /home/jellydev/dev_projects/jellyssh
+  memory:
+    bank: jellyssh-main
+    auto_recall: true
+    auto_retain: false
+  permissions: [repository-write, tests, git-commit, git-push]
+  preflight: project-setup-and-work-item
+  evidence: commit-tests-independent-review
+  fallback: block
+- id: reviewer-hermes-jellybase
+  role: reviewer
+  owner_profile: jellybase_jellyssh_reviewer
+  engine: hermes-worker
+  host: jellybase
+  account: jellydev
+  model:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    fallback: block
+  bundle: reviewer-runtime
+  workspace: /home/jellydev/dev_projects/jellyssh-review
+  memory:
+    bank: jellyssh-main
+    auto_recall: false
+    auto_retain: false
+  permissions: [read-only, tests]
+  preflight: exact-commit-review
+  evidence: independent-review
+  fallback: block
 expert_policy:
   risk_levels:
     level_0: mechanical documentation or formatting; no cross-model gate
