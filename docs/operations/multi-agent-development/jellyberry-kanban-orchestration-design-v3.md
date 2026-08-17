@@ -45,8 +45,8 @@ The governing rule remains:
 - Board databases, dispatcher state, claims, attempts, logs, dependencies, and comments remain on Jellyberry.
 - A Kanban assignee is a real Hermes profile on Jellyberry.
 - Remote execution occurs through a profile's SSH backend or a reviewed adapter.
-- `jellybase_jellyssh` using the OpenAI-Codex/Hermes worker route is the primary JellySSH implementation path.
-- The governed Claude adapter is an optional secondary lane; it is used only when explicitly selected on a card and its isolated-worktree, live-preflight, structured-evidence, and independent-review gates all pass.
+- Execution route, agent type, host, model, and skills are selected per project and work-item role from the approved project manifest; no engine or model is globally primary.
+- A selected route may use a Hermes worker, a local advisory agent, or a reviewed remote adapter, but the card must state the route and its preflight/evidence contract.
 - Remote OpenCode, Claude Code, Codex, or another engine is not itself a Jellyberry Kanban assignee.
 
 ### 1.2 Pilot boundary

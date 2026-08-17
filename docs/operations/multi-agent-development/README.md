@@ -21,11 +21,12 @@ The control plane and the code workspace are deliberately separate:
 4. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
 5. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
 6. [Feature lifecycle](feature-lifecycle.md)
-7. [Matt Pocock skills](matt-pocock-skills.md)
-8. [Skill Control Plane and project initialization](skill-control-plane-and-project-initialization.md)
-9. [Kanban card templates](kanban-card-templates.md)
-10. [JellySSH Claude Code adapter](jellyssh-claude-code-adapter.md) — optional bounded implementation or advisory-review lane through the dedicated `jellyclaude@jellybase` account
-11. [Operator checklist](operator-checklist.md)
+7. [Project execution routing policy](project-execution-routing-policy.md) — generic project/work-item selection of skills, agent, host, model, and evidence route while Hermes remains the control plane
+8. [Matt Pocock skills](matt-pocock-skills.md)
+9. [Skill Control Plane and project initialization](skill-control-plane-and-project-initialization.md)
+10. [Kanban card templates](kanban-card-templates.md)
+11. [JellySSH Claude Code adapter](jellyssh-claude-code-adapter.md) — project-selectable bounded implementation or advisory-review lane through the dedicated `jellyclaude@jellybase` account
+12. [Operator checklist](operator-checklist.md)
 
 ## Quick start for a new feature
 
