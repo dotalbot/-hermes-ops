@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "kind": "operational-observation",
+  "project": "jellyssh",
+  "observed_at": "2026-08-17T19:27:38+01:00",
+  "authority_order": [
+    "live Git and live Kanban board",
+    "repository documentation and exact evidence",
+    "Phase 2 bootstrap manifests",
+    "derived projections"
+  ],
+  "lifecycle": {
+    "state": "governed-manual-pilot-proven",
+    "dispatch_policy": "manual; no card is currently ready or running",
+    "logk_state": "outside pilot; unchanged"
+  },
+  "product": {
+    "remote": "git@github.com:dotalbot/jellyssh.git",
+    "main_commit": "dd1f313d8247cdb8800e2d973bf0b2aab24f0272",
+    "latest_reconciled_work_item": "BUG-011",
+    "bug_011_target": "37899ddfda6a1d13867d8e4fb25420e1692972ed",
+    "bug_011_merge_commit": "b2208ee"
+  },
+  "board": {
+    "slug": "jellyssh",
+    "done": 26,
+    "blocked_historical": 1,
+    "todo_historical_nonspawnable": 1,
+    "ready": 0,
+    "running": 0,
+    "diagnostics": "none"
+  },
+  "profiles": {
+    "implementation": "jellybase_jellyssh",
+    "reviewer": "jellybase_jellyssh_reviewer",
+    "execution": "Jellybase through Jellyberry-owned Hermes profiles"
+  },
+  "baseline_notice": "skills-control-plane/generated/jellyssh-status.{md,json} remains a Phase 2 bootstrap snapshot, not current operational status.",
+  "report": "docs/reports/jellyssh-phase35-consolidation-2026-08-17.md"
+}
