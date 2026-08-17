@@ -1,6 +1,6 @@
 # JellySSH Claude Code adapter
 
-> **Status:** implementation specification for isolated validation
+> **Status:** Optional governed secondary lane. The primary JellySSH implementation route remains the OpenAI-Codex/Hermes worker profile `jellybase_jellyssh`. This adapter has no product publication, acceptance, Kanban, PR, merge, release, or deployment authority; its narrowly permitted controller-owned actions are publishing canonical evidence and creating the validated shared feature branch described below.
 >
 > **Scope:** Jellyberry-controlled execution through `jellyclaude@jellybase`
 
