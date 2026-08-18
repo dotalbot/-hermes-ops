@@ -1,6 +1,6 @@
 # JellySSH Claude Code adapter
 
-> **Status:** implementation specification for isolated validation
+> **Status:** Approved, project-selectable governed execution lane. The project/work-item routing contract selects it when Claude's local or Jellybase capability is appropriate; no agent, model, or engine is globally primary. This adapter has no product publication, acceptance, Kanban, PR, merge, release, or deployment authority; its narrowly permitted controller-owned actions are publishing canonical evidence and creating the validated shared feature branch described below.
 >
 > **Scope:** Jellyberry-controlled execution through `jellyclaude@jellybase`
 

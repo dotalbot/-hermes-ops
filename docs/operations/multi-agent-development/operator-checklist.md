@@ -4,7 +4,7 @@
 
 - [ ] Identify the Git remote or existing Jellybase path.
 - [ ] Confirm the target is a dedicated development clone, not a production checkout.
-- [ ] Confirm the selected execution lane: normal Hermes work uses `jellydev@192.168.1.2`; the reviewed Claude adapter uses only `jellyclaude@jellybase` through the LAN `agent-claude` alias.
+- [ ] Confirm the selected execution lane is declared by the approved project/work-item routing contract: agent type, host, profile or adapter, model/provider, skill bundle, workspace, permissions, memory route, preflight, evidence contract, and fallback-to-block behavior. Hermes on Jellyberry remains the Kanban assignee and orchestration authority regardless of the selected execution engine.
 - [ ] Inspect repository status before fetch, branch creation, or edits.
 - [ ] Preserve and understand existing uncommitted and untracked files.
 - [ ] Define the feature outcome, constraints, non-goals, and observable acceptance criteria.

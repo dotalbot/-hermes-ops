@@ -15,16 +15,18 @@ The control plane and the code workspace are deliberately separate:
 
 ## Read in this order
 
-1. [Jellyberry Kanban orchestration design V3](jellyberry-kanban-orchestration-design-v3.md) — approved design using JellySSH for the Jellybase pilot, deferring LogK to a later Jellyhome/OpenCode lane, and adding skills/expert governance; Phase 1 has been revised with database/data and Skill Control Plane governance, independently reviewed, and is awaiting operator acceptance
-2. [Jellyberry Kanban orchestration design V2](jellyberry-kanban-orchestration-design-v2.md) — preserved expanded candidate covering the live Hermes setup and Hindsight banks
-3. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
-4. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
-5. [Feature lifecycle](feature-lifecycle.md)
-6. [Matt Pocock skills](matt-pocock-skills.md)
-7. [Skill Control Plane and project initialization](skill-control-plane-and-project-initialization.md)
-8. [Kanban card templates](kanban-card-templates.md)
-9. [JellySSH Claude Code adapter](jellyssh-claude-code-adapter.md) — optional bounded implementation or advisory-review lane through the dedicated `jellyclaude@jellybase` account
-10. [Operator checklist](operator-checklist.md)
+1. [Jellyberry Kanban orchestration design V3](jellyberry-kanban-orchestration-design-v3.md) — approved design using JellySSH for the Jellybase pilot, deferring LogK to a later Jellyhome/OpenCode lane, and governing skills, experts, profiles, and evidence
+2. [JellySSH Phase 3.5 consolidation report](../../reports/jellyssh-phase35-consolidation-2026-08-17.md) — current board/Git reconciliation after BUG-011; read this before interpreting old cards or Phase 2 status projections
+3. [Jellyberry Kanban orchestration design V2](jellyberry-kanban-orchestration-design-v2.md) — preserved expanded candidate covering the live Hermes setup and Hindsight banks
+4. [Jellyberry Kanban orchestration design V1](jellyberry-kanban-orchestration-design.md) — preserved original decision candidate
+5. [Architecture and safety boundaries](architecture-and-safety-boundaries.md)
+6. [Feature lifecycle](feature-lifecycle.md)
+7. [Project execution routing policy](project-execution-routing-policy.md) — generic project/work-item selection of skills, agent, host, model, and evidence route while Hermes remains the control plane
+8. [Matt Pocock skills](matt-pocock-skills.md)
+9. [Skill Control Plane and project initialization](skill-control-plane-and-project-initialization.md)
+10. [Kanban card templates](kanban-card-templates.md)
+11. [JellySSH Claude Code adapter](jellyssh-claude-code-adapter.md) — project-selectable bounded implementation or advisory-review lane through the dedicated `jellyclaude@jellybase` account
+12. [Operator checklist](operator-checklist.md)
 
 ## Quick start for a new feature
 

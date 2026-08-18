@@ -1,0 +1,147 @@
+{
+  "checks": [
+    {
+      "errors": [],
+      "name": "contract",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "control-plane",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:coordinator",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:coordinator-review",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:implementation",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "checkout:reviewer",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "name": "board",
+      "ok": true
+    }
+  ],
+  "contract_sha256": "sha256:95751371006b12b34b851dc5f157013f08134de9de37583e10d6ea90852c613a",
+  "observations": {
+    "board": {
+      "default_workdir": "/var/tmp/hermes-jellyssh",
+      "slug": "jellyssh",
+      "tasks": {
+        "t_58058447": {
+          "active_claim": false,
+          "assignee": null,
+          "events": [
+            {
+              "created_at": 1786608917,
+              "id": 270,
+              "initial_status": "ready",
+              "kind": "created"
+            }
+          ],
+          "id": "t_58058447",
+          "parents": [],
+          "status": "ready",
+          "workspace_kind": "dir",
+          "workspace_path": "/home/jellybot/dev_projects/hermes-ops"
+        },
+        "t_f2f5f1c3": {
+          "active_claim": false,
+          "assignee": null,
+          "events": [
+            {
+              "created_at": 1786608918,
+              "id": 271,
+              "initial_status": "todo",
+              "kind": "created"
+            }
+          ],
+          "id": "t_f2f5f1c3",
+          "parents": [
+            "t_58058447"
+          ],
+          "status": "todo",
+          "workspace_kind": "dir",
+          "workspace_path": "/var/tmp/hermes-jellyssh"
+        }
+      }
+    },
+    "checkouts": [
+      {
+        "branch": "fix/bug-010-terminal-settings-exit-persistence",
+        "clean": true,
+        "commit": "7ffcb565f9443db45f1d0dc6ccd71d6d118a50ad",
+        "detached": false,
+        "path": "/home/jellybot/dev_projects/jellyssh",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "coordinator",
+        "runtime_path": "coordinator_checkout",
+        "transport": "local"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "eaa2974bf61746c53c5ba9cada9fbb35414e2caf",
+        "detached": false,
+        "path": "/home/jellybot/dev_projects/jellyssh-review",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "coordinator-review",
+        "runtime_path": "coordinator_review_checkout",
+        "transport": "local"
+      },
+      {
+        "branch": "fix/bug-010-terminal-settings-exit-persistence",
+        "clean": true,
+        "commit": "7ffcb565f9443db45f1d0dc6ccd71d6d118a50ad",
+        "detached": false,
+        "path": "/home/jellydev/dev_projects/jellyssh",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "implementation",
+        "runtime_path": "implementation_checkout",
+        "transport": "ssh"
+      },
+      {
+        "branch": "main",
+        "clean": true,
+        "commit": "eaa2974bf61746c53c5ba9cada9fbb35414e2caf",
+        "detached": false,
+        "path": "/home/jellydev/dev_projects/jellyssh-review",
+        "remote": "git@github.com:dotalbot/jellyssh.git",
+        "replacement_refs": [],
+        "role": "reviewer",
+        "runtime_path": "reviewer_checkout",
+        "transport": "ssh"
+      }
+    ]
+  },
+  "observed_at": "2026-08-13T09:36:47Z",
+  "phase": "implementation-release",
+  "project": "jellyssh",
+  "schema_version": 1,
+  "source_digests": {
+    "catalog": "sha256:a9adde9a1339133bc478a50375b1dd1ab833ae5ecac5a1bc3b0f149286346f39",
+    "lifecycle_schema": "sha256:345a10164d26be303c3f9ac67daca50805e9c0ad7919cf0a4ade0ebf33c83541",
+    "project_manifest": "sha256:4ffa93dfa07107bdd86cfb40c8f7169e8deaf75f057690900a4518ca95192899",
+    "projectctl": "sha256:45183cc7d0ac5a82b0fb889f63f9ea00495809ac00e599260dcb1e185cfe1b1b",
+    "runtime_manifest": "sha256:b9e7bbbb2874e42a8183901bfc9b381f3d8e3d7779094a771e85474a053c0861"
+  },
+  "verdict": "PASS",
+  "work_item": "BUG-010"
+}

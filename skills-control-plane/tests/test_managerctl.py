@@ -137,6 +137,26 @@ class ManagerTests(unittest.TestCase):
             if expert != "risk_levels":
                 binding["profile"] = profile_names["reviewer"]
         manifest["execution_policy"]["implementation_review_handoff"]["target_profile"] = profile_names["reviewer"]
+        manifest["execution_routes"] = [{
+            "id": "implementation-hermes",
+            "role": "implementation",
+            "owner_profile": profile_names["implementation"],
+            "engine": "hermes-worker",
+            "host": "jellybase",
+            "account": "jellydev",
+            "model": copy.deepcopy(manifest["profiles"]["implementation"]["model"]),
+            "bundle": "implementation-runtime",
+            "workspace": manifest["profiles"]["implementation"]["workspace"],
+            "memory": {
+                "bank": manifest["profiles"]["implementation"]["bank"],
+                "auto_recall": manifest["profiles"]["implementation"]["auto_recall"],
+                "auto_retain": manifest["profiles"]["implementation"]["auto_retain"],
+            },
+            "permissions": ["repository-write", "tests", "git-commit"],
+            "preflight": "project-setup-and-work-item",
+            "evidence": "commit-tests-independent-review",
+            "fallback": "block",
+        }]
         manifest["skill_layers"]["project_overlays"] = []
         self.request = {
             "schema_version": 1,
@@ -260,6 +280,69 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["plan_sha256"], managerlib.document_digest(first, "plan_sha256"))
         self.assertFalse(first["blockers"])
+
+    def test_execution_route_catalog_requires_declared_owner_bundle_and_block_fallback(self) -> None:
+        value = copy.deepcopy(self.request)
+        value["project_manifest"].pop("execution_routes")
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        with self.assertRaises(managerlib.ManagerError):
+            managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+
+        value = copy.deepcopy(self.request)
+        value["project_manifest"]["execution_routes"] = [{
+            "id": "implementation-hermes",
+            "role": "implementation",
+            "owner_profile": "exampleimpl",
+            "engine": "hermes-worker",
+            "host": "jellybase",
+            "account": "jellydev",
+            "model": {"provider": "openai-codex", "model": "gpt-5.6-terra", "fallback": "block"},
+            "bundle": "implementation-runtime",
+            "workspace": str(self.root / "workspace-implementation"),
+            "memory": {"bank": "jellyssh-main", "auto_recall": True, "auto_retain": False},
+            "permissions": ["repository-write", "tests", "git-commit"],
+            "preflight": "project-setup-and-work-item",
+            "evidence": "commit-tests-independent-review",
+            "fallback": "block",
+        }]
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        plan = managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+        self.assertFalse(plan["blockers"])
+
+        value["project_manifest"]["execution_routes"][0]["owner_profile"] = "unknownprofile"
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        plan = managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+        self.assertIn("execution route owner profile does not match role binding: implementation-hermes", plan["blockers"])
+
+        value["project_manifest"]["execution_routes"][0]["owner_profile"] = "exampleimpl"
+        value["project_manifest"]["execution_routes"][0]["bundle"] = "missing-bundle"
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        plan = managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+        self.assertIn("execution route bundle is not declared: implementation-hermes", plan["blockers"])
+
+        value["project_manifest"]["execution_routes"][0]["bundle"] = "implementation-runtime"
+        value["project_manifest"]["execution_routes"][0]["workspace"] = str(self.root / "workspace-reviewer")
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        plan = managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+        self.assertIn("execution route workspace does not match role binding: implementation-hermes", plan["blockers"])
+
+        value["project_manifest"]["execution_routes"][0]["workspace"] = str(self.root / "workspace-implementation")
+        value["project_manifest"]["execution_routes"][0]["memory"]["auto_retain"] = True
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        plan = managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+        self.assertIn("execution route memory does not match role binding: implementation-hermes", plan["blockers"])
+
+        value["project_manifest"]["execution_routes"][0]["memory"]["auto_retain"] = False
+        value["project_manifest"]["execution_routes"][0]["fallback"] = "retry-another-engine"
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        with self.assertRaises(managerlib.ManagerError):
+            managerlib.build_project_plan(self.request_path, self.control, self.adapter, control_commit=self.control_commit)
+
+        value = copy.deepcopy(self.request)
+        value["project_manifest"]["execution_routes"][0]["owner_profile"] = "examplereview"
+        self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
+        report = managerlib.doctor_project(self.request_path, self.control, self.adapter)
+        self.assertTrue(any(item["code"] == "execution-route-owner" for item in report["findings"]))
 
     def test_dirty_repository_blocks_plan(self) -> None:
         (self.repo / "dirty.txt").write_text("dirty\n")
@@ -806,6 +889,8 @@ class ManagerTests(unittest.TestCase):
         value["project_manifest"]["skill_layers"]["capability_packs"] = []
         for binding in value["project_manifest"]["profiles"].values():
             binding["bundle"] = "design"
+        for route in value["project_manifest"]["execution_routes"]:
+            route["bundle"] = "design"
         value["effects"]["materialize_profile_skills"] = True
         self.request_path.write_text(yaml.safe_dump(value, sort_keys=False))
         catalog_path = self.control / "catalog.yaml"
